@@ -1,6 +1,5 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import { config } from "dotenv";
-config();
+import 'dotenv/config';
 
 import { createChatCompletion } from "./services/openai.js";
 import { getRooivalkError } from "./services/get-rooivalk-error.js";
