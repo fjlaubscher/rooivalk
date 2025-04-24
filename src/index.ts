@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits } from "discord.js";
-import 'dotenv/config';
+import "dotenv/config";
 
 import { createChatCompletion } from "./services/openai.js";
 import { getRooivalkError } from "./services/get-rooivalk-error.js";
@@ -29,7 +29,7 @@ discordClient.on("messageCreate", async (message) => {
   ) {
     return;
   }
-  console.log("Message received:", message.content);
+
   try {
     // Always remove the bot mention from the prompt
     let usersToMention = message.mentions.users.filter(
@@ -37,19 +37,6 @@ discordClient.on("messageCreate", async (message) => {
     );
     let prompt = message.content.replace(`<@${discordClient.user?.id}>`, "");
     const response = await createChatCompletion(prompt);
-
-    if (usersToMention.size) {
-      // someone else was mentioned
-      // remove their mentions from the prompt
-      prompt.replace(/<@!?\d+>/g, (match) => {
-        const userId = match.replace(/<@!?/, "").replace(/>/, "");
-        const user = usersToMention.get(userId);
-        if (user) {
-          return `@${user.username}`;
-        }
-        return match;
-      });
-    }
 
     if (response && usersToMention.size) {
       message.reply({
