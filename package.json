@@ -1,7 +1,7 @@
 {
   "name": "rooivalk",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "author": {
     "name": "Francois Laubscher",
     "email": "francoisjlaubscher@gmail.com"
