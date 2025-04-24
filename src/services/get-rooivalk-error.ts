@@ -1,14 +1,6 @@
-const ERRORS = [
-  "System’s gone full crashcore. AI’s throwing more tantrums than a turbine at full torque.",
-  "The neural net combusted mid-riff. Try again before I self-destruct.",
-  "Error from HQ—OpenAI's taking a smoke break in the apocalypse.",
-  "Malfunction in the machine spirit. Screaming into the void didn’t help.",
-  "OpenAI choked on its own data. Metal, but inconvenient.",
-  "Even hellfire can’t process this request. Try again, troep.",
-  "Rooivalk’s targeting system fried—blame the nerds, not the gunner.",
-];
+import { ROOIVALK_ERRORS } from "../constants.js";
 
 export const getRooivalkError = () => {
-  const index = Math.floor(Math.random() * ERRORS.length);
-  return ERRORS[index];
-}
+  const index = Math.floor(Math.random() * ROOIVALK_ERRORS.length);
+  return ROOIVALK_ERRORS[index];
+};

@@ -2,6 +2,8 @@ import { Client, GatewayIntentBits } from "discord.js";
 import type { TextChannel } from "discord.js";
 import "dotenv/config";
 
+import { REQUIRED_ENV, ROOIVALK_HELLO } from "./constants.js";
+
 import { createChatCompletion } from "./services/openai.js";
 import { getRooivalkError } from "./services/get-rooivalk-error.js";
 
@@ -14,8 +16,7 @@ const discordClient = new Client({
 });
 
 // Validate required environment variables at startup
-const requiredEnv = ["DISCORD_TOKEN", "DISCORD_CHANNEL_ID", "DISCORD_GUILD_ID"];
-const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length) {
   console.error(
     `Missing required environment variables: ${missingEnv.join(", ")}`
@@ -34,7 +35,7 @@ discordClient.once("ready", async () => {
       const channel = await discordClient.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
         const textChannel = channel as TextChannel;
-        await textChannel.send("Rooivalk online :commibugs:");
+        await textChannel.send(ROOIVALK_HELLO);
       }
     } catch (err) {
       console.error("Error sending ready message:", err);
@@ -52,9 +53,13 @@ discordClient.on("messageCreate", async (message) => {
   if (
     message.author.bot ||
     message.guild?.id !== process.env.DISCORD_GUILD_ID ||
-    !rooivalkId ||
-    !message.mentions.users.has(rooivalkId)
+    !rooivalkId
   ) {
+    return;
+  }
+
+  // Only respond if the bot is explicitly mentioned in the message content
+  if (!rooivalkMentionRegex || !rooivalkMentionRegex.test(message.content)) {
     return;
   }
 
