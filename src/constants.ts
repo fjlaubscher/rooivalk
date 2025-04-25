@@ -11,6 +11,9 @@ export const ROOIVALK_ERRORS = [
   'Rooivalk’s targeting system fried—blame the nerds, not the gunner.',
 ];
 
+export const DISCORD_MESSAGE_LIMIT = 2000;
+export const DISCORD_RETRY_EMOJI = ':redo:';
+
 export const REQUIRED_ENV = [
   'DISCORD_STARTUP_CHANNEL_ID',
   'DISCORD_LEARN_CHANNEL_ID',
@@ -19,3 +22,4 @@ export const REQUIRED_ENV = [
   'OPENAI_API_KEY',
   'OPENAI_MODEL',
 ];
+

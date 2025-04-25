@@ -1,11 +1,18 @@
-import { Client as DiscordClient, GatewayIntentBits } from 'discord.js';
+import {
+  Client as DiscordClient,
+  Events as DiscordEvents,
+  GatewayIntentBits,
+  AttachmentBuilder,
+  userMention,
+} from 'discord.js';
 import type {
   Message,
+  MessageReplyOptions,
   OmitPartialGroupDMChannel,
   TextChannel,
 } from 'discord.js';
 
-import { ROOIVALK_HELLO } from '@/constants';
+import { ROOIVALK_HELLO, DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai/client';
 import { getRooivalkError } from '@/utils/get-rooivalk-error';
 
@@ -49,6 +56,34 @@ class Rooivalk {
     }
   }
 
+  private async buildMessageReply(
+    content: string,
+    allowedMentions: string[] = []
+  ): Promise<MessageReplyOptions> {
+    // if the content is too long, send it as an attachment
+    if (content.length > DISCORD_MESSAGE_LIMIT) {
+      const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), {
+        name: 'rooivalk.md',
+        description: 'Rooivalk response',
+      });
+
+      return {
+        content: `The response is too long for Discord. See the attached .md file.`,
+        files: [attachment],
+        allowedMentions: {
+          users: allowedMentions,
+        },
+      };
+    }
+
+    return {
+      content,
+      allowedMentions: {
+        users: allowedMentions,
+      },
+    };
+  }
+
   private async processMessage(message: DiscordMessage) {
     try {
       // switch to a more serious tone if the message is in the learn channel
@@ -65,13 +100,12 @@ class Rooivalk {
         prompt
       );
 
-      if (response && usersToMention.size) {
-        await message.reply({
-          allowedMentions: { users: usersToMention.map((user) => user.id) },
-          content: response,
-        });
-      } else if (response && !usersToMention.size) {
-        await message.reply(response);
+      if (response) {
+        const reply = await this.buildMessageReply(
+          response,
+          usersToMention.map((user) => user.id)
+        );
+        await message.reply(reply);
       } else {
         await message.reply(getRooivalkError());
       }
@@ -80,7 +114,7 @@ class Rooivalk {
       const errorMessage = getRooivalkError();
 
       if (error instanceof Error) {
-        const reply = `${errorMessage}\n\n\'\'\'${error.message}\'\'\'`;
+        const reply = `${errorMessage}\n\n\`\`\`${error.message}\`\`\``;
         await message.reply(reply);
       } else {
         await message.reply(errorMessage);
@@ -89,11 +123,11 @@ class Rooivalk {
   }
 
   public async init() {
-    this._discordClient.once('ready', async () => {
+    this._discordClient.once(DiscordEvents.ClientReady, async () => {
       console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
       if (this._discordClient.user?.id) {
         this._mentionRegex = new RegExp(
-          `<@!?${this._discordClient.user.id}>`,
+          userMention(this._discordClient.user.id),
           'g'
         );
       }
@@ -101,7 +135,7 @@ class Rooivalk {
       await this.sendReadyMessage();
     });
 
-    this._discordClient.on('messageCreate', async (message) => {
+    this._discordClient.on(DiscordEvents.MessageCreate, async (message) => {
       // Ignore messages from:
       // 1. Other bots
       // 2. Messages not from the specified guild (server)
@@ -118,6 +152,22 @@ class Rooivalk {
       this.processMessage(message);
     });
 
+    this._discordClient.on(DiscordEvents.MessageReactionAdd, async (reaction) => {
+      // Ignore reactions from:
+      // 1. Other bots
+      // 2. Messages not from the specified guild (server)
+      if (
+        reaction.message.author?.bot ||
+        reaction.message.guild?.id !== this._discordGuildId
+      ) {
+        return;
+      }
+
+      if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
+        const message = reaction.message as DiscordMessage;
+        await this.processMessage(message);
+      }
+    });
 
     // finally log in after all event handlers have been set up
     this._discordClient.login(process.env.DISCORD_TOKEN);
