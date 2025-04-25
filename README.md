@@ -27,10 +27,12 @@ Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when
    ```
 3. Create a `.env` file in the root directory with the following contents:
    ```env
-   DISCORD_TOKEN=your-discord-bot-token
-   DISCORD_GUILD_ID=your-discord-server-id
-   OPENAI_API_KEY=your-openai-api-key
-   OPENAI_MODEL=gpt-3.5-turbo # or another supported model
+    DISCORD_STARTUP_CHANNEL_ID=channelidforstartup
+    DISCORD_LEARN_CHANNEL_ID=channelidforlearning
+    DISCORD_TOKEN=discord_app_token
+    DISCORD_GUILD_ID=discord_server_id
+    OPENAI_API_KEY=openai_key
+    OPENAI_MODEL=gpt-4.1-nano
    ```
 4. Build the project:
    ```sh
