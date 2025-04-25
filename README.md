@@ -10,7 +10,7 @@ Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when
 ## Setup
 
 ### Prerequisites
-- Node.js (v18 or newer recommended)
+- [Bun](https://bun.sh/) (v1.0 or newer recommended)
 - A Discord bot token ([guide](https://discord.com/developers/applications))
 - An OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
 
@@ -23,7 +23,7 @@ Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when
    ```
 2. Install dependencies:
    ```sh
-   npm install
+   bun install
    ```
 3. Create a `.env` file in the root directory with the following contents:
    ```env
@@ -34,13 +34,9 @@ Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when
     OPENAI_API_KEY=openai_key
     OPENAI_MODEL=gpt-4.1-nano
    ```
-4. Build the project:
+4. Start the bot (Bun runs TypeScript natively, no build step required):
    ```sh
-   npx tsc
-   ```
-5. Start the bot:
-   ```sh
-   node dist/index.js
+   bun run src/index.ts
    ```
 
 ## Project Structure
@@ -53,6 +49,7 @@ rooivalk/
 │       ├── openai.ts           # OpenAI integration
 │       └── get-rooivalk-error.ts # Custom error messages
 ├── package.json
+├── bun.lockb
 ├── tsconfig.json
 └── .env                        # Environment variables (not committed)
 ```
