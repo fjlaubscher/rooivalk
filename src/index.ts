@@ -1,7 +1,6 @@
 import { REQUIRED_ENV } from '@/constants';
 import Rooivalk from '@/services/rooivalk';
 
-
 // Validate required environment variables at startup
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missingEnv.length) {

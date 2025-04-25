@@ -12,9 +12,10 @@ import type {
   TextChannel,
 } from 'discord.js';
 
-import { ROOIVALK_HELLO, DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
-import OpenAIClient from '@/services/openai/client';
-import { getRooivalkError } from '@/utils/get-rooivalk-error';
+import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
+import OpenAIClient from '@/services/openai';
+
+import { getRooivalkResponse } from './get-rooivalk-response';
 
 type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
 
@@ -48,7 +49,7 @@ class Rooivalk {
           this._discordStartupChannelId
         );
         if (channel && channel.isTextBased()) {
-          await (channel as TextChannel).send(ROOIVALK_HELLO);
+          await (channel as TextChannel).send(getRooivalkResponse('greeting'));
         }
       } catch (err) {
         console.error('Error sending ready message:', err);
@@ -64,11 +65,10 @@ class Rooivalk {
     if (content.length > DISCORD_MESSAGE_LIMIT) {
       const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), {
         name: 'rooivalk.md',
-        description: 'Rooivalk response',
       });
 
       return {
-        content: `The response is too long for Discord. See the attached .md file.`,
+        content: getRooivalkResponse('discordLimit'),
         files: [attachment],
         allowedMentions: {
           users: allowedMentions,
@@ -107,11 +107,11 @@ class Rooivalk {
         );
         await message.reply(reply);
       } else {
-        await message.reply(getRooivalkError());
+        await message.reply(getRooivalkResponse('error'));
       }
     } catch (error) {
       console.error('Error processing message:', error);
-      const errorMessage = getRooivalkError();
+      const errorMessage = getRooivalkResponse('error');
 
       if (error instanceof Error) {
         const reply = `${errorMessage}\n\n\`\`\`${error.message}\`\`\``;
@@ -152,22 +152,25 @@ class Rooivalk {
       this.processMessage(message);
     });
 
-    this._discordClient.on(DiscordEvents.MessageReactionAdd, async (reaction) => {
-      // Ignore reactions from:
-      // 1. Other bots
-      // 2. Messages not from the specified guild (server)
-      if (
-        reaction.message.author?.bot ||
-        reaction.message.guild?.id !== this._discordGuildId
-      ) {
-        return;
-      }
+    this._discordClient.on(
+      DiscordEvents.MessageReactionAdd,
+      async (reaction) => {
+        // Ignore reactions from:
+        // 1. Other bots
+        // 2. Messages not from the specified guild (server)
+        if (
+          reaction.message.author?.bot ||
+          reaction.message.guild?.id !== this._discordGuildId
+        ) {
+          return;
+        }
 
-      if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
-        const message = reaction.message as DiscordMessage;
-        await this.processMessage(message);
+        if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
+          const message = reaction.message as DiscordMessage;
+          await this.processMessage(message);
+        }
       }
-    });
+    );
 
     // finally log in after all event handlers have been set up
     this._discordClient.login(process.env.DISCORD_TOKEN);
