@@ -27,7 +27,9 @@ jobs:
       - name: Build and restart on server
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-            source ~/.bashrc
+            export PATH="$HOME/.bun/bin:$PATH"
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             cd ${{ secrets.DEPLOY_PATH }}
             bun install
