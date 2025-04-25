@@ -27,6 +27,8 @@ jobs:
       - name: Build and restart on server
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+            source ~/.bashrc
+
             cd ${{ secrets.DEPLOY_PATH }}
             bun install
             pm2 restart rooivalk
