@@ -15,32 +15,60 @@ import type {
 import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
 
-import { getRooivalkResponse } from './get-rooivalk-response';
+import {
+  ERROR_MESSAGES,
+  EXCEEDED_DISCORD_LIMIT_MESSAGES,
+  GREETING_MESSAGES,
+} from './constants';
 
 type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
+type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
 class Rooivalk {
-  private _discordClient: DiscordClient;
-  private _discordStartupChannelId: string | undefined;
-  private _discordLearnChannelId: string | undefined;
-  private _discordGuildId: string | undefined;
-  private _openaiClient: OpenAIClient;
-  private _mentionRegex: RegExp | null = null;
+  protected _discordClient: DiscordClient;
+  protected _discordStartupChannelId: string | undefined;
+  protected _discordLearnChannelId: string | undefined;
+  protected _discordGuildId: string | undefined;
+  protected _openaiClient: OpenAIClient;
+  protected _mentionRegex: RegExp | null = null;
 
-  constructor() {
-    this._openaiClient = new OpenAIClient();
-    this._discordClient = new DiscordClient({
-      intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.MessageContent,
-      ],
-    });
+  constructor(openaiClient?: OpenAIClient, discordClient?: DiscordClient) {
+    this._openaiClient = openaiClient ?? new OpenAIClient();
+    this._discordClient =
+      discordClient ??
+      new DiscordClient({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.GuildMessageReactions,
+          GatewayIntentBits.MessageContent,
+        ],
+      });
 
     this._discordStartupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
     this._discordLearnChannelId = process.env.DISCORD_LEARN_CHANNEL_ID;
     this._discordGuildId = process.env.DISCORD_GUILD_ID;
+  }
+
+  private getRooivalkResponse(type: RooivalkResponseType): string {
+    let arrayToUse = [];
+
+    switch (type) {
+      case 'error':
+        arrayToUse = ERROR_MESSAGES;
+        break;
+      case 'greeting':
+        arrayToUse = GREETING_MESSAGES;
+        break;
+      case 'discordLimit':
+        arrayToUse = EXCEEDED_DISCORD_LIMIT_MESSAGES;
+        break;
+      default:
+        throw new Error('Invalid response type');
+    }
+
+    const index = Math.floor(Math.random() * arrayToUse.length);
+    return arrayToUse[index]!;
   }
 
   private async sendReadyMessage() {
@@ -50,7 +78,9 @@ class Rooivalk {
           this._discordStartupChannelId
         );
         if (channel && channel.isTextBased()) {
-          await (channel as TextChannel).send(getRooivalkResponse('greeting'));
+          await (channel as TextChannel).send(
+            this.getRooivalkResponse('greeting')
+          );
         }
       } catch (err) {
         console.error('Error sending ready message:', err);
@@ -69,7 +99,7 @@ class Rooivalk {
       });
 
       return {
-        content: getRooivalkResponse('discordLimit'),
+        content: this.getRooivalkResponse('discordLimit'),
         files: [attachment],
         allowedMentions: {
           users: allowedMentions,
@@ -90,7 +120,7 @@ class Rooivalk {
       // switch to a more serious tone if the message is in the learn channel
       const isLearnChannel = message.channel.id === this._discordLearnChannelId;
 
-      const prompt = message.content.replace(this._mentionRegex!, '');
+      const prompt = message.content.replace(this._mentionRegex!, '').trim();
       const usersToMention = message.mentions.users.filter(
         (user) => user.id !== this._discordClient.user?.id
       );
@@ -108,11 +138,11 @@ class Rooivalk {
         );
         await message.reply(reply);
       } else {
-        await message.reply(getRooivalkResponse('error'));
+        await message.reply(this.getRooivalkResponse('error'));
       }
     } catch (error) {
       console.error('Error processing message:', error);
-      const errorMessage = getRooivalkResponse('error');
+      const errorMessage = this.getRooivalkResponse('error');
 
       if (error instanceof Error) {
         const reply = `${errorMessage}\n\n\`\`\`${error.message}\`\`\``;
