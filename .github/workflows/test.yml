@@ -22,5 +22,8 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Copy .env.example to .env
+        run: cp .env.example .env
+
       - name: Run tests
         run: bun test
