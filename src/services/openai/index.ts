@@ -7,9 +7,15 @@ import {
 
 type Persona = 'rooivalk' | 'rooivalk-learn';
 
+type Tool = {
+  type: 'web_search_preview';
+  search_context_size?: 'low' | 'medium' | 'high';
+};
+
 class OpenAIClient {
   private _model: string;
   private _openai: OpenAI;
+  private _tools: Tool[];
 
   constructor(model?: string) {
     this._openai = new OpenAI({
@@ -17,6 +23,10 @@ class OpenAIClient {
     });
 
     this._model = model || process.env.OPENAI_MODEL!;
+    this._tools = [{
+      type: "web_search_preview",
+      search_context_size: "low"
+    }];
   }
 
   private getContext(persona: Persona): string {
@@ -34,6 +44,7 @@ class OpenAIClient {
     try {
       const response = await this._openai.responses.create({
         model: this._model,
+        tools: this._tools,
         instructions: this.getContext(persona),
         input: prompt,
       });
