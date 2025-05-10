@@ -14,7 +14,14 @@ import type {
 
 import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
-import { storeLTUserMemory, retrieveLTUserMemory } from '@/services/memory';
+import {
+  storeLTUserMemory,
+  retrieveLTUserMemory,
+  storeSTUserMemory,
+  retrieveSTUserMemory,
+  getAllSTUserMemories,
+  processMemoryResults
+} from '@/services/memory';
 
 import {
   ERROR_MESSAGES,
@@ -116,26 +123,33 @@ class Rooivalk {
     };
   }
 
-  private async getEnhancedPromptWithMemories(userId: string, prompt: string): Promise<string> {
+  private async getEnhancedPromptWithMemories(userId: string, channelId: string, prompt: string): Promise<string> {
     try {
-      const memoryResults = await retrieveLTUserMemory(userId, prompt);
+      const [ltMemoryResults, stMemoryResults] = await Promise.all([
+        retrieveLTUserMemory(userId, prompt),
+        retrieveSTUserMemory(userId, channelId, prompt)
+      ]);
 
-      const results = (memoryResults as any)?.results || [];
+      const ltMemories = processMemoryResults(ltMemoryResults);
+      const stMemories = processMemoryResults(stMemoryResults);
 
-      if (results.length === 0) {
+      if (ltMemories.length === 0 && stMemories.length === 0) {
         return prompt;
       }
 
-      const memories = results
-        .map((item: any) => item.memory)
-        .filter(Boolean)
-        .join('\n- ');
+      let enhancedPrompt = prompt;
 
-      if (!memories) {
-        return prompt;
+      if (ltMemories.length > 0) {
+        const ltMemoriesStr = ltMemories.join('\n- ');
+        enhancedPrompt = `These are the overall relevant memories about me:\n- ${ltMemoriesStr}\n\n${enhancedPrompt}`;
       }
 
-      return `These are your relevant memories about me:\n- ${memories}\n\n${prompt}`;
+      if (stMemories.length > 0) {
+        const stMemoriesStr = stMemories.join('\n- ');
+        enhancedPrompt = `These are the recent memories in this thread:\n- ${stMemoriesStr}\n\n${enhancedPrompt}`;
+      }
+
+      return enhancedPrompt;
     } catch (error) {
       console.error('Error retrieving memories:', error);
       return prompt;
@@ -152,9 +166,10 @@ class Rooivalk {
         (user) => user.id !== this._discordClient.user?.id
       );
 
-      // Get enhanced prompt with user memories
+      // get enhanced prompt with both long-term and short-term memories
       const userId = message.author.id;
-      const enhancedPrompt = await this.getEnhancedPromptWithMemories(userId, prompt);
+      const channelId = message.channel.id;
+      const enhancedPrompt = await this.getEnhancedPromptWithMemories(userId, channelId, prompt);
 
       // prompt openai with the enhanced content
       const response = await this._openaiClient.createResponse(
@@ -169,17 +184,24 @@ class Rooivalk {
         );
         await message.reply(reply);
 
-        // Store long-term memory: user prompt and assistant response
-        const userId = message.author.id;
+        // store both LT and ST memories
         const messages = [
           { role: "user", content: prompt },
           { role: "assistant", content: response }
         ];
         const metadata = { timestamp: Date.now() };
-        // Store memory asynchronously, don't block the reply
-        storeLTUserMemory(userId, messages, metadata).catch(error => {
-          console.error('Error storing memory:', error);
-        });
+
+        Promise.all([
+          // store as LT memory (user-specific, across all channels)
+          storeLTUserMemory(userId, messages, metadata).catch(error => {
+            console.error('Error storing LT memory:', error);
+          }),
+
+          // store as ST memory (user+channel specific context)
+          storeSTUserMemory(userId, channelId, messages, metadata).catch(error => {
+            console.error('Error storing ST memory:', error);
+          })
+        ]);
       } else {
         await message.reply(this.getRooivalkResponse('error'));
       }
