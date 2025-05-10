@@ -14,6 +14,7 @@ import type {
 
 import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
+import { storeLTUserMemory, retrieveLTUserMemory } from '@/services/memory';
 
 import {
   ERROR_MESSAGES,
@@ -115,6 +116,32 @@ class Rooivalk {
     };
   }
 
+  private async getEnhancedPromptWithMemories(userId: string, prompt: string): Promise<string> {
+    try {
+      const memoryResults = await retrieveLTUserMemory(userId, prompt);
+
+      const results = (memoryResults as any)?.results || [];
+
+      if (results.length === 0) {
+        return prompt;
+      }
+
+      const memories = results
+        .map((item: any) => item.memory)
+        .filter(Boolean)
+        .join('\n- ');
+
+      if (!memories) {
+        return prompt;
+      }
+
+      return `These are your relevant memories about me:\n- ${memories}\n\n${prompt}`;
+    } catch (error) {
+      console.error('Error retrieving memories:', error);
+      return prompt;
+    }
+  }
+
   private async processMessage(message: DiscordMessage) {
     try {
       // switch to a more serious tone if the message is in the learn channel
@@ -125,10 +152,14 @@ class Rooivalk {
         (user) => user.id !== this._discordClient.user?.id
       );
 
-      // prompt openai with the message content
+      // Get enhanced prompt with user memories
+      const userId = message.author.id;
+      const enhancedPrompt = await this.getEnhancedPromptWithMemories(userId, prompt);
+
+      // prompt openai with the enhanced content
       const response = await this._openaiClient.createResponse(
         isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
-        prompt
+        enhancedPrompt
       );
 
       if (response) {
@@ -137,6 +168,18 @@ class Rooivalk {
           usersToMention.map((user) => user.id)
         );
         await message.reply(reply);
+
+        // Store long-term memory: user prompt and assistant response
+        const userId = message.author.id;
+        const messages = [
+          { role: "user", content: prompt },
+          { role: "assistant", content: response }
+        ];
+        const metadata = { timestamp: Date.now() };
+        // Store memory asynchronously, don't block the reply
+        storeLTUserMemory(userId, messages, metadata).catch(error => {
+          console.error('Error storing memory:', error);
+        });
       } else {
         await message.reply(this.getRooivalkResponse('error'));
       }
