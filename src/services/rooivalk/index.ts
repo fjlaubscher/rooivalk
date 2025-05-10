@@ -19,7 +19,6 @@ import {
   retrieveLTUserMemory,
   storeSTUserMemory,
   retrieveSTUserMemory,
-  getAllSTUserMemories,
   processMemoryResults
 } from '@/services/memory';
 

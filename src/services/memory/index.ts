@@ -35,23 +35,6 @@ export function retrieveSTUserMemory(userId: string, channelId: string, query: s
   });
 }
 
-export function getAllSTUserMemories(userId: string, channelId: string) {
-  const filters = {
-    "AND": [
-      { "user_id": userId },
-      { "run_id": channelId }
-    ]
-  };
-
-  return memoryClient.getAll({
-    version: "v2",
-    filters,
-    page: 1,
-    page_size: 10 // for pagination
-  });
-}
-
-
 export function getRecentSTUserMemories(userId: string, channelId: string, hoursAgo: number = 24) {
   const cutoffDate = new Date();
   cutoffDate.setHours(cutoffDate.getHours() - hoursAgo);
