@@ -124,15 +124,10 @@ class Rooivalk {
 
   private async getEnhancedPromptWithMemories(userId: string, channelId: string, prompt: string): Promise<string> {
     try {
-      const [ltMemoryResults, stMemoryResults] = await Promise.all([
-        retrieveLTUserMemory(userId, prompt),
-        retrieveSTUserMemory(userId, channelId, prompt)
-      ]);
-
+      const ltMemoryResults = await retrieveLTUserMemory(userId, prompt);
       const ltMemories = processMemoryResults(ltMemoryResults);
-      const stMemories = processMemoryResults(stMemoryResults);
 
-      if (ltMemories.length === 0 && stMemories.length === 0) {
+      if (ltMemories.length === 0) {
         return prompt;
       }
 
@@ -141,11 +136,6 @@ class Rooivalk {
       if (ltMemories.length > 0) {
         const ltMemoriesStr = ltMemories.join('\n- ');
         enhancedPrompt = `These are the overall relevant memories about me:\n- ${ltMemoriesStr}\n\n${enhancedPrompt}`;
-      }
-
-      if (stMemories.length > 0) {
-        const stMemoriesStr = stMemories.join('\n- ');
-        enhancedPrompt = `These are the recent memories in this thread:\n- ${stMemoriesStr}\n\n${enhancedPrompt}`;
       }
 
       return enhancedPrompt;
