@@ -27,13 +27,13 @@ jobs:
       - name: Build and restart on server
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-            export PATH="$HOME/.bun/bin:$PATH"
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             cd ${{ secrets.DEPLOY_PATH }}
-            bun install
-            pm2 restart rooivalk
+            yarn install --frozen-lockfile
+            yarn build
+            pm2 restart rooivalk || pm2 start dist/index.js --name rooivalk
           EOF
 
 

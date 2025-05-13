@@ -1,8 +1,6 @@
 import MemoryClient from 'mem0ai';
 
-const mem0ApiKey = process.env.MEM0_API_KEY!;
-
-export const memoryClient = new MemoryClient({ apiKey: mem0ApiKey });
+export const memoryClient = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
 
 type MemoryItem = {
   memory: string;

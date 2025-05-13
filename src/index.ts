@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { REQUIRED_ENV } from '@/constants';
 import Rooivalk from '@/services/rooivalk';
 

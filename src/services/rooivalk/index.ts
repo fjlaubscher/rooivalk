@@ -14,13 +14,6 @@ import type {
 
 import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
-import {
-  storeLTUserMemory,
-  retrieveLTUserMemory,
-  storeSTUserMemory,
-  retrieveSTUserMemory,
-  processMemoryResults
-} from '@/services/memory';
 
 import {
   ERROR_MESSAGES,
@@ -122,29 +115,6 @@ class Rooivalk {
     };
   }
 
-  private async getEnhancedPromptWithMemories(userId: string, channelId: string, prompt: string): Promise<string> {
-    try {
-      const ltMemoryResults = await retrieveLTUserMemory(userId, prompt);
-      const ltMemories = processMemoryResults(ltMemoryResults);
-
-      if (ltMemories.length === 0) {
-        return prompt;
-      }
-
-      let enhancedPrompt = prompt;
-
-      if (ltMemories.length > 0) {
-        const ltMemoriesStr = ltMemories.join('\n- ');
-        enhancedPrompt = `These are the overall relevant memories about me:\n- ${ltMemoriesStr}\n\n${enhancedPrompt}`;
-      }
-
-      return enhancedPrompt;
-    } catch (error) {
-      console.error('Error retrieving memories:', error);
-      return prompt;
-    }
-  }
-
   private async processMessage(message: DiscordMessage) {
     try {
       // switch to a more serious tone if the message is in the learn channel
@@ -155,15 +125,10 @@ class Rooivalk {
         (user) => user.id !== this._discordClient.user?.id
       );
 
-      // get enhanced prompt with both long-term and short-term memories
-      const userId = message.author.id;
-      const channelId = message.channel.id;
-      const enhancedPrompt = await this.getEnhancedPromptWithMemories(userId, channelId, prompt);
-
       // prompt openai with the enhanced content
       const response = await this._openaiClient.createResponse(
         isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
-        enhancedPrompt
+        prompt
       );
 
       if (response) {
@@ -172,25 +137,6 @@ class Rooivalk {
           usersToMention.map((user) => user.id)
         );
         await message.reply(reply);
-
-        // store both LT and ST memories
-        const messages = [
-          { role: "user", content: prompt },
-          { role: "assistant", content: response }
-        ];
-        const metadata = { timestamp: Date.now() };
-
-        Promise.all([
-          // store as LT memory (user-specific, across all channels)
-          storeLTUserMemory(userId, messages, metadata).catch(error => {
-            console.error('Error storing LT memory:', error);
-          }),
-
-          // store as ST memory (user+channel specific context)
-          storeSTUserMemory(userId, channelId, messages, metadata).catch(error => {
-            console.error('Error storing ST memory:', error);
-          })
-        ]);
       } else {
         await message.reply(this.getRooivalkResponse('error'));
       }

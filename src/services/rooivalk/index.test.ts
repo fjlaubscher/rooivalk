@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { describe, it, expect, jest, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Collection, Events as DiscordEvents, userMention } from 'discord.js';
 
 import Rooivalk from '.';
@@ -9,7 +9,7 @@ const ROOIVALK_MENTION = userMention(ROOIVALK_ID);
 
 // Mock OpenAIClient
 class MockOpenAIClient {
-  createResponse = jest.fn(
+  createResponse = vi.fn(
     async (persona: string, prompt: string) => `Echo: ${prompt}`
   );
 }
@@ -17,10 +17,10 @@ class MockOpenAIClient {
 // Mock DiscordClient (minimal, just for constructor)
 class MockDiscordClient {
   user = { id: ROOIVALK_ID, tag: 'rooivalk#0001' };
-  channels = { fetch: jest.fn() };
-  once = jest.fn((_event: string, cb: Function) => cb());
-  on = jest.fn();
-  login = jest.fn();
+  channels = { fetch: vi.fn() };
+  once = vi.fn((_event: string, cb: Function) => cb());
+  on = vi.fn();
+  login = vi.fn();
 }
 
 const BASE_MESSAGE = {
@@ -43,8 +43,8 @@ describe('Rooivalk', () => {
 
   describe('when logged in to discord', () => {
     it('should send a ready message to the startup channel', async () => {
-      (discord.channels.fetch as jest.Mock).mockResolvedValue({
-        send: jest.fn(),
+      (discord.channels.fetch as vi.Mock).mockResolvedValue({
+        send: vi.fn(),
         isTextBased: () => true,
       });
       await rooivalk.init();
@@ -76,7 +76,7 @@ describe('Rooivalk', () => {
       const openai = new MockOpenAIClient();
       const discord = new MockDiscordClient();
       const rooivalk = new Rooivalk(openai, discord);
-      const processMessageSpy = jest
+      const processMessageSpy = vi
         .spyOn(rooivalk, 'processMessage')
         .mockResolvedValue(undefined);
       rooivalk._discordGuildId = 'guild-id';
@@ -85,7 +85,7 @@ describe('Rooivalk', () => {
 
       // Simulate event handler registration
       let messageHandler: any;
-      discord.on = jest.fn((event, cb) => {
+      discord.on = vi.fn((event, cb) => {
         if (event === 'messageCreate') messageHandler = cb;
       });
       await rooivalk.init();
@@ -131,7 +131,7 @@ describe('Rooivalk', () => {
       message = {
         ...BASE_MESSAGE,
         content: `${ROOIVALK_MENTION} test`,
-        reply: jest.fn(),
+        reply: vi.fn(),
         mentions: {
           users: new Collection([[ROOIVALK_ID, { id: ROOIVALK_ID }]]),
         },
@@ -166,7 +166,7 @@ describe('Rooivalk', () => {
     });
 
     it('should reply with an error message if OpenAIClient.createResponse throws', async () => {
-      (openai.createResponse as jest.Mock).mockImplementationOnce(async () => {
+      (openai.createResponse as vi.Mock).mockImplementationOnce(async () => {
         throw new Error('OpenAI error');
       });
 
@@ -177,7 +177,7 @@ describe('Rooivalk', () => {
       );
     });
     it('should reply with a discord limit message and attachment if the response is too long', async () => {
-      (openai.createResponse as jest.Mock).mockResolvedValueOnce(
+      (openai.createResponse as vi.Mock).mockResolvedValueOnce(
         'A'.repeat(2001)
       );
 
