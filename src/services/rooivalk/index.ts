@@ -135,7 +135,7 @@ class Rooivalk {
 
       if (ltMemories.length > 0) {
         const ltMemoriesStr = ltMemories.join('\n- ');
-        enhancedPrompt = `These are the overall relevant memories about me:\n- ${ltMemoriesStr}\n\n${enhancedPrompt}`;
+        enhancedPrompt = `These are the overall relevant memories about me.:\n- ${ltMemoriesStr}\nOnly use them if they are relevant to my prompt.\n\n${enhancedPrompt}`;
       }
 
       return enhancedPrompt;
@@ -173,7 +173,7 @@ class Rooivalk {
         );
         await message.reply(reply);
 
-        // store both LT and ST memories
+        // store LT memories using original prompt
         const messages = [
           { role: "user", content: prompt },
           { role: "assistant", content: response }
@@ -187,9 +187,9 @@ class Rooivalk {
           }),
 
           // store as ST memory (user+channel specific context)
-          storeSTUserMemory(userId, channelId, messages, metadata).catch(error => {
-            console.error('Error storing ST memory:', error);
-          })
+          // storeSTUserMemory(userId, channelId, messages, metadata).catch(error => {
+          //   console.error('Error storing ST memory:', error);
+          // })
         ]);
       } else {
         await message.reply(this.getRooivalkResponse('error'));
