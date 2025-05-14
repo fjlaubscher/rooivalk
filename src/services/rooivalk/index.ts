@@ -160,7 +160,7 @@ class Rooivalk {
   public async registerSlashCommands() {
     if (
       !process.env.DISCORD_TOKEN ||
-      !process.env.DISCORD_CLIENT_ID ||
+      !process.env.DISCORD_APP_ID ||
       !this._discordGuildId
     ) {
       console.error(
@@ -186,7 +186,7 @@ class Rooivalk {
     try {
       await rest.put(
         Routes.applicationGuildCommands(
-          process.env.DISCORD_CLIENT_ID,
+          process.env.DISCORD_APP_ID,
           this._discordGuildId
         ),
         { body: commands }
