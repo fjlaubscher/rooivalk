@@ -30,9 +30,6 @@ type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
 class Rooivalk {
   protected _discordClient: DiscordClient;
-  protected _discordStartupChannelId: string | undefined;
-  protected _discordLearnChannelId: string | undefined;
-  protected _discordGuildId: string | undefined;
   protected _openaiClient: OpenAIClient;
   protected _mentionRegex: RegExp | null = null;
 
@@ -48,10 +45,6 @@ class Rooivalk {
           GatewayIntentBits.MessageContent,
         ],
       });
-
-    this._discordStartupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
-    this._discordLearnChannelId = process.env.DISCORD_LEARN_CHANNEL_ID;
-    this._discordGuildId = process.env.DISCORD_GUILD_ID;
   }
 
   private getRooivalkResponse(type: RooivalkResponseType): string {
@@ -76,10 +69,10 @@ class Rooivalk {
   }
 
   private async sendReadyMessage() {
-    if (this._discordStartupChannelId) {
+    if (process.env.DISCORD_STARTUP_CHANNEL_ID) {
       try {
         const channel = await this._discordClient.channels.fetch(
-          this._discordStartupChannelId
+          process.env.DISCORD_STARTUP_CHANNEL_ID
         );
         if (channel && channel.isTextBased()) {
           await (channel as TextChannel).send(
@@ -122,7 +115,8 @@ class Rooivalk {
   private async processMessage(message: DiscordMessage) {
     try {
       // switch to a more serious tone if the message is in the learn channel
-      const isLearnChannel = message.channel.id === this._discordLearnChannelId;
+      const isLearnChannel =
+        message.channel.id === process.env.DISCORD_LEARN_CHANNEL_ID;
 
       const prompt = message.content.replace(this._mentionRegex!, '').trim();
       const usersToMention = message.mentions.users.filter(
@@ -158,18 +152,8 @@ class Rooivalk {
   }
 
   public async registerSlashCommands() {
-    if (
-      !process.env.DISCORD_TOKEN ||
-      !process.env.DISCORD_APP_ID ||
-      !this._discordGuildId
-    ) {
-      console.error(
-        'Missing Discord environment variables for slash command registration.'
-      );
-      return;
-    }
     const rest = new REST({ version: '10' }).setToken(
-      process.env.DISCORD_TOKEN
+      process.env.DISCORD_TOKEN!
     );
     const commands = [
       new SlashCommandBuilder()
@@ -186,8 +170,8 @@ class Rooivalk {
     try {
       await rest.put(
         Routes.applicationGuildCommands(
-          process.env.DISCORD_APP_ID,
-          this._discordGuildId
+          process.env.DISCORD_APP_ID!,
+          process.env.DISCORD_GUILD_ID!
         ),
         { body: commands }
       );
@@ -200,6 +184,7 @@ class Rooivalk {
   public async init() {
     this._discordClient.once(DiscordEvents.ClientReady, async () => {
       console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
+
       if (this._discordClient.user?.id) {
         this._mentionRegex = new RegExp(
           userMention(this._discordClient.user.id),
@@ -219,7 +204,7 @@ class Rooivalk {
       // 3. Messages that don't mention the bot
       if (
         message.author.bot ||
-        message.guild?.id !== this._discordGuildId ||
+        message.guild?.id !== process.env.DISCORD_GUILD_ID ||
         !this._mentionRegex ||
         !this._mentionRegex.test(message.content)
       ) {
@@ -237,11 +222,12 @@ class Rooivalk {
         // 2. Messages not from the specified guild (server)
         if (
           reaction.message.author?.bot ||
-          reaction.message.guild?.id !== this._discordGuildId
+          reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID
         ) {
           return;
         }
 
+        console.log('what is the reaction', reaction.emoji.name);
         if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
           const message = reaction.message as DiscordMessage;
           await this.processMessage(message);
@@ -253,9 +239,11 @@ class Rooivalk {
       DiscordEvents.InteractionCreate,
       async (interaction: Interaction) => {
         if (!interaction.isChatInputCommand()) return;
+
         if (interaction.commandName === 'learn') {
           const prompt = interaction.options.getString('prompt', true);
           await interaction.deferReply();
+
           try {
             const response = await this._openaiClient.createResponse(
               'rooivalk-learn',
