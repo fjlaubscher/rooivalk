@@ -4,12 +4,16 @@ import {
   GatewayIntentBits,
   AttachmentBuilder,
   userMention,
+  REST,
+  Routes,
+  SlashCommandBuilder,
 } from 'discord.js';
 import type {
   Message,
   MessageReplyOptions,
   OmitPartialGroupDMChannel,
   TextChannel,
+  Interaction,
 } from 'discord.js';
 
 import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
@@ -153,6 +157,46 @@ class Rooivalk {
     }
   }
 
+  public async registerSlashCommands() {
+    if (
+      !process.env.DISCORD_TOKEN ||
+      !process.env.DISCORD_CLIENT_ID ||
+      !this._discordGuildId
+    ) {
+      console.error(
+        'Missing Discord environment variables for slash command registration.'
+      );
+      return;
+    }
+    const rest = new REST({ version: '10' }).setToken(
+      process.env.DISCORD_TOKEN
+    );
+    const commands = [
+      new SlashCommandBuilder()
+        .setName('learn')
+        .setDescription('Learn with @rooivalk!')
+        .addStringOption((option) =>
+          option
+            .setName('prompt')
+            .setDescription('Your question or prompt')
+            .setRequired(true)
+        )
+        .toJSON(),
+    ];
+    try {
+      await rest.put(
+        Routes.applicationGuildCommands(
+          process.env.DISCORD_CLIENT_ID,
+          this._discordGuildId
+        ),
+        { body: commands }
+      );
+      console.log('Successfully registered /learn slash command.');
+    } catch (error) {
+      console.error('Error registering slash command:', error);
+    }
+  }
+
   public async init() {
     this._discordClient.once(DiscordEvents.ClientReady, async () => {
       console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
@@ -165,6 +209,8 @@ class Rooivalk {
 
       await this.sendReadyMessage();
     });
+
+    await this.registerSlashCommands();
 
     this._discordClient.on(DiscordEvents.MessageCreate, async (message) => {
       // Ignore messages from:
@@ -199,6 +245,28 @@ class Rooivalk {
         if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
           const message = reaction.message as DiscordMessage;
           await this.processMessage(message);
+        }
+      }
+    );
+
+    this._discordClient.on(
+      DiscordEvents.InteractionCreate,
+      async (interaction: Interaction) => {
+        if (!interaction.isChatInputCommand()) return;
+        if (interaction.commandName === 'learn') {
+          const prompt = interaction.options.getString('prompt', true);
+          await interaction.deferReply();
+          try {
+            const response = await this._openaiClient.createResponse(
+              'rooivalk-learn',
+              prompt
+            );
+            await interaction.editReply({ content: response });
+          } catch (error) {
+            await interaction.editReply({
+              content: this.getRooivalkResponse('error'),
+            });
+          }
         }
       }
     );

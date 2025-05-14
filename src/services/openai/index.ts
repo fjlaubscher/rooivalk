@@ -23,10 +23,12 @@ class OpenAIClient {
     });
 
     this._model = model || process.env.OPENAI_MODEL!;
-    this._tools = [{
-      type: "web_search_preview",
-      search_context_size: "low"
-    }];
+    this._tools = [
+      {
+        type: 'web_search_preview',
+        search_context_size: 'low',
+      },
+    ];
   }
 
   private getContext(persona: Persona): string {
