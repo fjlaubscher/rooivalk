@@ -1,5 +1,5 @@
 export const DISCORD_MESSAGE_LIMIT = 2000;
-export const DISCORD_RETRY_EMOJI = 'redo';
+export const DISCORD_EMOJI = 'rooivalk';
 
 export const REQUIRED_ENV = [
   'DISCORD_STARTUP_CHANNEL_ID',

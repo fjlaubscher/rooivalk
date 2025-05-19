@@ -17,7 +17,7 @@ import type {
   Interaction,
 } from 'discord.js';
 
-import { DISCORD_MESSAGE_LIMIT, DISCORD_RETRY_EMOJI } from '@/constants';
+import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
 import OpenAIClient from '@/services/openai';
 
 import {
@@ -275,17 +275,24 @@ class Rooivalk {
         // Ignore reactions from:
         // 1. Other bots
         // 2. Messages not from the specified guild (server)
-        if (
-          reaction.message.author?.bot ||
-          reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID
-        ) {
+        if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
           return;
         }
 
-        if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
-          console.log('Retrying message:', reaction.message.content);
+        const isRooivalkMessage =
+          reaction.message?.author?.id === this._discordClient.user?.id;
+
+        if (reaction.emoji.name === DISCORD_EMOJI) {
           const message = reaction.message as DiscordMessage;
-          await this.processMessage(message);
+          if (isRooivalkMessage) {
+            console.log('retrying prompt: ', message.content);
+            await this.processMessage(message);
+          } else {
+            // if the message is not from Rooivalk, we need to reformat it to be a prompt
+            const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
+            message.content = messageAsPrompt;
+            await this.processMessage(message);
+          }
         }
       }
     );
