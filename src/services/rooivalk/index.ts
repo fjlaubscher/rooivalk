@@ -96,13 +96,17 @@ class Rooivalk {
     const imageRegex =
       /!\[.*?\]\((https?:\/\/.*?\.(?:png|jpe?g|gif|webp)(?:\?.*?)?)\)/g;
     const imageMatches = [...content.matchAll(imageRegex)];
-    const imageUrls = imageMatches.map((match) => match[1]);
+    const imageUrls = imageMatches
+      .map((match) => match[1])
+      .filter((url): url is string => typeof url === 'string');
 
     // Remove the image markdown tags from the content
     const contentWithoutImages = content.replace(imageRegex, '').trim();
 
     // Create embeds for the images
-    const embeds = imageUrls.map((url) => new EmbedBuilder().setImage(url!));
+    console.log(`imageUrls: ${imageUrls.join(', ')}`);
+    const embeds = imageUrls.map((url) => ({ image: { url } }));
+    console.log(`embeds: ${JSON.stringify(embeds)}`);
 
     // if the content is too long, send it as an attachment
     if (contentWithoutImages.length > DISCORD_MESSAGE_LIMIT) {
@@ -278,8 +282,8 @@ class Rooivalk {
           return;
         }
 
-        console.log('what is the reaction', reaction.emoji.name);
         if (reaction.emoji.name === DISCORD_RETRY_EMOJI) {
+          console.log('Retrying message:', reaction.message.content);
           const message = reaction.message as DiscordMessage;
           await this.processMessage(message);
         }
