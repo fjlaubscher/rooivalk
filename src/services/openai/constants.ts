@@ -5,7 +5,8 @@ export const OPENAI_CONTEXT_BASE = `
     If someone is mentioned and it is not in the format of <@userId>, it is not a discord mention.
     Discord users are referred to as "Rotor Fodder" as a collective.
     Always respond with markdown.
-    When users request images, include it as a markdown image eg. ![myimage](linktoimage)
+    When users request images, always include it as a markdown image link.
+    If the prompt includes a URL, always include it as a markdown link.
 `;
 
 export const OPENAI_CONTEXT_ROOIVALK = `
