@@ -104,9 +104,7 @@ class Rooivalk {
     const contentWithoutImages = content.replace(imageRegex, '').trim();
 
     // Create embeds for the images
-    console.log(`imageUrls: ${imageUrls.join(', ')}`);
     const embeds = imageUrls.map((url) => ({ image: { url } }));
-    console.log(`embeds: ${JSON.stringify(embeds)}`);
 
     // if the content is too long, send it as an attachment
     if (contentWithoutImages.length > DISCORD_MESSAGE_LIMIT) {
@@ -172,6 +170,24 @@ class Rooivalk {
       } else {
         await message.reply(errorMessage);
       }
+    }
+  }
+
+  /**
+   * Helper to fetch the content of the original message if this message is a reply.
+   * Returns the original message content, or null if not a reply or not found.
+   */
+  public async getOriginalMessage(message: DiscordMessage) {
+    try {
+      const reference = message.reference;
+      if (!reference?.messageId) {
+        return null;
+      }
+      // Fetch the original message from the same channel
+      return await message.channel.messages.fetch(reference.messageId);
+    } catch (error) {
+      console.error('Error fetching original message:', error);
+      return null;
     }
   }
 
@@ -285,8 +301,14 @@ class Rooivalk {
         if (reaction.emoji.name === DISCORD_EMOJI) {
           const message = reaction.message as DiscordMessage;
           if (isRooivalkMessage) {
-            console.log('retrying prompt: ', message.content);
-            await this.processMessage(message);
+            const originalPrompt = await this.getOriginalMessage(message);
+            if (originalPrompt) {
+              await this.processMessage(originalPrompt as DiscordMessage);
+            } else {
+              console.error(
+                'Original message not found or not a reply to a message'
+              );
+            }
           } else {
             // if the message is not from Rooivalk, we need to reformat it to be a prompt
             const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
