@@ -7,6 +7,7 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  EmbedBuilder,
 } from 'discord.js';
 import type {
   Message,
@@ -32,6 +33,7 @@ class Rooivalk {
   protected _discordClient: DiscordClient;
   protected _openaiClient: OpenAIClient;
   protected _mentionRegex: RegExp | null = null;
+  protected _startupChannelId: string | undefined;
 
   constructor(openaiClient?: OpenAIClient, discordClient?: DiscordClient) {
     this._openaiClient = openaiClient ?? new OpenAIClient();
@@ -45,6 +47,7 @@ class Rooivalk {
           GatewayIntentBits.MessageContent,
         ],
       });
+    this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
   }
 
   private getRooivalkResponse(type: RooivalkResponseType): string {
@@ -69,10 +72,10 @@ class Rooivalk {
   }
 
   private async sendReadyMessage() {
-    if (process.env.DISCORD_STARTUP_CHANNEL_ID) {
+    if (this._startupChannelId) {
       try {
         const channel = await this._discordClient.channels.fetch(
-          process.env.DISCORD_STARTUP_CHANNEL_ID
+          this._startupChannelId
         );
         if (channel && channel.isTextBased()) {
           await (channel as TextChannel).send(
@@ -89,11 +92,26 @@ class Rooivalk {
     content: string,
     allowedMentions: string[] = []
   ): Promise<MessageReplyOptions> {
+    // Extract image URLs from markdown image tags
+    const imageRegex =
+      /!\[.*?\]\((https?:\/\/.*?\.(?:png|jpe?g|gif|webp)(?:\?.*?)?)\)/g;
+    const imageMatches = [...content.matchAll(imageRegex)];
+    const imageUrls = imageMatches.map((match) => match[1]);
+
+    // Remove the image markdown tags from the content
+    const contentWithoutImages = content.replace(imageRegex, '').trim();
+
+    // Create embeds for the images
+    const embeds = imageUrls.map((url) => new EmbedBuilder().setImage(url!));
+
     // if the content is too long, send it as an attachment
-    if (content.length > DISCORD_MESSAGE_LIMIT) {
-      const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), {
-        name: 'rooivalk.md',
-      });
+    if (contentWithoutImages.length > DISCORD_MESSAGE_LIMIT) {
+      const attachment = new AttachmentBuilder(
+        Buffer.from(contentWithoutImages, 'utf-8'),
+        {
+          name: 'rooivalk.md',
+        }
+      );
 
       return {
         content: this.getRooivalkResponse('discordLimit'),
@@ -101,14 +119,16 @@ class Rooivalk {
         allowedMentions: {
           users: allowedMentions,
         },
+        embeds: embeds.length > 0 ? embeds : undefined,
       };
     }
 
     return {
-      content,
+      content: contentWithoutImages,
       allowedMentions: {
         users: allowedMentions,
       },
+      embeds: embeds.length > 0 ? embeds : undefined,
     };
   }
 
@@ -181,6 +201,37 @@ class Rooivalk {
     }
   }
 
+  public async sendMessageToStartupChannel(
+    prompt: string,
+    persona: 'rooivalk' | 'rooivalk-learn' = 'rooivalk'
+  ) {
+    if (!this._startupChannelId) {
+      console.error('Startup channel ID not set');
+      return null;
+    }
+
+    try {
+      // Generate response from OpenAI
+      const response = await this._openaiClient.createResponse(persona, prompt);
+
+      // Send the response to the startup channel
+      const channel = await this._discordClient.channels.fetch(
+        this._startupChannelId
+      );
+      if (channel && channel.isTextBased()) {
+        const messageOptions = await this.buildMessageReply(response);
+        await (channel as TextChannel).send(messageOptions);
+        return response;
+      } else {
+        console.error('Startup channel is not text-based');
+        return null;
+      }
+    } catch (err) {
+      console.error('Error sending message to startup channel:', err);
+      return null;
+    }
+  }
+
   public async init() {
     this._discordClient.once(DiscordEvents.ClientReady, async () => {
       console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
@@ -249,7 +300,13 @@ class Rooivalk {
               'rooivalk-learn',
               prompt
             );
-            await interaction.editReply({ content: response });
+            const messageOptions = await this.buildMessageReply(response);
+            // Convert MessageReplyOptions to InteractionEditReplyOptions
+            await interaction.editReply({
+              content: messageOptions.content,
+              embeds: messageOptions.embeds,
+              files: messageOptions.files,
+            });
           } catch (error) {
             await interaction.editReply({
               content: this.getRooivalkResponse('error'),

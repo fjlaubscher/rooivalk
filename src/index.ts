@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { REQUIRED_ENV } from '@/constants';
+import initCronTasks from '@/cron';
 import Rooivalk from '@/services/rooivalk';
 
 // Validate required environment variables at startup
@@ -13,3 +14,5 @@ if (missingEnv.length) {
 
 const rooivalk = new Rooivalk();
 rooivalk.init();
+
+initCronTasks(rooivalk);
