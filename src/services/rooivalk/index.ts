@@ -26,6 +26,8 @@ import {
   GREETING_MESSAGES,
 } from './constants';
 
+const MAX_MESSAGE_CHAIN_LENGTH = 10;
+
 type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
 type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
@@ -134,13 +136,69 @@ class Rooivalk {
     };
   }
 
+  private async getMessageChain(
+    currentMessage: DiscordMessage
+  ): Promise<{ author: 'user' | 'bot'; content: string }[]> {
+    const messageChain: { author: 'user' | 'bot'; content: string }[] = [];
+    let nextMessageToFetch = currentMessage;
+
+    try {
+      // Start with the message currently being replied to
+      if (nextMessageToFetch.reference && nextMessageToFetch.reference.messageId) {
+        let referencedMessage = await nextMessageToFetch.channel.messages.fetch(
+          nextMessageToFetch.reference.messageId
+        );
+
+        while (referencedMessage && messageChain.length < MAX_MESSAGE_CHAIN_LENGTH) {
+          messageChain.unshift({
+            author:
+              referencedMessage.author.id === this._discordClient.user?.id
+                ? 'bot'
+                : 'user',
+            content: referencedMessage.content,
+          });
+
+          if (referencedMessage.reference && referencedMessage.reference.messageId) {
+            referencedMessage = await referencedMessage.channel.messages.fetch(
+              referencedMessage.reference.messageId
+            );
+          } else {
+            break; // No more references, end of the chain
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching message chain:', error);
+      // Return whatever was fetched so far, or an empty array if the first fetch failed
+    }
+    return messageChain;
+  }
+
   private async processMessage(message: DiscordMessage) {
     try {
-      // switch to a more serious tone if the message is in the learn channel
+      let prompt = message.content.replace(this._mentionRegex!, '').trim();
       const isLearnChannel =
         message.channel.id === process.env.DISCORD_LEARN_CHANNEL_ID;
 
-      const prompt = message.content.replace(this._mentionRegex!, '').trim();
+      // Check if the message is a reply and if it's replying to the bot
+      if (message.reference && message.reference.messageId) {
+        const repliedToMessage = await this.getOriginalMessage(message);
+        if (repliedToMessage && repliedToMessage.author.id === this._discordClient.user?.id) {
+          const messageChain = await this.getMessageChain(message);
+          if (messageChain.length > 0) {
+            const formattedChain = messageChain
+              .map(
+                (entry) =>
+                  `${entry.author === 'user' ? 'User' : 'Bot'}: ${
+                    entry.content
+                  }`
+              )
+              .join('\n');
+            prompt = `${formattedChain}\nUser: ${prompt}`;
+          }
+        }
+      }
+
       const usersToMention = message.mentions.users.filter(
         (user) => user.id !== this._discordClient.user?.id
       );
@@ -269,20 +327,45 @@ class Rooivalk {
     await this.registerSlashCommands();
 
     this._discordClient.on(DiscordEvents.MessageCreate, async (message) => {
-      // Ignore messages from:
-      // 1. Other bots
-      // 2. Messages not from the specified guild (server)
-      // 3. Messages that don't mention the bot
+      // Ignore messages from other bots or from different guilds
       if (
         message.author.bot ||
-        message.guild?.id !== process.env.DISCORD_GUILD_ID ||
-        !this._mentionRegex ||
-        !this._mentionRegex.test(message.content)
+        message.guild?.id !== process.env.DISCORD_GUILD_ID
       ) {
         return;
       }
 
-      this.processMessage(message);
+      // Check if the message is a reply to the bot
+      let isReplyToBot = false;
+      if (message.reference && message.reference.messageId) {
+        const repliedToMessage = await this.getOriginalMessage(
+          message as DiscordMessage
+        );
+        if (repliedToMessage && repliedToMessage.author.id === this._discordClient.user?.id) {
+          isReplyToBot = true;
+        }
+      }
+
+      // Check if the bot is mentioned directly
+      const isMentioned =
+        this._mentionRegex && this._mentionRegex.test(message.content);
+
+      // If not a reply to the bot and not mentioned, ignore the message
+      if (!isReplyToBot && !isMentioned) {
+        return;
+      }
+
+      // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
+      // This prevents processing messages that aren't direct mentions if the regex isn't ready,
+      // unless it's a reply to the bot, which doesn't strictly need the regex.
+      if (!this._mentionRegex && !isReplyToBot) {
+        console.warn(
+          'Mention regex not initialized, ignoring non-reply message.'
+        );
+        return;
+      }
+
+      this.processMessage(message as DiscordMessage);
     });
 
     this._discordClient.on(
