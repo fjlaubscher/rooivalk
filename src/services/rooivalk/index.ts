@@ -386,6 +386,7 @@ class Rooivalk {
           if (isRooivalkMessage) {
             const originalPrompt = await this.getOriginalMessage(message);
             if (originalPrompt) {
+              await reaction.message.delete();
               await this.processMessage(originalPrompt as DiscordMessage);
             } else {
               console.error(
