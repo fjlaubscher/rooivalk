@@ -54,7 +54,8 @@ class GeminiClient implements LLMClient {
       console.error('Error with Gemini API:', error);
       // Assuming error has a message property
       if (error instanceof Error) {
-        throw new Error(error.message);
+        // Re-throw the original error to preserve stack trace and type
+        throw error;
       }
       throw new Error('Error creating response from Gemini');
     }
