@@ -8,7 +8,7 @@ import {
 
 class GeminiClient implements LLMClient {
   private _model: string;
-  // private _gemini: any; // Placeholder for Gemini SDK client
+  // TODO: Define and initialize the `_gemini` property when integrating the Gemini SDK.
 
   constructor(model?: string) {
     // Initialize Gemini SDK here
