@@ -1,9 +1,8 @@
-import OpenAI from 'openai';
-
 import {
   ROOIVALK_CONTEXT_DEFAULT,
   ROOIVALK_CONTEXT_LEARN,
 } from '../rooivalk/constants';
+import OpenAI from 'openai'; // Sorted
 
 type Persona = 'rooivalk' | 'rooivalk-learn';
 

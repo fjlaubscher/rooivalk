@@ -1,4 +1,3 @@
-import { LLMClient } from '../llm/types';
 import {
   ROOIVALK_CONTEXT_DEFAULT,
   ROOIVALK_CONTEXT_LEARN,
@@ -6,9 +5,9 @@ import {
 
 // Persona strings will align with OpenAI's, e.g., "rooivalk", "rooivalk-learn"
 
-class GeminiClient implements LLMClient {
+class GeminiClient { // Removed "implements LLMClient"
   private _model: string;
-  // TODO: Define and initialize the `_gemini` property when integrating the Gemini SDK.
+  // private _gemini: any; // Placeholder for Gemini SDK client
 
   constructor(model?: string) {
     // Initialize Gemini SDK here
@@ -54,8 +53,7 @@ class GeminiClient implements LLMClient {
       console.error('Error with Gemini API:', error);
       // Assuming error has a message property
       if (error instanceof Error) {
-        // Re-throw the original error to preserve stack trace and type
-        throw error;
+        throw new Error(error.message);
       }
       throw new Error('Error creating response from Gemini');
     }

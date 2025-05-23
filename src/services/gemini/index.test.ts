@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import GeminiClient from './index'; // Assuming default export
 import { ROOIVALK_CONTEXT_DEFAULT, ROOIVALK_CONTEXT_LEARN } from '../../rooivalk/constants';
+import GeminiClient from './index'; // Assuming default export
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'; // Sorted vitest imports
 
 describe('GeminiClient', () => {
   const OLD_ENV = process.env;
