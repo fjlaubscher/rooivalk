@@ -1,25 +1,25 @@
+import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
+import GeminiClient from '@/services/gemini';
+import OpenAIClient from '@/services/openai'; // Added OpenAIClient import
 import {
-  Client as DiscordClient,
-  Events as DiscordEvents,
-  GatewayIntentBits,
   AttachmentBuilder,
-  userMention,
+  Client as DiscordClient, // Renamed for clarity
+  EmbedBuilder,
+  Events as DiscordEvents, // Renamed for clarity
+  GatewayIntentBits,
   REST,
   Routes,
   SlashCommandBuilder,
-  EmbedBuilder,
+  userMention,
 } from 'discord.js';
+// Type-only imports for discord.js
 import type {
+  Interaction,
   Message,
   MessageReplyOptions,
   OmitPartialGroupDMChannel,
   TextChannel,
-  Interaction,
 } from 'discord.js';
-
-import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
-import { LLMClient } from '../llm/types';
-import GeminiClient from '@/services/gemini';
 
 import {
   ERROR_MESSAGES,
@@ -34,18 +34,18 @@ type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
 class Rooivalk {
   protected _discordClient: DiscordClient;
-  protected _llmClient: LLMClient;
-  protected _geminiClient: GeminiClient; // Added GeminiClient
+  protected _openAIClient: OpenAIClient; // Renamed from _llmClient
+  protected _geminiClient: GeminiClient;
   protected _mentionRegex: RegExp | null = null;
   protected _startupChannelId: string | undefined;
 
   constructor(
-    llmClient: LLMClient,
-    geminiClient: GeminiClient, // Added geminiClient parameter
+    openAIClient: OpenAIClient, // Changed parameter name and type
+    geminiClient: GeminiClient,
     discordClient?: DiscordClient
   ) {
-    this._llmClient = llmClient;
-    this._geminiClient = geminiClient; // Assign geminiClient
+    this._openAIClient = openAIClient; // Updated assignment
+    this._geminiClient = geminiClient;
     this._discordClient =
       discordClient ??
       new DiscordClient({
@@ -210,8 +210,8 @@ class Rooivalk {
         (user) => user.id !== this._discordClient.user?.id
       );
 
-      // prompt llm with the enhanced content
-      const response = await this._llmClient.createResponse(
+      // prompt openAI with the enhanced content
+      const response = await this._openAIClient.createResponse(
         isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
         prompt
       );
@@ -316,8 +316,8 @@ class Rooivalk {
     }
 
     try {
-      // Generate response from LLM
-      const response = await this._llmClient.createResponse(persona, prompt);
+      // Generate response from OpenAI
+      const response = await this._openAIClient.createResponse(persona, prompt);
 
       // Send the response to the startup channel
       const channel = await this._discordClient.channels.fetch(
@@ -440,7 +440,7 @@ class Rooivalk {
           await interaction.deferReply();
 
           try {
-            const response = await this._llmClient.createResponse(
+            const response = await this._openAIClient.createResponse(
               'rooivalk-learn',
               prompt
             );
