@@ -19,6 +19,7 @@ import type {
 
 import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
 import { LLMClient } from '../llm/types';
+import GeminiClient from '@/services/gemini';
 
 import {
   ERROR_MESSAGES,
@@ -34,11 +35,17 @@ type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 class Rooivalk {
   protected _discordClient: DiscordClient;
   protected _llmClient: LLMClient;
+  protected _geminiClient: GeminiClient; // Added GeminiClient
   protected _mentionRegex: RegExp | null = null;
   protected _startupChannelId: string | undefined;
 
-  constructor(llmClient: LLMClient, discordClient?: DiscordClient) {
+  constructor(
+    llmClient: LLMClient,
+    geminiClient: GeminiClient, // Added geminiClient parameter
+    discordClient?: DiscordClient
+  ) {
     this._llmClient = llmClient;
+    this._geminiClient = geminiClient; // Assign geminiClient
     this._discordClient =
       discordClient ??
       new DiscordClient({
@@ -203,7 +210,7 @@ class Rooivalk {
         (user) => user.id !== this._discordClient.user?.id
       );
 
-      // prompt openai with the enhanced content
+      // prompt llm with the enhanced content
       const response = await this._llmClient.createResponse(
         isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
         prompt
@@ -264,6 +271,26 @@ class Rooivalk {
             .setRequired(true)
         )
         .toJSON(),
+      new SlashCommandBuilder()
+        .setName('gemini')
+        .setDescription('Generate a response using Gemini.')
+        .addStringOption(option =>
+          option
+            .setName('prompt')
+            .setDescription('Your question or prompt for Gemini')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option
+            .setName('persona')
+            .setDescription('The persona for Gemini to use.')
+            .setRequired(false) // Optional
+            .addChoices(
+              { name: 'Rooivalk (Default)', value: 'rooivalk' },
+              { name: 'Rooivalk Learn', value: 'rooivalk-learn' }
+            )
+        )
+        .toJSON(),
     ];
     try {
       await rest.put(
@@ -273,9 +300,9 @@ class Rooivalk {
         ),
         { body: commands }
       );
-      console.log('Successfully registered /learn slash command.');
+      console.log('Successfully registered /learn and /gemini slash commands.');
     } catch (error) {
-      console.error('Error registering slash command:', error);
+      console.error('Error registering slash commands:', error);
     }
   }
 
@@ -417,14 +444,35 @@ class Rooivalk {
               'rooivalk-learn',
               prompt
             );
-            const messageOptions = await this.buildMessageReply(response);
-            // Convert MessageReplyOptions to InteractionEditReplyOptions
+            const messageOptions = await this.buildMessageReply(response ?? ''); // Handle null response
             await interaction.editReply({
               content: messageOptions.content,
               embeds: messageOptions.embeds,
               files: messageOptions.files,
             });
           } catch (error) {
+            console.error('Error handling /learn command:', error);
+            await interaction.editReply({
+              content: this.getRooivalkResponse('error'),
+            });
+          }
+        } else if (interaction.commandName === 'gemini') {
+          const prompt = interaction.options.getString('prompt', true);
+          const personaOption = interaction.options.getString('persona', false);
+          const persona = personaOption || 'rooivalk'; // Default to 'rooivalk'
+
+          await interaction.deferReply();
+
+          try {
+            const response = await this._geminiClient.createResponse(persona, prompt);
+            const messageOptions = await this.buildMessageReply(response ?? ''); // Handle null response
+            await interaction.editReply({
+              content: messageOptions.content,
+              embeds: messageOptions.embeds,
+              files: messageOptions.files,
+            });
+          } catch (error) {
+            console.error('Error handling /gemini command:', error);
             await interaction.editReply({
               content: this.getRooivalkResponse('error'),
             });

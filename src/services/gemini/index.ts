@@ -1,11 +1,10 @@
 import { LLMClient } from '../llm/types';
 import {
-  GEMINI_CONTEXT_GEMINIBOT,
-  GEMINI_CONTEXT_GEMINIBOT_LEARN,
-} from './constants';
+  ROOIVALK_CONTEXT_DEFAULT,
+  ROOIVALK_CONTEXT_LEARN,
+} from '../rooivalk/constants';
 
-// Define a type for Persona, similar to OpenAIClient, for internal use.
-type Persona = 'geminibot' | 'geminibot-learn';
+// Persona strings will align with OpenAI's, e.g., "rooivalk", "rooivalk-learn"
 
 class GeminiClient implements LLMClient {
   private _model: string;
@@ -23,14 +22,14 @@ class GeminiClient implements LLMClient {
 
   private getContext(persona: string): string {
     switch (persona.toLowerCase()) {
-      case 'geminibot':
-        return GEMINI_CONTEXT_GEMINIBOT;
-      case 'geminibot-learn':
-        return GEMINI_CONTEXT_GEMINIBOT_LEARN;
+      case 'rooivalk':
+        return ROOIVALK_CONTEXT_DEFAULT;
+      case 'rooivalk-learn':
+        return ROOIVALK_CONTEXT_LEARN;
       default:
-        // Default to the standard geminibot context if persona is unknown
-        console.warn(`Unknown persona: ${persona}. Defaulting to geminibot context.`);
-        return GEMINI_CONTEXT_GEMINIBOT;
+        // Default to the standard rooivalk context if persona is unknown
+        console.warn(`Unknown persona: ${persona}. Defaulting to rooivalk context for GeminiClient.`);
+        return ROOIVALK_CONTEXT_DEFAULT;
     }
   }
 

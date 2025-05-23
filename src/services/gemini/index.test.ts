@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import GeminiClient from './index'; // Assuming default export
-import { GEMINI_CONTEXT_GEMINIBOT, GEMINI_CONTEXT_GEMINIBOT_LEARN } from './constants';
+import { ROOIVALK_CONTEXT_DEFAULT, ROOIVALK_CONTEXT_LEARN } from '../../rooivalk/constants';
 
 describe('GeminiClient', () => {
   const OLD_ENV = process.env;
@@ -45,31 +45,31 @@ describe('GeminiClient', () => {
       client = new GeminiClient();
     });
 
-    it('should return GEMINI_CONTEXT_GEMINIBOT for "geminibot" persona', () => {
+    it('should return ROOIVALK_CONTEXT_DEFAULT for "rooivalk" persona', () => {
       // @ts-expect-error getContext is private
-      expect(client.getContext('geminibot')).toBe(GEMINI_CONTEXT_GEMINIBOT);
+      expect(client.getContext('rooivalk')).toBe(ROOIVALK_CONTEXT_DEFAULT);
     });
     
-    it('should return GEMINI_CONTEXT_GEMINIBOT for "GEMINIBOT" persona (case-insensitive)', () => {
+    it('should return ROOIVALK_CONTEXT_DEFAULT for "ROOIVALK" persona (case-insensitive)', () => {
       // @ts-expect-error getContext is private
-      expect(client.getContext('GEMINIBOT')).toBe(GEMINI_CONTEXT_GEMINIBOT);
+      expect(client.getContext('ROOIVALK')).toBe(ROOIVALK_CONTEXT_DEFAULT);
     });
 
-    it('should return GEMINI_CONTEXT_GEMINIBOT_LEARN for "geminibot-learn" persona', () => {
+    it('should return ROOIVALK_CONTEXT_LEARN for "rooivalk-learn" persona', () => {
       // @ts-expect-error getContext is private
-      expect(client.getContext('geminibot-learn')).toBe(GEMINI_CONTEXT_GEMINIBOT_LEARN);
+      expect(client.getContext('rooivalk-learn')).toBe(ROOIVALK_CONTEXT_LEARN);
     });
     
-    it('should return GEMINI_CONTEXT_GEMINIBOT_LEARN for "GEMINIBOT-LEARN" persona (case-insensitive)', () => {
+    it('should return ROOIVALK_CONTEXT_LEARN for "ROOIVALK-LEARN" persona (case-insensitive)', () => {
       // @ts-expect-error getContext is private
-      expect(client.getContext('GEMINIBOT-LEARN')).toBe(GEMINI_CONTEXT_GEMINIBOT_LEARN);
+      expect(client.getContext('ROOIVALK-LEARN')).toBe(ROOIVALK_CONTEXT_LEARN);
     });
 
-    it('should return GEMINI_CONTEXT_GEMINIBOT and log a warning for an unknown persona', () => {
+    it('should return ROOIVALK_CONTEXT_DEFAULT and log a warning for an unknown persona', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       // @ts-expect-error getContext is private
-      expect(client.getContext('unknown-persona')).toBe(GEMINI_CONTEXT_GEMINIBOT);
-      expect(consoleWarnSpy).toHaveBeenCalledWith('Unknown persona: unknown-persona. Defaulting to geminibot context.');
+      expect(client.getContext('unknown-persona')).toBe(ROOIVALK_CONTEXT_DEFAULT);
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Unknown persona: unknown-persona. Defaulting to rooivalk context for GeminiClient.');
       consoleWarnSpy.mockRestore();
     });
   });
@@ -80,15 +80,22 @@ describe('GeminiClient', () => {
       client = new GeminiClient('test-model-from-response');
     });
 
-    it('should return a placeholder string including persona, model, and prompt', async () => {
-      const persona = 'geminibot';
+    it('should return a placeholder string including persona, model, and prompt for "rooivalk" persona', async () => {
+      const persona = 'rooivalk';
       const prompt = 'Hello Gemini!';
       const response = await client.createResponse(persona, prompt);
       expect(response).toBe(`Gemini response for persona "${persona}" (model: test-model-from-response) and prompt "${prompt}"`);
     });
+    
+    it('should return a placeholder string including persona, model, and prompt for "rooivalk-learn" persona', async () => {
+      const persona = 'rooivalk-learn';
+      const prompt = 'Teach me something!';
+      const response = await client.createResponse(persona, prompt);
+      expect(response).toBe(`Gemini response for persona "${persona}" (model: test-model-from-response) and prompt "${prompt}"`);
+    });
 
-    it('should call getContext with the correct persona', async () => {
-      const persona = 'geminibot-learn';
+    it('should call getContext with the correct "rooivalk-learn" persona', async () => {
+      const persona = 'rooivalk-learn';
       const prompt = 'Teach me something.';
       // @ts-expect-error getContext is private, but we need to spy on it
       const getContextSpy = vi.spyOn(client, 'getContext');
@@ -97,11 +104,18 @@ describe('GeminiClient', () => {
       getContextSpy.mockRestore();
     });
 
+    it('should call getContext with the correct "rooivalk" persona', async () => {
+      const persona = 'rooivalk';
+      const prompt = 'Tell me a joke.';
+      // @ts-expect-error getContext is private, but we need to spy on it
+      const getContextSpy = vi.spyOn(client, 'getContext');
+      await client.createResponse(persona, prompt);
+      expect(getContextSpy).toHaveBeenCalledWith(persona);
+      getContextSpy.mockRestore();
+    });
+
     it('should throw an error if the underlying (mocked) API call fails', async () => {
-        // For now, the placeholder doesn't actually throw.
-        // This test would be more relevant once actual API calls are implemented.
-        // We can simulate an error by making getContext throw, for example.
-        const persona = 'geminibot';
+        const persona = 'rooivalk'; 
         const prompt = 'Test error';
         // @ts-expect-error getContext is private
         vi.spyOn(client, 'getContext').mockImplementationOnce(() => {

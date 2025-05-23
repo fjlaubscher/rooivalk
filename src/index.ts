@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { REQUIRED_ENV } from '@/constants';
 import initCronTasks from '@/cron';
 import Rooivalk from '@/services/rooivalk';
-import { LLMClient } from '@/services/llm/types';
 import OpenAIClient from '@/services/openai';
 import GeminiClient from '@/services/gemini';
 
@@ -15,24 +14,11 @@ if (missingEnv.length) {
   process.exit(1);
 }
 
-let selectedLlmClient: LLMClient;
-const llmPreference = process.env.LLM_CLIENT_PREFERENCE?.toLowerCase();
+const openAIClient = new OpenAIClient();
+const geminiClient = new GeminiClient(); // Instantiated but not used by Rooivalk yet
 
-if (llmPreference === 'gemini') {
-  selectedLlmClient = new GeminiClient();
-  console.log('Using GeminiClient based on LLM_CLIENT_PREFERENCE.');
-} else {
-  selectedLlmClient = new OpenAIClient();
-  if (llmPreference && llmPreference !== 'openai') {
-    console.warn(
-      `Invalid LLM_CLIENT_PREFERENCE "${process.env.LLM_CLIENT_PREFERENCE}". Defaulting to OpenAIClient.`
-    );
-  } else {
-    console.log('Using OpenAIClient (default or explicitly set).');
-  }
-}
-
-const rooivalk = new Rooivalk(selectedLlmClient);
+// Pass openAIClient to Rooivalk constructor
+const rooivalk = new Rooivalk(openAIClient);
 rooivalk.init();
 
 initCronTasks(rooivalk);

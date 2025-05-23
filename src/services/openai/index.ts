@@ -1,10 +1,9 @@
 import OpenAI from 'openai';
 
-import { LLMClient } from '../llm/types';
 import {
-  OPENAI_CONTEXT_ROOIVALK,
-  OPENAI_CONTEXT_ROOIVALK_LEARN,
-} from './constants';
+  ROOIVALK_CONTEXT_DEFAULT,
+  ROOIVALK_CONTEXT_LEARN,
+} from '../rooivalk/constants';
 
 type Persona = 'rooivalk' | 'rooivalk-learn';
 
@@ -13,7 +12,7 @@ type Tool = {
   search_context_size?: 'low' | 'medium' | 'high';
 };
 
-class OpenAIClient implements LLMClient {
+class OpenAIClient {
   private _model: string;
   private _openai: OpenAI;
   private _tools: Tool[];
@@ -35,20 +34,20 @@ class OpenAIClient implements LLMClient {
   private getContext(persona: Persona): string {
     switch (persona) {
       case 'rooivalk':
-        return OPENAI_CONTEXT_ROOIVALK;
+        return ROOIVALK_CONTEXT_DEFAULT;
       case 'rooivalk-learn':
-        return OPENAI_CONTEXT_ROOIVALK_LEARN;
+        return ROOIVALK_CONTEXT_LEARN;
       default:
-        return OPENAI_CONTEXT_ROOIVALK;
+        return ROOIVALK_CONTEXT_DEFAULT;
     }
   }
 
-  async createResponse(persona: string, prompt: string): Promise<string | null> {
+  async createResponse(persona: Persona, prompt: string) {
     try {
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
-        instructions: this.getContext(persona as Persona),
+        instructions: this.getContext(persona),
         input: prompt,
       });
 
