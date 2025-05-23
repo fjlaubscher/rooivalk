@@ -2,23 +2,23 @@
 import { DISCORD_EMOJI } from '@/constants';
 import GeminiClient from '@/services/gemini';
 import OpenAIClient from '@/services/openai';
+import Rooivalk from './index'; // Sorted: ./index before discord.js
 import {
   AttachmentBuilder,
-  Client as DiscordClient, // Renamed for clarity
+  Client as DiscordClient, 
   Collection,
   EmbedBuilder,
-  Events as DiscordEvents, // Renamed for clarity
+  Events as DiscordEvents, 
   GatewayIntentBits,
-  // The following are mocked and not directly used for values, so commented out:
-  // REST, 
-  // Routes, 
-  // SlashCommandBuilder, 
-  // userMention, 
+  // REST, // Mocked
+  // Routes, // Mocked
+  // SlashCommandBuilder, // Mocked
+  // userMention, // Mocked
 } from 'discord.js';
 // Import types from discord.js if needed directly in tests, e.g., for casting
 // For example: import type { Interaction, Message, TextChannel } from 'discord.js';
-import { afterEach, beforeEach, describe, expect, it, SpyInstance, vi } from 'vitest'; // Sorted vitest imports
-import Rooivalk from './index';
+// Vitest imports are already sorted and comprehensive
+import { afterEach, beforeEach, describe, expect, it, SpyInstance, vi } from 'vitest'; 
 
 // Mock Clients
 vi.mock('@/services/openai');
@@ -40,8 +40,16 @@ vi.mock('discord.js', async (importOriginal) => {
   const slashCommandBuilderMock = {
     setName: vi.fn((name: string) => slashCommandBuilderMock),
     setDescription: vi.fn((description: string) => slashCommandBuilderMock),
-    addStringOption: vi.fn((builder: (option: any) => any) => { 
-        const optionMock = { setName: vi.fn().mockReturnThis(), setDescription: vi.fn().mockReturnThis(), setRequired: vi.fn().mockReturnThis() };
+    addStringOption: vi.fn((builder: (option: {
+        setName: (name: string) => any;
+        setDescription: (description: string) => any;
+        setRequired: (required: boolean) => any;
+      }) => any) => { 
+        const optionMock = { 
+            setName: vi.fn().mockReturnThis(), 
+            setDescription: vi.fn().mockReturnThis(), 
+            setRequired: vi.fn().mockReturnThis() 
+        };
         builder(optionMock);
         return slashCommandBuilderMock;
       }),
@@ -376,9 +384,9 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       user: { id: 'mockUserId' },
     });
 
-    async function triggerInteractionHandler(interaction: any) {
+    async function triggerInteractionHandler(interaction: ReturnType<typeof setupMockSlashInteraction>) { // Typed interaction parameter
       const interactionHandler = (mockDiscordClientInstance.on as vi.Mock).mock.calls.find(
-        call => call[0] === DiscordEvents.InteractionCreate
+        (call: any[]) => call[0] === DiscordEvents.InteractionCreate // Typed call parameter
       )?.[1];
       if (interactionHandler) {
         await interactionHandler(interaction);
