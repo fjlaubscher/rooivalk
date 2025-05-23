@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 
+import { LLMClient } from '../llm/types';
 import {
   OPENAI_CONTEXT_ROOIVALK,
   OPENAI_CONTEXT_ROOIVALK_LEARN,
@@ -12,7 +13,7 @@ type Tool = {
   search_context_size?: 'low' | 'medium' | 'high';
 };
 
-class OpenAIClient {
+class OpenAIClient implements LLMClient {
   private _model: string;
   private _openai: OpenAI;
   private _tools: Tool[];
@@ -42,12 +43,12 @@ class OpenAIClient {
     }
   }
 
-  async createResponse(persona: Persona, prompt: string) {
+  async createResponse(persona: string, prompt: string): Promise<string | null> {
     try {
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
-        instructions: this.getContext(persona),
+        instructions: this.getContext(persona as Persona),
         input: prompt,
       });
 

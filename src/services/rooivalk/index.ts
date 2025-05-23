@@ -18,7 +18,7 @@ import type {
 } from 'discord.js';
 
 import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
-import OpenAIClient from '@/services/openai';
+import { LLMClient } from '../llm/types';
 
 import {
   ERROR_MESSAGES,
@@ -33,12 +33,12 @@ type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
 class Rooivalk {
   protected _discordClient: DiscordClient;
-  protected _openaiClient: OpenAIClient;
+  protected _llmClient: LLMClient;
   protected _mentionRegex: RegExp | null = null;
   protected _startupChannelId: string | undefined;
 
-  constructor(openaiClient?: OpenAIClient, discordClient?: DiscordClient) {
-    this._openaiClient = openaiClient ?? new OpenAIClient();
+  constructor(llmClient: LLMClient, discordClient?: DiscordClient) {
+    this._llmClient = llmClient;
     this._discordClient =
       discordClient ??
       new DiscordClient({
@@ -204,7 +204,7 @@ class Rooivalk {
       );
 
       // prompt openai with the enhanced content
-      const response = await this._openaiClient.createResponse(
+      const response = await this._llmClient.createResponse(
         isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
         prompt
       );
@@ -289,8 +289,8 @@ class Rooivalk {
     }
 
     try {
-      // Generate response from OpenAI
-      const response = await this._openaiClient.createResponse(persona, prompt);
+      // Generate response from LLM
+      const response = await this._llmClient.createResponse(persona, prompt);
 
       // Send the response to the startup channel
       const channel = await this._discordClient.channels.fetch(
@@ -413,7 +413,7 @@ class Rooivalk {
           await interaction.deferReply();
 
           try {
-            const response = await this._openaiClient.createResponse(
+            const response = await this._llmClient.createResponse(
               'rooivalk-learn',
               prompt
             );
