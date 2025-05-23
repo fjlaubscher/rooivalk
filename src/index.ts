@@ -1,7 +1,9 @@
-import 'dotenv/config';
+import 'dotenv/config'; // Keep first for side effects
 import { REQUIRED_ENV } from '@/constants';
 import initCronTasks from '@/cron';
-import Rooivalk from '@/services/rooivalk';
+import GeminiClient from '@/services/gemini'; // Sorted
+import OpenAIClient from '@/services/openai'; // Sorted
+import Rooivalk from '@/services/rooivalk'; // Sorted
 
 // Validate required environment variables at startup
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
@@ -12,7 +14,11 @@ if (missingEnv.length) {
   process.exit(1);
 }
 
-const rooivalk = new Rooivalk();
+const openAIClient = new OpenAIClient();
+const geminiClient = new GeminiClient();
+
+// Pass both clients to Rooivalk constructor
+const rooivalk = new Rooivalk(openAIClient, geminiClient);
 rooivalk.init();
 
 initCronTasks(rooivalk);

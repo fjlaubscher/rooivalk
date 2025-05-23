@@ -1,39 +1,70 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import Rooivalk from './index'; // Assuming Rooivalk is default export
+/// <reference types="vitest" />
+import { DISCORD_EMOJI } from '@/constants';
+import GeminiClient from '@/services/gemini';
 import OpenAIClient from '@/services/openai';
+import Rooivalk from './index'; // Sorted: ./index before discord.js
 import {
-  Client as DiscordClient,
-  GatewayIntentBits,
+  AttachmentBuilder,
+  Client as DiscordClient, 
   Collection,
   EmbedBuilder,
-  AttachmentBuilder,
-  Events as DiscordEvents,
+  Events as DiscordEvents, 
+  GatewayIntentBits,
+  // REST, // Mocked
+  // Routes, // Mocked
+  // SlashCommandBuilder, // Mocked
+  // userMention, // Mocked
 } from 'discord.js';
-import { DISCORD_EMOJI } from '@/constants';
+// Import types from discord.js if needed directly in tests, e.g., for casting
+// For example: import type { Interaction, Message, TextChannel } from 'discord.js';
+// Vitest imports are already sorted and comprehensive
+import { afterEach, beforeEach, describe, expect, it, SpyInstance, vi } from 'vitest'; 
 
-// Mock OpenAIClient
+// Mock Clients
 vi.mock('@/services/openai');
+vi.mock('@/services/gemini');
 
 // Mock discord.js
 vi.mock('discord.js', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await vi.importActual<typeof import('discord.js')>('discord.js'); // Typed actual
+  const mockClientInstance = {
+    user: { id: 'test-bot-id', tag: 'TestBot#0000' },
+    channels: { fetch: vi.fn().mockResolvedValue({ isTextBased: () => true, send: vi.fn() }) },
+    once: vi.fn((event: string, callback: (...args: any[]) => void) => { if (event === DiscordEvents.ClientReady) { callback(); } return mockClientInstance; }),
+    on: vi.fn((event: string, callback: (...args: any[]) => void) => mockClientInstance), // Ensure 'on' returns the client instance for chaining or further setup
+    login: vi.fn().mockResolvedValue(undefined),
+    guilds: new Collection(),
+    messages: new Collection(),
+    reactions: new Collection(),
+  };
+  const slashCommandBuilderMock = {
+    setName: vi.fn((name: string) => slashCommandBuilderMock),
+    setDescription: vi.fn((description: string) => slashCommandBuilderMock),
+    addStringOption: vi.fn((builder: (option: {
+        setName: (name: string) => any;
+        setDescription: (description: string) => any;
+        setRequired: (required: boolean) => any;
+      }) => any) => { 
+        const optionMock = { 
+            setName: vi.fn().mockReturnThis(), 
+            setDescription: vi.fn().mockReturnThis(), 
+            setRequired: vi.fn().mockReturnThis() 
+        };
+        builder(optionMock);
+        return slashCommandBuilderMock;
+      }),
+    addChoices: vi.fn((...choices: {name: string; value: string}[]) => slashCommandBuilderMock),
+    toJSON: vi.fn(() => ({ name: 'mockCommandJson', description: 'mock command' })), 
+  };
   return {
     ...actual,
-    Client: vi.fn(() => ({
-      user: { id: 'test-bot-id', tag: 'TestBot#0000' },
-      channels: {
-        fetch: vi.fn(),
-      },
-      once: vi.fn(),
-      on: vi.fn(),
-      login: vi.fn(),
-      guilds: new Collection(), 
-      messages: new Collection(), 
-      reactions: new Collection(), 
+    Client: vi.fn(() => mockClientInstance),
+    GatewayIntentBits: actual.GatewayIntentBits,
+    userMention: vi.fn((id: string) => `<@${id}>`),
+    EmbedBuilder: vi.fn(() => ({
+        setImage: vi.fn().mockReturnThis(),
+        // Add other methods if your buildMessageReply uses them
     })),
-    GatewayIntentBits: actual.GatewayIntentBits, 
-    userMention: vi.fn((id) => `<@${id}>`),
-    EmbedBuilder: vi.fn(),
     AttachmentBuilder: vi.fn(),
     REST: vi.fn(() => ({
       setToken: vi.fn().mockReturnThis(),
@@ -42,12 +73,7 @@ vi.mock('discord.js', async (importOriginal) => {
     Routes: {
       applicationGuildCommands: vi.fn(() => '/application-guild-commands'),
     },
-    SlashCommandBuilder: vi.fn(() => ({
-        setName: vi.fn().mockReturnThis(),
-        setDescription: vi.fn().mockReturnThis(),
-        addStringOption: vi.fn().mockReturnThis(),
-        toJSON: vi.fn().mockReturnValue({ name: 'learn', description: 'learn command'}),
-    })),
+    SlashCommandBuilder: vi.fn(() => slashCommandBuilderMock),
   };
 });
 
@@ -70,9 +96,15 @@ const mockDiscordClientInstance = new DiscordClient({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
-}) as any; 
+}) as any;
 
-const mockOpenAIClientInstance = new OpenAIClient() as vi.Mocked<OpenAIClient>;
+// Define types for our mocked clients for clarity
+type MockedOpenAIClient = vi.Mocked<OpenAIClient>; // Updated type name
+type MockedGeminiClient = vi.Mocked<GeminiClient>;
+
+// Instantiate mocks. These will be auto-mocked by vi.mock effectively.
+const mockOpenAIClientInstance = new OpenAIClient() as MockedOpenAIClient; // Renamed instance
+const mockGeminiClientInstance = new GeminiClient() as MockedGeminiClient;
 
 
 // Helper to create a mock message
@@ -96,7 +128,7 @@ const createMockMessage = (
     channel: {
       id: 'test-channel-id',
       messages: {
-        fetch: vi.fn(async (id: string) => {
+        fetch: vi.fn(async (id: string) => { // id parameter typed
           // This is the crucial part for getMessageChain
           if (referencedMessageDetails && id === referencedMessageDetails.messageId) {
             return createMockMessage(
@@ -139,39 +171,83 @@ const createMockMessage = (
 
 describe('Rooivalk Service', () => {
   let rooivalk: Rooivalk;
+  let consoleErrorSpy: SpyInstance;
+  let consoleLogSpy: SpyInstance;
 
-  beforeEach(() => {
-    vi.clearAllMocks(); 
+  beforeEach(async () => { // Made beforeEach async for potential await if needed for imports
+    vi.clearAllMocks();
     vi.stubGlobal('process', { env: { ...MOCK_ENV } });
 
-
-    mockOpenAIClientInstance.createResponse = vi.fn().mockResolvedValue('Mocked AI Response');
+    // Ensure createResponse is a mock function for both client instances
+    mockOpenAIClientInstance.createResponse = vi.fn().mockResolvedValue('Mocked OpenAI Response'); // Renamed
+    mockGeminiClientInstance.createResponse = vi.fn().mockResolvedValue('Mocked Gemini Response');
     
     // Reset the mock client instance for each test to ensure clean state
-    mockDiscordClientInstance.user = { id: 'test-bot-id', tag: 'TestBot#0000' } as any;
-    mockDiscordClientInstance.once = vi.fn((event, callback) => {
-        if (event === DiscordEvents.ClientReady) (callback as any)(); 
+    (mockDiscordClientInstance.user as any) = { id: 'test-bot-id', tag: 'TestBot#0000' }; // User is defined here
+    mockDiscordClientInstance.once = vi.fn((event: string, callback: (...args: any[]) => void) => { // Typed parameters
+        if (event === DiscordEvents.ClientReady) { callback(); }
         return mockDiscordClientInstance;
-    });
-    mockDiscordClientInstance.on = vi.fn(); 
-    mockDiscordClientInstance.channels.fetch = vi.fn(); // Ensure this is a mock function
+    }) as any;
+    mockDiscordClientInstance.on = vi.fn((event: string, callback: (...args: any[]) => void) => mockDiscordClientInstance) as any; // Typed parameters
+    (mockDiscordClientInstance.channels.fetch as vi.Mock).mockResolvedValue({ isTextBased: () => true, send: vi.fn() });
 
-    rooivalk = new Rooivalk(mockOpenAIClientInstance, mockDiscordClientInstance);
+
+    rooivalk = new Rooivalk(mockOpenAIClientInstance, mockGeminiClientInstance, mockDiscordClientInstance); // Renamed
     
     // Manually set the mention regex as it's done in 'ClientReady' event which we simulate in `once`
     // Ensure _discordClient.user is defined when Rooivalk constructor runs
-    if (mockDiscordClientInstance.user) {
-        (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user.id}>`, 'g');
-    } else {
-        // Fallback or error if user is somehow undefined, though the mock setup should prevent this
-        (rooivalk as any)._mentionRegex = new RegExp(`<@test-bot-id>`, 'g');
+    // mockDiscordClientInstance.user is guaranteed to be defined by the beforeEach setup above.
+    (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user!.id}>`, 'g'); // Used non-null assertion as user is set
+    if (!mockDiscordClientInstance.user) { // Defensive check, though not expected to be hit
+         (rooivalk as any)._mentionRegex = new RegExp(`<@test-bot-id>`, 'g');
     }
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    vi.unstubAllEnvs(); // This was in afterEach before, makes more sense here or in a global afterEach
+    consoleErrorSpy?.mockRestore();
+    consoleLogSpy?.mockRestore();
   });
 
+  describe('Constructor', () => {
+    it('should correctly assign _openAIClient and _geminiClient', () => {
+      expect((rooivalk as any)._openAIClient).toBe(mockOpenAIClientInstance); // Renamed assertion target
+      expect((rooivalk as any)._geminiClient).toBe(mockGeminiClientInstance);
+      expect((rooivalk as any)._discordClient).toBe(mockDiscordClientInstance);
+    });
+  });
+  
+  describe('registerSlashCommands', () => {
+    it('should register /learn and /gemini commands', async () => {
+      // Spies for console logs inside registerSlashCommands
+      consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await rooivalk.registerSlashCommands();
+      
+      const DiscordSlashCommandBuilder = (await import('discord.js')).SlashCommandBuilder;
+      const DiscordREST = (await import('discord.js')).REST;
+
+      expect(DiscordSlashCommandBuilder).toHaveBeenCalledTimes(2); // for /learn and /gemini
+      
+      const calls = (DiscordSlashCommandBuilder() as any).setName.mock.calls;
+      expect(calls.find(call => call[0] === 'learn')).toBeDefined();
+      expect(calls.find(call => call[0] === 'gemini')).toBeDefined();
+      
+      // Check that toJSON was called for each command built
+      expect((DiscordSlashCommandBuilder() as any).toJSON).toHaveBeenCalledTimes(2);
+
+      expect((DiscordREST() as any).setToken).toHaveBeenCalledWith(MOCK_ENV.DISCORD_TOKEN);
+      // The body should be an array of the results of toJSON()
+      expect((DiscordREST() as any).put).toHaveBeenCalledWith(
+        '/application-guild-commands', 
+        { body: [{ name: 'mockCommandJson', description: 'mock command' }, { name: 'mockCommandJson', description: 'mock command' }] }
+      );
+      expect(consoleLogSpy).toHaveBeenCalledWith('Successfully registered /learn and /gemini slash commands.');
+    });
+  });
+
+  // Existing processMessage tests can remain, ensure they use mockLlmClientInstance instead of mockOpenAIClientInstance
   describe('processMessage', () => {
     it('1. Reply to Bot Message (Simple): should include bot\'s and user\'s message in prompt', async () => {
       const botMessageContent = 'This is a message from the bot.';
@@ -183,21 +259,16 @@ describe('Rooivalk Service', () => {
         content: botMessageContent,
       });
 
-      // Mock the fetch for getOriginalMessage (called by processMessage)
       (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
         createMockMessage(botMessageContent, 'test-bot-id', 'test-bot-id', 'original-bot-msg-id')
       );
-      // Mock the fetch for getMessageChain (which will try to fetch the message *before* original-bot-msg-id)
-      // In a simple reply, the original bot message has no parent, so getMessageChain's internal fetch returns null.
       (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(null);
-
 
       const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
       await (rooivalk as any).processMessage(userMessage);
 
       expect(getMessageChainSpy).toHaveBeenCalledWith(userMessage);
-
-      expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
+      expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith( // Renamed
         'rooivalk', 
         `Bot: ${botMessageContent}\nUser: ${userReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`
       );
@@ -213,34 +284,27 @@ describe('Rooivalk Service', () => {
         ];
         const currentUserReplyContent = 'My newest reply';
 
-        // User's current message, replying to msg3 (Bot response 2)
         const userMessage = createMockMessage(
             currentUserReplyContent, 'user-id', 'test-bot-id', 'currentUserReplyId',
             { messageId: chainMessages[3].id, authorId: chainMessages[3].authorId, content: chainMessages[3].content }
         );
         
-        // Mock for getOriginalMessage in processMessage (fetches msg3)
         (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
             createMockMessage(chainMessages[3].content, chainMessages[3].authorId, 'test-bot-id', chainMessages[3].id,
                 { messageId: chainMessages[2].id, authorId: chainMessages[2].authorId, content: chainMessages[2].content }
             )
         );
-
-        // Mocks for getMessageChain's internal fetches
         (userMessage.channel.messages.fetch as vi.Mock)
-            // Fetch for msg2 (referenced by msg3)
             .mockResolvedValueOnce(
                 createMockMessage(chainMessages[2].content, chainMessages[2].authorId, 'test-bot-id', chainMessages[2].id,
                     { messageId: chainMessages[1].id, authorId: chainMessages[1].authorId, content: chainMessages[1].content }
                 )
             )
-            // Fetch for msg1 (referenced by msg2)
             .mockResolvedValueOnce(
                 createMockMessage(chainMessages[1].content, chainMessages[1].authorId, 'test-bot-id', chainMessages[1].id,
                     { messageId: chainMessages[0].id, authorId: chainMessages[0].authorId, content: chainMessages[0].content }
                 )
             )
-            // Fetch for msg0 (referenced by msg1) - end of chain
             .mockResolvedValueOnce(
                 createMockMessage(chainMessages[0].content, chainMessages[0].authorId, 'test-bot-id', chainMessages[0].id, null)
             );
@@ -249,44 +313,33 @@ describe('Rooivalk Service', () => {
         await (rooivalk as any).processMessage(userMessage);
 
         expect(getMessageChainSpy).toHaveBeenCalledWith(userMessage);
-
         const expectedPrompt =
 `User: ${chainMessages[0].content}
 Bot: ${chainMessages[1].content}
 User: ${chainMessages[2].content}
 Bot: ${chainMessages[3].content}
 User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
-
-        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith('rooivalk', expectedPrompt);
+        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith('rooivalk', expectedPrompt); // Renamed
         expect(userMessage.reply).toHaveBeenCalled();
     });
-
 
     it('3. Reply to Non-Bot Message: should use only current reply as prompt', async () => {
       const otherUserMessageContent = 'This is a message from another user.';
       const userReplyContent = 'This is my reply to that user.';
       const userMessage = createMockMessage(userReplyContent, 'user-id', 'test-bot-id', 'reply-msg-id', {
         messageId: 'other-user-msg-id',
-        authorId: 'other-user-id', // Different author
+        authorId: 'other-user-id',
         content: otherUserMessageContent,
       });
-
-      // Mock for getOriginalMessage in processMessage
       (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
          createMockMessage(otherUserMessageContent, 'other-user-id', 'test-bot-id', 'other-user-msg-id')
       );
-
       await (rooivalk as any).processMessage(userMessage);
-      
       const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
-      // getMessageChain should NOT be called if it's not a reply to the bot
-      // The check `repliedToMessage.author.id === this._discordClient.user?.id` in processMessage prevents this.
       expect(getMessageChainSpy).not.toHaveBeenCalled();
-
-
-      expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
+      expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith( // Renamed
         'rooivalk',
-        userReplyContent.replace(/<@test-bot-id>\s*/, '').trim() // No chain
+        userReplyContent.replace(/<@test-bot-id>\s*/, '').trim()
       );
       expect(userMessage.reply).toHaveBeenCalled();
     });
@@ -294,36 +347,159 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
     it('4. Regular Bot Mention (No Reply): should use user message as prompt', async () => {
       const userMessageContent = `<@test-bot-id> Hello bot!`;
       const userMessage = createMockMessage(userMessageContent, 'user-id', 'test-bot-id');
-
       await (rooivalk as any).processMessage(userMessage);
-      
       const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
-      expect(getMessageChainSpy).not.toHaveBeenCalled(); // No reply, so no chain
-
-      expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
+      expect(getMessageChainSpy).not.toHaveBeenCalled();
+      expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith( // Renamed
         'rooivalk',
-        'Hello bot!' // Mention stripped
+        'Hello bot!'
       );
       expect(userMessage.reply).toHaveBeenCalled();
     });
   });
+  
+  // Keep existing MessageCreate and other tests, ensure they use mockLlmClientInstance
 
-  describe('MessageCreate Event Handler Logic', () => {
-    let messageCreateCallback: ((message: any) => Promise<void>) | undefined;
+  describe('InteractionCreate Event Handler', () => {
+    // This describe block previously contained MessageCreate tests.
+    // It will now be focused on InteractionCreate (slash commands).
+    // The MessageCreate tests will be in their own describe block below.
+
+    // ... existing MessageCreate tests for non-slash commands can go here ...
+    // Ensure they are adapted if necessary for the new constructor and client names
+
+    const setupMockSlashInteraction = (commandName: string, prompt: string, persona: string | null) => ({
+      isChatInputCommand: vi.fn().mockReturnValue(true),
+      commandName,
+      options: {
+        getString: vi.fn((nameArg: string) => {
+          if (nameArg === 'prompt') return prompt;
+          if (nameArg === 'persona') return persona;
+          return null;
+        }),
+      },
+      deferReply: vi.fn().mockResolvedValue(undefined),
+      editReply: vi.fn().mockResolvedValue(undefined),
+      guild: { id: MOCK_ENV.DISCORD_GUILD_ID },
+      user: { id: 'mockUserId' },
+    });
+
+    async function triggerInteractionHandler(interaction: ReturnType<typeof setupMockSlashInteraction>) { // Typed interaction parameter
+      const interactionHandler = (mockDiscordClientInstance.on as vi.Mock).mock.calls.find(
+        (call: any[]) => call[0] === DiscordEvents.InteractionCreate // Typed call parameter
+      )?.[1];
+      if (interactionHandler) {
+        await interactionHandler(interaction);
+      } else {
+        throw new Error("InteractionCreate handler not registered on mockDiscordClient.");
+      }
+    }
+
+    describe('/gemini command', () => {
+      let mockInteraction: ReturnType<typeof setupMockSlashInteraction>;
+      let buildMessageReplySpy: SpyInstance;
+
+      beforeEach(() => {
+        // @ts-expect-error Accessing private method
+        buildMessageReplySpy = vi.spyOn(rooivalk, 'buildMessageReply').mockResolvedValue({ content: 'built message reply from gemini' });
+        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      });
+
+      it('should handle /gemini command successfully with specified persona', async () => {
+        mockInteraction = setupMockSlashInteraction('gemini', 'test gemini prompt', 'rooivalk-learn');
+        (mockGeminiClientInstance.createResponse as vi.Mock).mockResolvedValue('gemini success');
+
+        await triggerInteractionHandler(mockInteraction);
+
+        expect(mockInteraction.deferReply).toHaveBeenCalledTimes(1);
+        expect(mockGeminiClientInstance.createResponse).toHaveBeenCalledWith('rooivalk-learn', 'test gemini prompt');
+        expect(buildMessageReplySpy).toHaveBeenCalledWith('gemini success');
+        expect(mockInteraction.editReply).toHaveBeenCalledWith({ content: 'built message reply from gemini' });
+      });
+
+      it('should handle /gemini command successfully with default "rooivalk" persona', async () => {
+        mockInteraction = setupMockSlashInteraction('gemini', 'another gemini prompt', null);
+        (mockGeminiClientInstance.createResponse as vi.Mock).mockResolvedValue('gemini default success');
+        
+        await triggerInteractionHandler(mockInteraction);
+
+        expect(mockGeminiClientInstance.createResponse).toHaveBeenCalledWith('rooivalk', 'another gemini prompt');
+        expect(buildMessageReplySpy).toHaveBeenCalledWith('gemini default success');
+        expect(mockInteraction.editReply).toHaveBeenCalledWith({ content: 'built message reply from gemini' });
+      });
+
+      it('should handle error in /gemini command', async () => {
+        mockInteraction = setupMockSlashInteraction('gemini', 'error prompt', 'rooivalk');
+        const error = new Error('Gemini API Error');
+        (mockGeminiClientInstance.createResponse as vi.Mock).mockRejectedValue(error);
+        // @ts-expect-error Accessing private method
+        const getRooivalkResponseSpy = vi.spyOn(rooivalk, 'getRooivalkResponse').mockReturnValue('generic error message');
+
+        await triggerInteractionHandler(mockInteraction);
+        
+        expect(mockInteraction.deferReply).toHaveBeenCalledTimes(1);
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Error handling /gemini command:', error);
+        expect(getRooivalkResponseSpy).toHaveBeenCalledWith('error');
+        expect(mockInteraction.editReply).toHaveBeenCalledWith({ content: 'generic error message' });
+      });
+
+      it('should handle null response from _geminiClient.createResponse for /gemini', async () => {
+        mockInteraction = setupMockSlashInteraction('gemini', 'null response prompt', 'rooivalk');
+        (mockGeminiClientInstance.createResponse as vi.Mock).mockResolvedValue(null);
+
+        await triggerInteractionHandler(mockInteraction);
+
+        expect(buildMessageReplySpy).toHaveBeenCalledWith(''); 
+        expect(mockInteraction.editReply).toHaveBeenCalledWith({ content: 'built message reply from gemini' });
+      });
+    });
+
+    // Tests for /learn command can be similarly structured if needed
+    describe('/learn command', () => {
+      let mockInteraction: ReturnType<typeof setupMockSlashInteraction>;
+      let buildMessageReplySpy: SpyInstance;
+
+      beforeEach(() => {
+        // @ts-expect-error Accessing private method
+        buildMessageReplySpy = vi.spyOn(rooivalk, 'buildMessageReply').mockResolvedValue({ content: 'built message reply from learn' });
+        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      });
+
+      it('should handle /learn command successfully', async () => {
+        mockInteraction = setupMockSlashInteraction('learn', 'test learn prompt', null); // Persona not used by /learn directly via options
+        (mockOpenAIClientInstance.createResponse as vi.Mock).mockResolvedValue('learn success'); // Renamed
+
+        await triggerInteractionHandler(mockInteraction);
+
+        expect(mockInteraction.deferReply).toHaveBeenCalledTimes(1);
+        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith('rooivalk-learn', 'test learn prompt'); // Renamed
+        expect(buildMessageReplySpy).toHaveBeenCalledWith('learn success');
+        expect(mockInteraction.editReply).toHaveBeenCalledWith({ content: 'built message reply from learn' });
+      });
+    });
+  });
+
+  // Remaining existing tests (MessageCreate, Error Handling in getMessageChain, MessageReactionAdd)
+  // should be checked to ensure they use mockOpenAIClientInstance where previously mockLlmClientInstance was used.
+  // For brevity, I will not repeat them all here but assume that change is made.
+  // Example for one test in MessageCreate Event Handler Logic:
+  describe('MessageCreate Event Handler Logic (Adapted)', () => {
+    let messageCreateCallback: ((message: any) => Promise<void>) | undefined; // message can be typed more strictly if needed
     let processMessageSpy: any;
 
     beforeEach(async () => {
-      mockDiscordClientInstance.on = vi.fn((event, callback) => {
+      (mockDiscordClientInstance.on as vi.Mock).mockImplementation((event: string, callback: (message: any) => Promise<void>) => { // Typed parameters
         if (event === DiscordEvents.MessageCreate) {
-          messageCreateCallback = callback as any;
+          messageCreateCallback = callback;
         }
         return mockDiscordClientInstance;
       });
       
-      // Rooivalk init sets up the event handlers. We need to re-initialize to capture the new mockDiscordClientInstance.on
-      rooivalk = new Rooivalk(mockOpenAIClientInstance, mockDiscordClientInstance);
-      if (mockDiscordClientInstance.user) { // Ensure _mentionRegex is set after re-init
-          (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user.id}>`, 'g');
+      rooivalk = new Rooivalk(mockOpenAIClientInstance, mockGeminiClientInstance, mockDiscordClientInstance); 
+      // mockDiscordClientInstance.user is guaranteed by outer beforeEach
+      (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user!.id}>`, 'g'); // Used non-null assertion
+      if (!mockDiscordClientInstance.user) { 
+          (rooivalk as any)._mentionRegex = new RegExp(`<@test-bot-id>`, 'g');
       }
       await rooivalk.init(); 
       processMessageSpy = vi.spyOn(rooivalk as any, 'processMessage');
@@ -434,30 +610,32 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
         // err-msg3 is the message replied to. getMessageChain fetches its parent (err-msg2).
         // Then tries to fetch err-msg2's parent (err-msg1), which fails.
         // So, the chain passed to OpenAI should be [err-msg2, err-msg3] + current user reply.
-        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith('rooivalk', expectedPrompt);
+        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith('rooivalk', expectedPrompt); // Renamed
         
         consoleErrorSpy.mockRestore();
     });
   });
 
   describe('MessageReactionAdd Event Handler Logic', () => {
-    let messageReactionAddCallback: ((reaction: any, user: any) => Promise<void>) | undefined;
+    let messageReactionAddCallback: ((reaction: any, user: any) => Promise<void>) | undefined; // reaction and user can be typed more strictly
     let processMessageSpy: any;
     let getOriginalMessageSpy: any;
-    const BOT_ID = 'test-bot-id'; // from mockDiscordClientInstance.user.id
+    const BOT_ID = 'test-bot-id'; 
     const USER_ID = 'reacting-user-id';
 
     beforeEach(async () => {
-      mockDiscordClientInstance.on = vi.fn((event, callback) => {
+      (mockDiscordClientInstance.on as vi.Mock).mockImplementation((event: string, callback: (reaction: any, user: any) => Promise<void>) => { // Typed parameters
         if (event === DiscordEvents.MessageReactionAdd) {
-          messageReactionAddCallback = callback as any;
+          messageReactionAddCallback = callback;
         }
         return mockDiscordClientInstance;
       });
 
-      rooivalk = new Rooivalk(mockOpenAIClientInstance, mockDiscordClientInstance);
-      if (mockDiscordClientInstance.user) {
-        (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user.id}>`, 'g');
+      rooivalk = new Rooivalk(mockOpenAIClientInstance, mockGeminiClientInstance, mockDiscordClientInstance); 
+      // mockDiscordClientInstance.user is guaranteed by outer beforeEach
+      (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user!.id}>`, 'g'); // Used non-null assertion
+      if (!mockDiscordClientInstance.user) {
+        (rooivalk as any)._mentionRegex = new RegExp(`<@test-bot-id>`, 'g');
       }
       await rooivalk.init();
 
@@ -475,8 +653,8 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
         'rooivalk-msg-id'
       );
       mockRooivalkMessage.delete = vi.fn().mockResolvedValue(true);
-      mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID }; 
-      mockRooivalkMessage.author = { id: BOT_ID };
+      mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
+      mockRooivalkMessage.author = { id: BOT_ID }; // Author is defined
 
 
       const mockOriginalUserPrompt = createMockMessage(
@@ -516,7 +694,7 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       );
       mockUserMessage.delete = vi.fn().mockResolvedValue(true);
       mockUserMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
-      mockUserMessage.author = { id: 'another-user-id'};
+      mockUserMessage.author = { id: 'another-user-id'}; // Author is defined
 
 
       const mockReaction = {
@@ -548,7 +726,7 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       const mockRooivalkMessage = createMockMessage('Bot message', BOT_ID, BOT_ID, 'bm-id');
       mockRooivalkMessage.delete = vi.fn();
       mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
-      mockRooivalkMessage.author = { id: BOT_ID };
+      mockRooivalkMessage.author = { id: BOT_ID }; // Author is defined
 
 
       const mockReaction = {
@@ -570,7 +748,7 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       const mockRooivalkMessage = createMockMessage('Bot message', BOT_ID, BOT_ID, 'bm-id');
       mockRooivalkMessage.delete = vi.fn();
       mockRooivalkMessage.guild = { id: 'wrong-guild-id' }; // Different guild
-      mockRooivalkMessage.author = { id: BOT_ID };
+      mockRooivalkMessage.author = { id: BOT_ID }; // Author is defined
 
 
       const mockReaction = {
@@ -593,7 +771,7 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
         const mockRooivalkMessage = createMockMessage('Bot message', BOT_ID, BOT_ID, 'bm-id');
         mockRooivalkMessage.delete = vi.fn();
         mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
-        mockRooivalkMessage.author = { id: BOT_ID };
+      mockRooivalkMessage.author = { id: BOT_ID }; // Author is defined
 
     
         const mockReaction = {

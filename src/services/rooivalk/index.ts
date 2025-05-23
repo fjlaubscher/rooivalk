@@ -1,24 +1,25 @@
+import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
+import GeminiClient from '@/services/gemini';
+import OpenAIClient from '@/services/openai'; // Added OpenAIClient import
 import {
-  Client as DiscordClient,
-  Events as DiscordEvents,
-  GatewayIntentBits,
   AttachmentBuilder,
-  userMention,
+  Client as DiscordClient, // Renamed for clarity
+  EmbedBuilder,
+  Events as DiscordEvents, // Renamed for clarity
+  GatewayIntentBits,
   REST,
   Routes,
   SlashCommandBuilder,
-  EmbedBuilder,
+  userMention,
 } from 'discord.js';
+// Type-only imports for discord.js
 import type {
+  Interaction,
   Message,
   MessageReplyOptions,
   OmitPartialGroupDMChannel,
   TextChannel,
-  Interaction,
 } from 'discord.js';
-
-import { DISCORD_EMOJI, DISCORD_MESSAGE_LIMIT } from '@/constants';
-import OpenAIClient from '@/services/openai';
 
 import {
   ERROR_MESSAGES,
@@ -33,12 +34,18 @@ type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
 class Rooivalk {
   protected _discordClient: DiscordClient;
-  protected _openaiClient: OpenAIClient;
+  protected _openAIClient: OpenAIClient; // Renamed from _llmClient
+  protected _geminiClient: GeminiClient;
   protected _mentionRegex: RegExp | null = null;
   protected _startupChannelId: string | undefined;
 
-  constructor(openaiClient?: OpenAIClient, discordClient?: DiscordClient) {
-    this._openaiClient = openaiClient ?? new OpenAIClient();
+  constructor(
+    openAIClient: OpenAIClient, // Changed parameter name and type
+    geminiClient: GeminiClient,
+    discordClient?: DiscordClient
+  ) {
+    this._openAIClient = openAIClient; // Updated assignment
+    this._geminiClient = geminiClient;
     this._discordClient =
       discordClient ??
       new DiscordClient({
@@ -203,8 +210,8 @@ class Rooivalk {
         (user) => user.id !== this._discordClient.user?.id
       );
 
-      // prompt openai with the enhanced content
-      const response = await this._openaiClient.createResponse(
+      // prompt openAI with the enhanced content
+      const response = await this._openAIClient.createResponse(
         isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
         prompt
       );
@@ -264,6 +271,26 @@ class Rooivalk {
             .setRequired(true)
         )
         .toJSON(),
+      new SlashCommandBuilder()
+        .setName('gemini')
+        .setDescription('Generate a response using Gemini.')
+        .addStringOption(option =>
+          option
+            .setName('prompt')
+            .setDescription('Your question or prompt for Gemini')
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option
+            .setName('persona')
+            .setDescription('The persona for Gemini to use.')
+            .setRequired(false) // Optional
+            .addChoices(
+              { name: 'Rooivalk (Default)', value: 'rooivalk' },
+              { name: 'Rooivalk Learn', value: 'rooivalk-learn' }
+            )
+        )
+        .toJSON(),
     ];
     try {
       await rest.put(
@@ -273,9 +300,9 @@ class Rooivalk {
         ),
         { body: commands }
       );
-      console.log('Successfully registered /learn slash command.');
+      console.log('Successfully registered /learn and /gemini slash commands.');
     } catch (error) {
-      console.error('Error registering slash command:', error);
+      console.error('Error registering slash commands:', error);
     }
   }
 
@@ -290,7 +317,7 @@ class Rooivalk {
 
     try {
       // Generate response from OpenAI
-      const response = await this._openaiClient.createResponse(persona, prompt);
+      const response = await this._openAIClient.createResponse(persona, prompt);
 
       // Send the response to the startup channel
       const channel = await this._discordClient.channels.fetch(
@@ -413,18 +440,39 @@ class Rooivalk {
           await interaction.deferReply();
 
           try {
-            const response = await this._openaiClient.createResponse(
+            const response = await this._openAIClient.createResponse(
               'rooivalk-learn',
               prompt
             );
-            const messageOptions = await this.buildMessageReply(response);
-            // Convert MessageReplyOptions to InteractionEditReplyOptions
+            const messageOptions = await this.buildMessageReply(response ?? ''); // Handle null response
             await interaction.editReply({
               content: messageOptions.content,
               embeds: messageOptions.embeds,
               files: messageOptions.files,
             });
           } catch (error) {
+            console.error('Error handling /learn command:', error);
+            await interaction.editReply({
+              content: this.getRooivalkResponse('error'),
+            });
+          }
+        } else if (interaction.commandName === 'gemini') {
+          const prompt = interaction.options.getString('prompt', true);
+          const personaOption = interaction.options.getString('persona', false);
+          const persona = personaOption || 'rooivalk'; // Default to 'rooivalk'
+
+          await interaction.deferReply();
+
+          try {
+            const response = await this._geminiClient.createResponse(persona, prompt);
+            const messageOptions = await this.buildMessageReply(response ?? ''); // Handle null response
+            await interaction.editReply({
+              content: messageOptions.content,
+              embeds: messageOptions.embeds,
+              files: messageOptions.files,
+            });
+          } catch (error) {
+            console.error('Error handling /gemini command:', error);
             await interaction.editReply({
               content: this.getRooivalkResponse('error'),
             });

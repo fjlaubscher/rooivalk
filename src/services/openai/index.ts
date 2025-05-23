@@ -1,9 +1,8 @@
-import OpenAI from 'openai';
-
 import {
-  OPENAI_CONTEXT_ROOIVALK,
-  OPENAI_CONTEXT_ROOIVALK_LEARN,
-} from './constants';
+  ROOIVALK_CONTEXT_DEFAULT,
+  ROOIVALK_CONTEXT_LEARN,
+} from '../rooivalk/constants';
+import OpenAI from 'openai'; // Sorted
 
 type Persona = 'rooivalk' | 'rooivalk-learn';
 
@@ -34,11 +33,11 @@ class OpenAIClient {
   private getContext(persona: Persona): string {
     switch (persona) {
       case 'rooivalk':
-        return OPENAI_CONTEXT_ROOIVALK;
+        return ROOIVALK_CONTEXT_DEFAULT;
       case 'rooivalk-learn':
-        return OPENAI_CONTEXT_ROOIVALK_LEARN;
+        return ROOIVALK_CONTEXT_LEARN;
       default:
-        return OPENAI_CONTEXT_ROOIVALK;
+        return ROOIVALK_CONTEXT_DEFAULT;
     }
   }
 
