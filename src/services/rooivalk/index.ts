@@ -310,131 +310,136 @@ class Rooivalk {
     }
   }
 
-  public async init() {
-    this._discordClient.once(DiscordEvents.ClientReady, async () => {
-      console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
+  public init(): Promise<void> {
+    return new Promise(async (resolve) => {
+      this._discordClient.once(DiscordEvents.ClientReady, async () => {
+        console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
 
-      if (this._discordClient.user?.id) {
-        this._mentionRegex = new RegExp(
-          userMention(this._discordClient.user.id),
-          'g'
-        );
-      }
-
-      await this.sendReadyMessage();
-    });
-
-    await this.registerSlashCommands();
-
-    this._discordClient.on(DiscordEvents.MessageCreate, async (message) => {
-      // Ignore messages from other bots or from different guilds
-      if (
-        message.author.bot ||
-        message.guild?.id !== process.env.DISCORD_GUILD_ID
-      ) {
-        return;
-      }
-
-      // Check if the message is a reply to the bot
-      let isReplyToBot = false;
-      if (message.reference && message.reference.messageId) {
-        const repliedToMessage = await this.getOriginalMessage(
-          message as DiscordMessage
-        );
-        if (repliedToMessage && repliedToMessage.author.id === this._discordClient.user?.id) {
-          isReplyToBot = true;
+        if (this._discordClient.user?.id) {
+          this._mentionRegex = new RegExp(
+            userMention(this._discordClient.user.id),
+            'g'
+          );
         }
-      }
 
-      // Check if the bot is mentioned directly
-      const isMentioned =
-        this._mentionRegex && this._mentionRegex.test(message.content);
+        await this.sendReadyMessage();
+        resolve(); // Resolve the promise when ClientReady is fired
+      });
 
-      // If not a reply to the bot and not mentioned, ignore the message
-      if (!isReplyToBot && !isMentioned) {
-        return;
-      }
+      await this.registerSlashCommands();
 
-      // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
-      // This prevents processing messages that aren't direct mentions if the regex isn't ready,
-      // unless it's a reply to the bot, which doesn't strictly need the regex.
-      if (!this._mentionRegex && !isReplyToBot) {
-        console.warn(
-          'Mention regex not initialized, ignoring non-reply message.'
-        );
-        return;
-      }
-
-      this.processMessage(message as DiscordMessage);
-    });
-
-    this._discordClient.on(
-      DiscordEvents.MessageReactionAdd,
-      async (reaction) => {
-        // Ignore reactions from:
-        // 1. Other bots
-        // 2. Messages not from the specified guild (server)
-        if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
+      this._discordClient.on(DiscordEvents.MessageCreate, async (message) => {
+        // Ignore messages from other bots or from different guilds
+        if (
+          message.author.bot ||
+          message.guild?.id !== process.env.DISCORD_GUILD_ID
+        ) {
           return;
         }
 
-        const isRooivalkMessage =
-          reaction.message?.author?.id === this._discordClient.user?.id;
+        // Check if the message is a reply to the bot
+        let isReplyToBot = false;
+        if (message.reference && message.reference.messageId) {
+          const repliedToMessage = await this.getOriginalMessage(
+            message as DiscordMessage
+          );
+          if (repliedToMessage && repliedToMessage.author.id === this._discordClient.user?.id) {
+            isReplyToBot = true;
+          }
+        }
 
-        if (reaction.emoji.name === DISCORD_EMOJI) {
-          const message = reaction.message as DiscordMessage;
-          if (isRooivalkMessage) {
-            const originalPrompt = await this.getOriginalMessage(message);
-            if (originalPrompt) {
-              await reaction.message.delete();
-              await this.processMessage(originalPrompt as DiscordMessage);
+        // Check if the bot is mentioned directly
+        const isMentioned =
+          this._mentionRegex && this._mentionRegex.test(message.content);
+
+        // If not a reply to the bot and not mentioned, ignore the message
+        if (!isReplyToBot && !isMentioned) {
+          return;
+        }
+
+        // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
+        // This prevents processing messages that aren't direct mentions if the regex isn't ready,
+        // unless it's a reply to the bot, which doesn't strictly need the regex.
+        if (!this._mentionRegex && !isReplyToBot) {
+          console.warn(
+            'Mention regex not initialized, ignoring non-reply message.'
+          );
+          return;
+        }
+
+        this.processMessage(message as DiscordMessage);
+      });
+
+      this._discordClient.on(
+        DiscordEvents.MessageReactionAdd,
+        async (reaction) => {
+          // Ignore reactions from:
+          // 1. Other bots
+          // 2. Messages not from the specified guild (server)
+          if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
+            return;
+          }
+
+          const isRooivalkMessage =
+            reaction.message?.author?.id === this._discordClient.user?.id;
+
+          if (reaction.emoji.name === DISCORD_EMOJI) {
+            const message = reaction.message as DiscordMessage;
+            if (isRooivalkMessage) {
+              const originalPrompt = await this.getOriginalMessage(message);
+              if (originalPrompt) {
+                await reaction.message.delete();
+                await this.processMessage(originalPrompt as DiscordMessage);
+              } else {
+                console.error(
+                  'Original message not found or not a reply to a message'
+                );
+              }
             } else {
-              console.error(
-                'Original message not found or not a reply to a message'
-              );
+              // if the message is not from Rooivalk, we need to reformat it to be a prompt
+              const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
+              message.content = messageAsPrompt;
+              await this.processMessage(message);
             }
-          } else {
-            // if the message is not from Rooivalk, we need to reformat it to be a prompt
-            const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
-            message.content = messageAsPrompt;
-            await this.processMessage(message);
           }
         }
-      }
-    );
+      );
 
-    this._discordClient.on(
-      DiscordEvents.InteractionCreate,
-      async (interaction: Interaction) => {
-        if (!interaction.isChatInputCommand()) return;
+      this._discordClient.on(
+        DiscordEvents.InteractionCreate,
+        async (interaction: Interaction) => {
+          if (!interaction.isChatInputCommand()) return;
 
-        if (interaction.commandName === 'learn') {
-          const prompt = interaction.options.getString('prompt', true);
-          await interaction.deferReply();
+          if (interaction.commandName === 'learn') {
+            const prompt = interaction.options.getString('prompt', true);
+            await interaction.deferReply();
 
-          try {
-            const response = await this._openaiClient.createResponse(
-              'rooivalk-learn',
-              prompt
-            );
-            const messageOptions = await this.buildMessageReply(response);
-            // Convert MessageReplyOptions to InteractionEditReplyOptions
-            await interaction.editReply({
-              content: messageOptions.content,
-              embeds: messageOptions.embeds,
-              files: messageOptions.files,
-            });
-          } catch (error) {
-            await interaction.editReply({
-              content: this.getRooivalkResponse('error'),
-            });
+            try {
+              const response = await this._openaiClient.createResponse(
+                'rooivalk-learn',
+                prompt
+              );
+              const messageOptions = await this.buildMessageReply(response);
+              // Convert MessageReplyOptions to InteractionEditReplyOptions
+              await interaction.editReply({
+                content: messageOptions.content,
+                embeds: messageOptions.embeds,
+                files: messageOptions.files,
+              });
+            } catch (error) {
+              await interaction.editReply({
+                content: this.getRooivalkResponse('error'),
+              });
+            }
           }
         }
-      }
-    );
+      );
 
-    // finally log in after all event handlers have been set up
-    this._discordClient.login(process.env.DISCORD_TOKEN);
+      // finally log in after all event handlers have been set up
+      // This should be awaited as well if login itself returns a promise,
+      // but the primary goal is to resolve the outer promise on ClientReady.
+      await this._discordClient.login(process.env.DISCORD_TOKEN);
+    });
   }
 }
 
