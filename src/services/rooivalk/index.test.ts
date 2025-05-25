@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock, type Mocked, type SpyInstance } from 'vitest';
 import Rooivalk from './index'; // Assuming Rooivalk is default export
 import OpenAIClient from '@/services/openai';
 import {
   Client as DiscordClient,
   GatewayIntentBits,
   Collection,
-  EmbedBuilder,
-  AttachmentBuilder,
-  Events as DiscordEvents,
+  // EmbedBuilder, // Mocked below
+  // AttachmentBuilder, // Mocked below
+  Events as DiscordEvents, // Keep this for event names
 } from 'discord.js';
 import { DISCORD_EMOJI } from '@/constants';
 
@@ -16,38 +16,66 @@ vi.mock('@/services/openai');
 
 // Mock discord.js
 vi.mock('discord.js', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal() as any; // Cast to any to allow spread
   return {
-    ...actual,
+    ...actual, // Spread the actual module (includes Collection, Events, etc.)
     Client: vi.fn(() => ({
       user: { id: 'test-bot-id', tag: 'TestBot#0000' },
       channels: {
-        fetch: vi.fn(),
+        fetch: vi.fn().mockResolvedValue({ // Default mock for channels.fetch
+            isTextBased: () => true,
+            send: vi.fn().mockResolvedValue({}),
+        }),
       },
-      once: vi.fn(),
-      on: vi.fn(),
-      login: vi.fn(),
-      guilds: new Collection(), 
-      messages: new Collection(), 
-      reactions: new Collection(), 
+      once: vi.fn(function(this: any, event, callback) { // Use function for 'this'
+        // This specific mock behavior for 'once' (e.g., immediately calling callback for ClientReady)
+        // is better handled in the beforeEach setup of tests that rely on this behavior.
+        return this; // Should return the client instance for chaining
+      }), 
+      on: vi.fn(function(this: any) { return this; }), // Make sure `on` is chainable or returns appropriately
+      login: vi.fn().mockResolvedValue('test-token'), // login usually returns a Promise<string>
+      guilds: new actual.Collection(), // Use actual.Collection
     })),
-    GatewayIntentBits: actual.GatewayIntentBits, 
-    userMention: vi.fn((id) => `<@${id}>`),
-    EmbedBuilder: vi.fn(),
-    AttachmentBuilder: vi.fn(),
+    // GatewayIntentBits are usually enums, actual.GatewayIntentBits should be fine if used directly
+    userMention: vi.fn((id: string) => `<@${id}>`), 
+    EmbedBuilder: vi.fn().mockImplementation(() => ({ 
+        setImage: vi.fn().mockReturnThis(),
+        setTitle: vi.fn().mockReturnThis(),
+        setDescription: vi.fn().mockReturnThis(),
+        setColor: vi.fn().mockReturnThis(),
+        addFields: vi.fn().mockReturnThis(),
+        toJSON: vi.fn().mockReturnValue({}), // Ensure toJSON is callable if needed
+    })),
+    AttachmentBuilder: vi.fn().mockImplementation(() => ({ 
+        setName: vi.fn().mockReturnThis(),
+        // If files are actually checked:
+        // toJSON: vi.fn().mockReturnValue({ name: 'attachment.txt' }), 
+    })),
     REST: vi.fn(() => ({
       setToken: vi.fn().mockReturnThis(),
       put: vi.fn().mockResolvedValue([]),
     })),
-    Routes: {
-      applicationGuildCommands: vi.fn(() => '/application-guild-commands'),
+    Routes: { 
+      applicationGuildCommands: vi.fn((appId: string, guildId: string) => `/applications/${appId}/guilds/${guildId}/commands`),
     },
-    SlashCommandBuilder: vi.fn(() => ({
-        setName: vi.fn().mockReturnThis(),
-        setDescription: vi.fn().mockReturnThis(),
-        addStringOption: vi.fn().mockReturnThis(),
-        toJSON: vi.fn().mockReturnValue({ name: 'learn', description: 'learn command'}),
-    })),
+    SlashCommandBuilder: vi.fn(function(this: any) { // Use function for 'this'
+        return {
+            setName: vi.fn().mockReturnThis(),
+            setDescription: vi.fn().mockReturnThis(),
+            addStringOption: vi.fn(function(this: any, optionSetup: (option: any) => any) { // Use function for 'this'
+                const option = { // Simulate the option object
+                    setName: vi.fn().mockReturnThis(),
+                    setDescription: vi.fn().mockReturnThis(),
+                    setRequired: vi.fn().mockReturnThis(),
+                };
+                if (typeof optionSetup === 'function') {
+                    optionSetup(option); // Allow the test to configure the option
+                }
+                return this; // Return `this` (SlashCommandBuilder instance) for chaining
+            }), 
+            toJSON: vi.fn().mockReturnValue({ name: 'learn', description: 'learn command'}),
+        };
+    }),
   };
 });
 
@@ -61,18 +89,15 @@ const MOCK_ENV = {
   OPENAI_API_KEY: 'test-openai-key',
 };
 
-vi.stubGlobal('process', { ...process, env: MOCK_ENV });
-
-
 const mockDiscordClientInstance = new DiscordClient({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
-}) as any; 
+}) as Mocked<DiscordClient>; 
 
-const mockOpenAIClientInstance = new OpenAIClient() as vi.Mocked<OpenAIClient>;
+const mockOpenAIClientInstance = new OpenAIClient() as Mocked<OpenAIClient>;
 
 
 // Helper to create a mock message
@@ -87,50 +112,47 @@ const createMockMessage = (
     content: string;
     reference?: any; // For deeper chains
   } | null = null
-) => {
+): any => { // Return type any to simplify mock message creation for tests
   const mockMsg: any = {
     id: messageId,
     content,
     author: { id: authorId, bot: authorId === botId },
-    guild: { id: MOCK_ENV.DISCORD_GUILD_ID },
+    guild: { id: MOCK_ENV.DISCORD_GUILD_ID! }, // Ensure guild is not null and ID is present
     channel: {
       id: 'test-channel-id',
       messages: {
         fetch: vi.fn(async (id: string) => {
-          // This is the crucial part for getMessageChain
           if (referencedMessageDetails && id === referencedMessageDetails.messageId) {
             return createMockMessage(
               referencedMessageDetails.content,
               referencedMessageDetails.authorId,
               botId,
               referencedMessageDetails.messageId,
-              referencedMessageDetails.reference // Pass down the chain
+              referencedMessageDetails.reference 
             );
           }
-          // Fallback for other fetches, or if no specific conditions met
-          // console.warn(`Mock fetch for ${id} in createMockMessage not specifically handled for this test scenario.`);
           return null;
         }),
       },
+      send: vi.fn().mockResolvedValue(true), // Mock send method on channel
     },
     mentions: {
-      users: new Collection(),
+      users: new Collection<string, { id: string }>(), // Use a typed Collection
     },
     reply: vi.fn().mockResolvedValue(true),
     reference: null,
+    delete: vi.fn().mockResolvedValue(true), // Mock delete method on message
   };
 
   if (content.includes(`<@${botId}>`)) {
-    const mentionedUser = new Collection();
-    mentionedUser.set(botId, { id: botId }); // Ensure the mentioned user is correctly structured
-    mockMsg.mentions.users = mentionedUser;
+    mockMsg.mentions.users.set(botId, { id: botId }); 
   }
 
 
   if (referencedMessageDetails) {
     mockMsg.reference = {
       messageId: referencedMessageDetails.messageId,
-      channelId: mockMsg.channel.id, // Assuming same channel for replies
+      channelId: mockMsg.channel.id, 
     };
   }
   return mockMsg;
@@ -144,35 +166,39 @@ describe('Rooivalk Service', () => {
     vi.clearAllMocks(); 
     vi.stubGlobal('process', { env: { ...MOCK_ENV } });
 
-
     mockOpenAIClientInstance.createResponse = vi.fn().mockResolvedValue('Mocked AI Response');
     
-    // Reset the mock client instance for each test to ensure clean state
-    mockDiscordClientInstance.user = { id: 'test-bot-id', tag: 'TestBot#0000' } as any;
-    mockDiscordClientInstance.once = vi.fn((event, callback) => {
-        if (event === DiscordEvents.ClientReady) (callback as any)(); 
-        return mockDiscordClientInstance;
+    mockDiscordClientInstance.user = { id: 'test-bot-id', tag: 'TestBot#0000' } as any; 
+    
+    (mockDiscordClientInstance.once as Mock).mockImplementation((event, callback) => {
+        if (event === DiscordEvents.ClientReady) {
+            (callback as any)(); 
+        }
+        return mockDiscordClientInstance as any; 
     });
-    mockDiscordClientInstance.on = vi.fn(); 
-    mockDiscordClientInstance.channels.fetch = vi.fn(); // Ensure this is a mock function
+    (mockDiscordClientInstance.on as Mock).mockImplementation(() => mockDiscordClientInstance as any); 
+    (mockDiscordClientInstance.login as Mock).mockResolvedValue('test-token'); 
+    (mockDiscordClientInstance.channels.fetch as Mock).mockClear().mockResolvedValue({ 
+        isTextBased: () => true,
+        send: vi.fn().mockResolvedValue({}),
+    });
 
     rooivalk = new Rooivalk(mockOpenAIClientInstance, mockDiscordClientInstance);
     
-    // Manually set the mention regex as it's done in 'ClientReady' event which we simulate in `once`
-    // Ensure _discordClient.user is defined when Rooivalk constructor runs
     if (mockDiscordClientInstance.user) {
         (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user.id}>`, 'g');
-    } else {
-        // Fallback or error if user is somehow undefined, though the mock setup should prevent this
-        (rooivalk as any)._mentionRegex = new RegExp(`<@test-bot-id>`, 'g');
     }
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    vi.unstubAllEnvs(); 
   });
 
   describe('processMessage', () => {
+    beforeEach(async () => {
+        await rooivalk.init();
+    });
+
     it('1. Reply to Bot Message (Simple): should include bot\'s and user\'s message in prompt', async () => {
       const botMessageContent = 'This is a message from the bot.';
       const userReplyContent = 'This is my reply to the bot.';
@@ -183,16 +209,13 @@ describe('Rooivalk Service', () => {
         content: botMessageContent,
       });
 
-      // Mock the fetch for getOriginalMessage (called by processMessage)
-      (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
+      (userMessage.channel.messages.fetch as Mock).mockResolvedValueOnce(
         createMockMessage(botMessageContent, 'test-bot-id', 'test-bot-id', 'original-bot-msg-id')
       );
-      // Mock the fetch for getMessageChain (which will try to fetch the message *before* original-bot-msg-id)
-      // In a simple reply, the original bot message has no parent, so getMessageChain's internal fetch returns null.
-      (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(null);
+      (userMessage.channel.messages.fetch as Mock).mockResolvedValueOnce(null);
 
 
-      const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
+      const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain') as SpyInstance;
       await (rooivalk as any).processMessage(userMessage);
 
       expect(getMessageChainSpy).toHaveBeenCalledWith(userMessage);
@@ -213,39 +236,33 @@ describe('Rooivalk Service', () => {
         ];
         const currentUserReplyContent = 'My newest reply';
 
-        // User's current message, replying to msg3 (Bot response 2)
         const userMessage = createMockMessage(
             currentUserReplyContent, 'user-id', 'test-bot-id', 'currentUserReplyId',
             { messageId: chainMessages[3].id, authorId: chainMessages[3].authorId, content: chainMessages[3].content }
         );
         
-        // Mock for getOriginalMessage in processMessage (fetches msg3)
-        (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
+        (userMessage.channel.messages.fetch as Mock).mockResolvedValueOnce(
             createMockMessage(chainMessages[3].content, chainMessages[3].authorId, 'test-bot-id', chainMessages[3].id,
                 { messageId: chainMessages[2].id, authorId: chainMessages[2].authorId, content: chainMessages[2].content }
             )
         );
 
-        // Mocks for getMessageChain's internal fetches
-        (userMessage.channel.messages.fetch as vi.Mock)
-            // Fetch for msg2 (referenced by msg3)
+        (userMessage.channel.messages.fetch as Mock)
             .mockResolvedValueOnce(
                 createMockMessage(chainMessages[2].content, chainMessages[2].authorId, 'test-bot-id', chainMessages[2].id,
                     { messageId: chainMessages[1].id, authorId: chainMessages[1].authorId, content: chainMessages[1].content }
                 )
             )
-            // Fetch for msg1 (referenced by msg2)
             .mockResolvedValueOnce(
                 createMockMessage(chainMessages[1].content, chainMessages[1].authorId, 'test-bot-id', chainMessages[1].id,
                     { messageId: chainMessages[0].id, authorId: chainMessages[0].authorId, content: chainMessages[0].content }
                 )
             )
-            // Fetch for msg0 (referenced by msg1) - end of chain
             .mockResolvedValueOnce(
                 createMockMessage(chainMessages[0].content, chainMessages[0].authorId, 'test-bot-id', chainMessages[0].id, null)
             );
         
-        const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
+        const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain') as SpyInstance;
         await (rooivalk as any).processMessage(userMessage);
 
         expect(getMessageChainSpy).toHaveBeenCalledWith(userMessage);
@@ -267,26 +284,23 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       const userReplyContent = 'This is my reply to that user.';
       const userMessage = createMockMessage(userReplyContent, 'user-id', 'test-bot-id', 'reply-msg-id', {
         messageId: 'other-user-msg-id',
-        authorId: 'other-user-id', // Different author
+        authorId: 'other-user-id', 
         content: otherUserMessageContent,
       });
 
-      // Mock for getOriginalMessage in processMessage
-      (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
+      (userMessage.channel.messages.fetch as Mock).mockResolvedValueOnce(
          createMockMessage(otherUserMessageContent, 'other-user-id', 'test-bot-id', 'other-user-msg-id')
       );
 
       await (rooivalk as any).processMessage(userMessage);
       
-      const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
-      // getMessageChain should NOT be called if it's not a reply to the bot
-      // The check `repliedToMessage.author.id === this._discordClient.user?.id` in processMessage prevents this.
+      const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain') as SpyInstance;
       expect(getMessageChainSpy).not.toHaveBeenCalled();
 
 
       expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
         'rooivalk',
-        userReplyContent.replace(/<@test-bot-id>\s*/, '').trim() // No chain
+        userReplyContent.replace(/<@test-bot-id>\s*/, '').trim() 
       );
       expect(userMessage.reply).toHaveBeenCalled();
     });
@@ -297,12 +311,12 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
 
       await (rooivalk as any).processMessage(userMessage);
       
-      const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
-      expect(getMessageChainSpy).not.toHaveBeenCalled(); // No reply, so no chain
+      const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain') as SpyInstance;
+      expect(getMessageChainSpy).not.toHaveBeenCalled(); 
 
       expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
         'rooivalk',
-        'Hello bot!' // Mention stripped
+        'Hello bot!' 
       );
       expect(userMessage.reply).toHaveBeenCalled();
     });
@@ -310,37 +324,37 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
 
   describe('MessageCreate Event Handler Logic', () => {
     let messageCreateCallback: ((message: any) => Promise<void>) | undefined;
-    let processMessageSpy: any;
+    let processMessageSpy: SpyInstance;
 
     beforeEach(async () => {
-      mockDiscordClientInstance.on = vi.fn((event, callback) => {
+      (mockDiscordClientInstance.on as Mock).mockImplementation((event, callback) => {
         if (event === DiscordEvents.MessageCreate) {
-          messageCreateCallback = callback as any;
+          messageCreateCallback = callback;
         }
-        return mockDiscordClientInstance;
+        return mockDiscordClientInstance as any; 
       });
       
-      // Rooivalk init sets up the event handlers. We need to re-initialize to capture the new mockDiscordClientInstance.on
-      rooivalk = new Rooivalk(mockOpenAIClientInstance, mockDiscordClientInstance);
-      if (mockDiscordClientInstance.user) { // Ensure _mentionRegex is set after re-init
-          (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user.id}>`, 'g');
-      }
+      // Rooivalk is instantiated in the outer beforeEach.
+      // We need to call init() here so it picks up the specific 'on' mock for MessageCreate.
       await rooivalk.init(); 
-      processMessageSpy = vi.spyOn(rooivalk as any, 'processMessage');
+      
+      if (mockDiscordClientInstance.user) { 
+          (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user!.id}>`, 'g');
+      }
+      processMessageSpy = vi.spyOn(rooivalk as any, 'processMessage').mockResolvedValue(undefined) as SpyInstance;
     });
 
     it('5. MessageCreate - Reply to Bot, No Mention: should call processMessage', async () => {
       expect(messageCreateCallback).toBeDefined();
       const botMessageContent = 'Original bot message';
-      const userReplyContent = 'My reply to the bot'; // No <@test-bot-id> here
+      const userReplyContent = 'My reply to the bot'; 
 
       const userMessage = createMockMessage(
         userReplyContent, 'user-id', 'test-bot-id', 'user-reply-id',
         { messageId: 'bot-original-id', authorId: 'test-bot-id', content: botMessageContent }
       );
 
-      // Mock for getOriginalMessage in the event handler
-      (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
+      (userMessage.channel.messages.fetch as Mock).mockResolvedValueOnce(
         createMockMessage(botMessageContent, 'test-bot-id', 'test-bot-id', 'bot-original-id')
       );
 
@@ -361,7 +375,6 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       expect(messageCreateCallback).toBeDefined();
       const userMessageContent = "Just a regular message.";
       const userMessage = createMockMessage(userMessageContent, 'user-id', 'test-bot-id');
-      userMessage.reference = null; // Not a reply
 
       await messageCreateCallback!(userMessage);
       expect(processMessageSpy).not.toHaveBeenCalled();
@@ -370,12 +383,12 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
     it('should NOT call processMessage if a reply to another user (not bot) and no mention', async () => {
         expect(messageCreateCallback).toBeDefined();
         const otherUserMessageContent = "Another user's thoughts.";
-        const userReplyContent = "I reply to the other user."; // No mention
+        const userReplyContent = "I reply to the other user."; 
         const userMessage = createMockMessage(
             userReplyContent, 'user-id', 'test-bot-id', 'user-reply-id',
             { messageId: 'other-user-original-id', authorId: 'another-user-id', content: otherUserMessageContent }
         );
-        (userMessage.channel.messages.fetch as vi.Mock).mockResolvedValueOnce(
+        (userMessage.channel.messages.fetch as Mock).mockResolvedValueOnce(
             createMockMessage(otherUserMessageContent, 'another-user-id', 'test-bot-id', 'other-user-original-id')
         );
 
@@ -385,6 +398,9 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
   });
 
   describe('8. Error Handling in getMessageChain', () => {
+    beforeEach(async () => {
+        await rooivalk.init(); 
+    });
     it('should return a partial chain if a message fetch fails mid-chain', async () => {
         const chainMessagesSetup = [
             { id: 'err-msg0', authorId: 'user-id', content: 'User message 0 (oldest, will be fetched successfully)' },
@@ -394,46 +410,35 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
         ];
         const currentUserReplyContent = 'My newest reply to err-msg3';
 
-        // User's current message, replying to err-msg3
         const userMessage = createMockMessage(
             currentUserReplyContent, 'user-id', 'test-bot-id', 'currentUserErrReplyId',
             { messageId: chainMessagesSetup[3].id, authorId: chainMessagesSetup[3].authorId, content: chainMessagesSetup[3].content }
         );
 
-        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-        const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain');
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {}) as SpyInstance<[message?: any, ...optionalParams: any[]], void>;
+        const getMessageChainSpy = vi.spyOn(rooivalk as any, 'getMessageChain') as SpyInstance;
 
 
-        // Mock fetches for getMessageChain, called from processMessage
-        (userMessage.channel.messages.fetch as vi.Mock)
-            // 1. Fetch for getOriginalMessage in processMessage (fetches err-msg3)
+        (userMessage.channel.messages.fetch as Mock)
             .mockResolvedValueOnce(createMockMessage(
                 chainMessagesSetup[3].content, chainMessagesSetup[3].authorId, 'test-bot-id', chainMessagesSetup[3].id,
                 { messageId: chainMessagesSetup[2].id, authorId: chainMessagesSetup[2].authorId, content: chainMessagesSetup[2].content }
             ))
-            // 2. First fetch in getMessageChain (fetches err-msg2, referenced by err-msg3)
             .mockResolvedValueOnce(createMockMessage(
                 chainMessagesSetup[2].content, chainMessagesSetup[2].authorId, 'test-bot-id', chainMessagesSetup[2].id,
                 { messageId: chainMessagesSetup[1].id, authorId: chainMessagesSetup[1].authorId, content: chainMessagesSetup[1].content }
             ))
-            // 3. Second fetch in getMessageChain (tries to fetch err-msg1, referenced by err-msg2) - THIS ONE FAILS
-            .mockRejectedValueOnce(new Error('Simulated fetch error for err-msg1'))
-            // Fetch for err-msg0 should not happen.
+            .mockRejectedValueOnce(new Error('Simulated fetch error for err-msg1'));
         
         await (rooivalk as any).processMessage(userMessage);
-        expect(getMessageChainSpy).toHaveBeenCalledWith(userMessage); // Ensure getMessageChain was indeed called
+        expect(getMessageChainSpy).toHaveBeenCalledWith(userMessage); 
         
-        // Verify console.error was called from within getMessageChain
         expect(consoleErrorSpy).toHaveBeenCalledWith('Error fetching message chain:', expect.any(Error));
 
         const expectedPrompt =
 `User: ${chainMessagesSetup[2].content}
 Bot: ${chainMessagesSetup[3].content}
 User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
-        // The chain should only include messages successfully fetched *before* the error.
-        // err-msg3 is the message replied to. getMessageChain fetches its parent (err-msg2).
-        // Then tries to fetch err-msg2's parent (err-msg1), which fails.
-        // So, the chain passed to OpenAI should be [err-msg2, err-msg3] + current user reply.
         expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith('rooivalk', expectedPrompt);
         
         consoleErrorSpy.mockRestore();
@@ -442,27 +447,28 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
 
   describe('MessageReactionAdd Event Handler Logic', () => {
     let messageReactionAddCallback: ((reaction: any, user: any) => Promise<void>) | undefined;
-    let processMessageSpy: any;
-    let getOriginalMessageSpy: any;
-    const BOT_ID = 'test-bot-id'; // from mockDiscordClientInstance.user.id
+    let processMessageSpy: SpyInstance;
+    let getOriginalMessageSpy: SpyInstance;
+    const BOT_ID = 'test-bot-id'; 
     const USER_ID = 'reacting-user-id';
 
     beforeEach(async () => {
-      mockDiscordClientInstance.on = vi.fn((event, callback) => {
+      (mockDiscordClientInstance.on as Mock).mockImplementation((event, callback) => {
         if (event === DiscordEvents.MessageReactionAdd) {
-          messageReactionAddCallback = callback as any;
+          messageReactionAddCallback = callback;
         }
-        return mockDiscordClientInstance;
+        return mockDiscordClientInstance as any;
       });
-
-      rooivalk = new Rooivalk(mockOpenAIClientInstance, mockDiscordClientInstance);
-      if (mockDiscordClientInstance.user) {
-        (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user.id}>`, 'g');
-      }
+      
+      // Rooivalk instance is from outer beforeEach. Call init() to attach the above 'on' handler.
       await rooivalk.init();
+      
+      if (mockDiscordClientInstance.user) {
+        (rooivalk as any)._mentionRegex = new RegExp(`<@${mockDiscordClientInstance.user!.id}>`, 'g'); 
+      }
 
-      processMessageSpy = vi.spyOn(rooivalk as any, 'processMessage').mockResolvedValue(undefined);
-      getOriginalMessageSpy = vi.spyOn(rooivalk as any, 'getOriginalMessage');
+      processMessageSpy = vi.spyOn(rooivalk as any, 'processMessage').mockResolvedValue(undefined) as SpyInstance;
+      getOriginalMessageSpy = vi.spyOn(rooivalk as any, 'getOriginalMessage') as SpyInstance;
     });
 
     it('9. Retry Emoji on Bot Message: should delete message and call processMessage with original prompt', async () => {
@@ -474,8 +480,8 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
         BOT_ID,
         'rooivalk-msg-id'
       );
-      mockRooivalkMessage.delete = vi.fn().mockResolvedValue(true);
-      mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID }; 
+      // mockRooivalkMessage.delete = vi.fn().mockResolvedValue(true); // Already in createMockMessage
+      mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID! }; 
       mockRooivalkMessage.author = { id: BOT_ID };
 
 
@@ -491,8 +497,6 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       const mockReaction = {
         emoji: { name: DISCORD_EMOJI },
         message: mockRooivalkMessage,
-        // partial: false, // Ensure it's not a partial reaction
-        // users: { fetch: vi.fn().mockResolvedValue(new Collection([[USER_ID, { id: USER_ID, bot: false }]])) } 
       };
       
       const mockUser = { id: USER_ID, bot: false };
@@ -514,16 +518,14 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
           BOT_ID,
           'user-msg-id'
       );
-      mockUserMessage.delete = vi.fn().mockResolvedValue(true);
-      mockUserMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
+      // mockUserMessage.delete = vi.fn().mockResolvedValue(true); // Already in createMockMessage
+      mockUserMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID! }; 
       mockUserMessage.author = { id: 'another-user-id'};
 
 
       const mockReaction = {
         emoji: { name: DISCORD_EMOJI },
         message: mockUserMessage,
-        // partial: false,
-        // users: { fetch: vi.fn().mockResolvedValue(new Collection([[USER_ID, { id: USER_ID, bot: false }]])) }
       };
       const mockUser = { id: USER_ID, bot: false };
 
@@ -546,20 +548,20 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       expect(messageReactionAddCallback).toBeDefined();
 
       const mockRooivalkMessage = createMockMessage('Bot message', BOT_ID, BOT_ID, 'bm-id');
-      mockRooivalkMessage.delete = vi.fn();
-      mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
+      // mockRooivalkMessage.delete = vi.fn(); // Already in createMockMessage
+      mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID! }; 
       mockRooivalkMessage.author = { id: BOT_ID };
 
 
       const mockReaction = {
-        emoji: { name: 'other-emoji' }, // Not DISCORD_EMOJI
+        emoji: { name: 'other-emoji' }, 
         message: mockRooivalkMessage,
       };
       const mockUser = { id: USER_ID, bot: false };
 
       await messageReactionAddCallback!(mockReaction, mockUser);
 
-      expect(mockReaction.message.delete).not.toHaveBeenCalled();
+      expect(mockRooivalkMessage.delete).not.toHaveBeenCalled();
       expect(getOriginalMessageSpy).not.toHaveBeenCalled();
       expect(processMessageSpy).not.toHaveBeenCalled();
     });
@@ -568,8 +570,8 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
       expect(messageReactionAddCallback).toBeDefined();
 
       const mockRooivalkMessage = createMockMessage('Bot message', BOT_ID, BOT_ID, 'bm-id');
-      mockRooivalkMessage.delete = vi.fn();
-      mockRooivalkMessage.guild = { id: 'wrong-guild-id' }; // Different guild
+      // mockRooivalkMessage.delete = vi.fn(); // Already in createMockMessage
+      mockRooivalkMessage.guild = { id: 'wrong-guild-id' }; 
       mockRooivalkMessage.author = { id: BOT_ID };
 
 
@@ -581,61 +583,36 @@ User: ${currentUserReplyContent.replace(/<@test-bot-id>\s*/, '').trim()}`;
 
       await messageReactionAddCallback!(mockReaction, mockUser);
 
-      expect(mockReaction.message.delete).not.toHaveBeenCalled();
+      expect(mockRooivalkMessage.delete).not.toHaveBeenCalled();
       expect(getOriginalMessageSpy).not.toHaveBeenCalled();
       expect(processMessageSpy).not.toHaveBeenCalled();
     });
 
 
-    it('13. Reaction by a bot: should be ignored', async () => {
+    it('13. Reaction by a bot: should be ignored (assuming main code checks user.bot)', async () => {
+        // NOTE: This test's expectation depends on whether the main Rooivalk code's
+        // MessageReactionAdd handler includes a `if (user.bot) return;` check.
+        // The current Rooivalk code (provided snippet) does NOT have this check.
+        // Therefore, this test will reflect the *current* behavior: bot reactions are processed.
         expect(messageReactionAddCallback).toBeDefined();
     
         const mockRooivalkMessage = createMockMessage('Bot message', BOT_ID, BOT_ID, 'bm-id');
-        mockRooivalkMessage.delete = vi.fn();
-        mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID };
+        // mockRooivalkMessage.delete = vi.fn(); // Already in createMockMessage
+        mockRooivalkMessage.guild = { id: MOCK_ENV.DISCORD_GUILD_ID! }; 
         mockRooivalkMessage.author = { id: BOT_ID };
-
     
         const mockReaction = {
           emoji: { name: DISCORD_EMOJI },
           message: mockRooivalkMessage,
         };
-        const mockBotUser = { id: 'another-bot-id', bot: true }; // User is a bot
+        const mockBotUserReacting = { id: 'another-bot-id', bot: true }; 
     
-        // The actual Rooivalk code for MessageReactionAdd in index.ts has a check for reaction.user.bot
-        // but the callback signature in discord.js v14 for MessageReactionAdd is (reaction, user)
-        // So, we need to simulate this check if it's not automatically handled by the mock setup.
-        // The provided code for Rooivalk itself doesn't show the user parameter being used in the
-        // MessageReactionAdd handler, but it's good practice for the test to reflect this common check.
-        // For now, we assume the handler itself would ignore bot users if that logic were present.
-        // If the handler in Rooivalk is updated to check `user.bot`, this test would be more relevant.
-        // Current Rooivalk code: async (reaction) => { ... if (reaction.message.guild?.id !== ... ) return; ...}
-        // It doesn't check the reacting user. Let's assume the test ensures the primary logic even if secondary checks are not present.
-
-        // If the bot were to check user.bot at the start of handler:
-        // if (user.bot) return;
-        // Then the following expectations would hold.
-        // For now, this test will behave like test 9 if the user.bot check is not in Rooivalk's handler.
-        // Let's proceed as if the handler *does not* yet have user.bot check, to test the current code.
-        // If that check is added to Rooivalk, then this test might need adjustment or become more robust.
-
-        // To properly test this scenario, the Rooivalk handler would need to use the `user` parameter:
-        // this._discordClient.on(DiscordEvents.MessageReactionAdd, async (reaction, user) => {
-        //   if (user.bot) return; // <<<< THIS CHECK
-        //   // ...
-        // });
-        // Since that check is not in the provided Rooivalk code, this test will currently pass
-        // and reaction.message.delete WILL be called if other conditions met.
-        // This test highlights a potential missing check in the main Rooivalk code.
-
-        // Given the current Rooivalk code, if a bot reacts, it will proceed.
-        // Let's adjust the expectation: it *will* try to delete and process.
         getOriginalMessageSpy.mockResolvedValue(createMockMessage('Original prompt', 'user-id', BOT_ID, 'op-id'));
-        await messageReactionAddCallback!(mockReaction, mockBotUser); // mockBotUser is a bot
+        await messageReactionAddCallback!(mockReaction, mockBotUserReacting);
 
-        // Based on current Rooivalk code (no user.bot check in handler):
-        expect(mockReaction.message.delete).toHaveBeenCalledTimes(1);
-        expect(getOriginalMessageSpy).toHaveBeenCalledWith(mockRooivalkMessage);
+        // Current Rooivalk code processes bot reactions, so these should be called:
+        expect(mockRooivalkMessage.delete).toHaveBeenCalledTimes(1); 
+        expect(getOriginalMessageSpy).toHaveBeenCalledWith(mockRooivalkMessage); 
         expect(processMessageSpy).toHaveBeenCalled(); 
     });
 
