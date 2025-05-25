@@ -311,7 +311,7 @@ class Rooivalk {
   }
 
   public init(): Promise<void> {
-    return new Promise(async (resolve) => {
+    return new Promise(async (resolve, reject) => {
       this._discordClient.once(DiscordEvents.ClientReady, async () => {
         console.log(`🤖 Logged in as ${this._discordClient.user?.tag}`);
 
