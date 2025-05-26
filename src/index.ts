@@ -19,7 +19,7 @@ async function main() {
   initCronTasks(rooivalk); // Call this after init completes
 }
 
-main().catch(error => {
-  console.error("Application failed to initialize:", error);
+main().catch((error) => {
+  console.error('Application failed to initialize:', error);
   process.exit(1);
 });

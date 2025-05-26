@@ -144,12 +144,18 @@ class Rooivalk {
 
     try {
       // Start with the message currently being replied to
-      if (nextMessageToFetch.reference && nextMessageToFetch.reference.messageId) {
+      if (
+        nextMessageToFetch.reference &&
+        nextMessageToFetch.reference.messageId
+      ) {
         let referencedMessage = await nextMessageToFetch.channel.messages.fetch(
           nextMessageToFetch.reference.messageId
         );
 
-        while (referencedMessage && messageChain.length < MAX_MESSAGE_CHAIN_LENGTH) {
+        while (
+          referencedMessage &&
+          messageChain.length < MAX_MESSAGE_CHAIN_LENGTH
+        ) {
           messageChain.unshift({
             author:
               referencedMessage.author.id === this._discordClient.user?.id
@@ -158,7 +164,10 @@ class Rooivalk {
             content: referencedMessage.content,
           });
 
-          if (referencedMessage.reference && referencedMessage.reference.messageId) {
+          if (
+            referencedMessage.reference &&
+            referencedMessage.reference.messageId
+          ) {
             referencedMessage = await referencedMessage.channel.messages.fetch(
               referencedMessage.reference.messageId
             );
@@ -183,7 +192,10 @@ class Rooivalk {
       // Check if the message is a reply and if it's replying to the bot
       if (message.reference && message.reference.messageId) {
         const repliedToMessage = await this.getOriginalMessage(message);
-        if (repliedToMessage && repliedToMessage.author.id === this._discordClient.user?.id) {
+        if (
+          repliedToMessage &&
+          repliedToMessage.author.id === this._discordClient.user?.id
+        ) {
           const messageChain = await this.getMessageChain(message);
           if (messageChain.length > 0) {
             const formattedChain = messageChain
@@ -343,7 +355,10 @@ class Rooivalk {
           const repliedToMessage = await this.getOriginalMessage(
             message as DiscordMessage
           );
-          if (repliedToMessage && repliedToMessage.author.id === this._discordClient.user?.id) {
+          if (
+            repliedToMessage &&
+            repliedToMessage.author.id === this._discordClient.user?.id
+          ) {
             isReplyToBot = true;
           }
         }
