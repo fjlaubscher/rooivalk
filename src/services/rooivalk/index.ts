@@ -1,7 +1,7 @@
 import { Events as DiscordEvents } from 'discord.js';
-import type { Interaction } from 'discord.js';
+import type { ChatInputCommandInteraction, Interaction } from 'discord.js';
 
-import { DISCORD_EMOJI } from '@/constants';
+import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
 import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
@@ -90,6 +90,62 @@ class Rooivalk {
     } catch (err) {
       console.error('Error sending message to startup channel:', err);
       return null;
+    }
+  }
+
+  private async handleLearnCommand(
+    interaction: ChatInputCommandInteraction
+  ): Promise<void> {
+    const prompt = interaction.options.getString('prompt', true);
+    await interaction.deferReply();
+
+    try {
+      const response = await this._openaiClient.createResponse(
+        'rooivalk-learn',
+        prompt
+      );
+      const messageOptions = this._discord.buildMessageReply(response);
+      // Convert MessageReplyOptions to InteractionEditReplyOptions
+      await interaction.editReply({
+        content: messageOptions.content,
+        files: messageOptions.files,
+      });
+    } catch (error) {
+      console.error('Error handling learn command:', error);
+
+      await interaction.editReply({
+        content: this._discord.getRooivalkResponse('error'),
+      });
+    }
+  }
+
+  private async handleImageCommand(
+    interaction: ChatInputCommandInteraction
+  ): Promise<void> {
+    const prompt = interaction.options.getString('prompt', true);
+    await interaction.deferReply();
+
+    try {
+      const base64Image = await this._openaiClient.createImage(prompt);
+
+      if (base64Image) {
+        const message = this._discord.buildImageReply(prompt, base64Image);
+
+        await interaction.editReply({
+          embeds: message.embeds,
+          files: message.files,
+        });
+      } else {
+        await interaction.editReply({
+          content: this._discord.getRooivalkResponse('error'),
+        });
+      }
+    } catch (error) {
+      console.error('Error handling image command:', error);
+
+      await interaction.editReply({
+        content: this._discord.getRooivalkResponse('error'),
+      });
     }
   }
 
@@ -188,28 +244,20 @@ class Rooivalk {
         async (interaction: Interaction) => {
           if (!interaction.isChatInputCommand()) return;
 
-          if (interaction.commandName === 'learn') {
-            const prompt = interaction.options.getString('prompt', true);
-            await interaction.deferReply();
-
-            try {
-              const response = await this._openaiClient.createResponse(
-                'rooivalk-learn',
-                prompt
-              );
-              const messageOptions =
-                await this._discord.buildMessageReply(response);
-              // Convert MessageReplyOptions to InteractionEditReplyOptions
-              await interaction.editReply({
-                content: messageOptions.content,
-                embeds: messageOptions.embeds,
-                files: messageOptions.files,
+          switch (interaction.commandName) {
+            case DISCORD_COMMANDS.LEARN:
+              await this.handleLearnCommand(interaction);
+              break;
+            case DISCORD_COMMANDS.IMAGE:
+              await this.handleImageCommand(interaction);
+              break;
+            default:
+              console.error(`Invalid command received: ${interaction.commandName}`);
+              await interaction.reply({
+                content: `❌ Invalid command: \`${interaction.commandName}\`. Please use a valid command.`,
+                ephemeral: true,
               });
-            } catch (error) {
-              await interaction.editReply({
-                content: this._discord.getRooivalkResponse('error'),
-              });
-            }
+              return;
           }
         }
       );

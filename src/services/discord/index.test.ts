@@ -88,13 +88,10 @@ describe('DiscordService', () => {
     });
 
     describe('buildMessageReply', () => {
-      it('should build a message reply with embeds and attachments', async () => {
+      it('should build a message reply with attachments', () => {
         const longContent = 'a'.repeat(2100);
-        const contentWithImage = 'Hello ![alt](https://img.com/img.png)';
-        const reply1 = await service.buildMessageReply(longContent);
-        expect(reply1.files).toBeTruthy();
-        const reply2 = await service.buildMessageReply(contentWithImage);
-        expect(reply2.embeds).toBeTruthy();
+        const reply = service.buildMessageReply(longContent);
+        expect(reply.files).toBeTruthy();
       });
     });
 

@@ -6,6 +6,7 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  EmbedBuilder,
 } from 'discord.js';
 import type {
   Message,
@@ -18,12 +19,11 @@ import type {
 import {
   DISCORD_MESSAGE_LIMIT,
   DISCORD_MAX_MESSAGE_CHAIN_LENGTH,
+  DISCORD_COMMAND_DEFINITIONS,
+  ROOIVALK_ERROR_MESSAGES,
+  ROOIVALK_EXCEEDED_DISCORD_LIMIT_MESSAGES,
+  ROOIVALK_GREETING_MESSAGES,
 } from '@/constants';
-import {
-  ERROR_MESSAGES,
-  EXCEEDED_DISCORD_LIMIT_MESSAGES,
-  GREETING_MESSAGES,
-} from '@/services/rooivalk/constants';
 
 export type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
 export type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
@@ -67,13 +67,13 @@ export class DiscordService {
     let arrayToUse: string[] = [];
     switch (type) {
       case 'error':
-        arrayToUse = ERROR_MESSAGES;
+        arrayToUse = ROOIVALK_ERROR_MESSAGES;
         break;
       case 'greeting':
-        arrayToUse = GREETING_MESSAGES;
+        arrayToUse = ROOIVALK_GREETING_MESSAGES;
         break;
       case 'discordLimit':
-        arrayToUse = EXCEEDED_DISCORD_LIMIT_MESSAGES;
+        arrayToUse = ROOIVALK_EXCEEDED_DISCORD_LIMIT_MESSAGES;
         break;
       default:
         throw new Error('Invalid response type');
@@ -99,27 +99,11 @@ export class DiscordService {
     }
   }
 
-  public async buildMessageReply(
-    content: string,
-    allowedMentions: string[] = []
-  ): Promise<MessageReplyOptions> {
-    const imageRegex =
-      /!\[.*?\]\((https?:\/\/.*?\.(?:png|jpe?g|gif|webp)(?:\?.*?)?)\)/g;
-    const imageMatches = [...content.matchAll(imageRegex)];
-    const imageUrls = imageMatches
-      .map((match) => match[1])
-      .filter((url): url is string => typeof url === 'string');
-
-    const contentWithoutImages = content.replace(imageRegex, '').trim();
-    const embeds = imageUrls.map((url) => ({ image: { url } }));
-
-    if (contentWithoutImages.length > DISCORD_MESSAGE_LIMIT) {
-      const attachment = new AttachmentBuilder(
-        Buffer.from(contentWithoutImages, 'utf-8'),
-        {
-          name: 'rooivalk.md',
-        }
-      );
+  public buildMessageReply(content: string, allowedMentions: string[] = []) {
+    if (content.length > DISCORD_MESSAGE_LIMIT) {
+      const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), {
+        name: 'rooivalk.md',
+      });
 
       return {
         content: this.getRooivalkResponse('discordLimit'),
@@ -127,16 +111,33 @@ export class DiscordService {
         allowedMentions: {
           users: allowedMentions,
         },
-        embeds: embeds.length > 0 ? embeds : undefined,
       };
     }
 
     return {
-      content: contentWithoutImages,
+      content: content,
       allowedMentions: {
         users: allowedMentions,
       },
-      embeds: embeds.length > 0 ? embeds : undefined,
+    };
+  }
+
+  public buildImageReply(prompt: string, base64Image: string) {
+    return {
+      files: [
+        new AttachmentBuilder(Buffer.from(base64Image, 'base64'), {
+          name: 'rooivalk.jpeg',
+        }),
+      ],
+      embeds: [
+        new EmbedBuilder({
+          title: 'Image by @rooivalk',
+          description: prompt,
+          image: {
+            url: 'attachment://rooivalk.jpeg',
+          },
+        }),
+      ],
     };
   }
 
@@ -211,19 +212,32 @@ export class DiscordService {
     const rest = new REST({ version: '10' }).setToken(
       process.env.DISCORD_TOKEN!
     );
-    const commands = [
-      new SlashCommandBuilder()
-        .setName('learn')
-        .setDescription('Learn with @rooivalk!')
-        .addStringOption((option) =>
-          option
-            .setName('prompt')
-            .setDescription('Your question or prompt')
-            .setRequired(true)
-        )
-        .toJSON(),
-    ];
+
     try {
+      const commands = Object.keys(DISCORD_COMMAND_DEFINITIONS)
+        .map((key) => {
+          const def = DISCORD_COMMAND_DEFINITIONS[key];
+          if (!def) {
+            return false;
+          }
+
+          const builder = new SlashCommandBuilder();
+          builder.setName(key);
+          builder.setDescription(def.description);
+
+          def.parameters.forEach((param) => {
+            builder.addStringOption((option) =>
+              option
+                .setName(param.name)
+                .setDescription(param.description)
+                .setRequired(param.required)
+            );
+          });
+
+          return builder.toJSON();
+        })
+        .filter(Boolean);
+
       await rest.put(
         Routes.applicationGuildCommands(
           process.env.DISCORD_APP_ID!,
@@ -231,7 +245,7 @@ export class DiscordService {
         ),
         { body: commands }
       );
-      console.log('Successfully registered /learn slash command.');
+      console.log('Successfully registered slash commands.');
     } catch (error) {
       console.error('Error registering slash command:', error);
     }

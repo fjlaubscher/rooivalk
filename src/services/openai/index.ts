@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import {
   OPENAI_CONTEXT_ROOIVALK,
   OPENAI_CONTEXT_ROOIVALK_LEARN,
-} from './constants';
+} from './context';
 
 type Persona = 'rooivalk' | 'rooivalk-learn';
 
@@ -14,15 +14,18 @@ type Tool = {
 
 class OpenAIClient {
   private _model: string;
+  private _imageModel: string;
   private _openai: OpenAI;
   private _tools: Tool[];
 
-  constructor(model?: string) {
+  constructor(model?: string, imageModel?: string) {
     this._openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY!,
     });
 
     this._model = model || process.env.OPENAI_MODEL!;
+    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
+
     this._tools = [
       {
         type: 'web_search_preview',
@@ -59,6 +62,32 @@ class OpenAIClient {
       }
 
       throw new Error('Error creating chat completion');
+    }
+  }
+
+  async createImage(prompt: string) {
+    try {
+      const result = await this._openai.images.generate({
+        model: this._imageModel,
+        prompt,
+        size: '512x512',
+        n: 1,
+        output_format: 'jpeg',
+      });
+
+      if (result.data && result.data[0]) {
+        return result.data[0].b64_json;
+      }
+
+      console.log('Failed to generate image', JSON.stringify(result));
+      return null;
+    } catch (error) {
+      console.error('Error with OpenAI:', error);
+      if (error instanceof OpenAI.OpenAIError) {
+        throw new Error(error.message);
+      }
+
+      throw new Error('Error creating image');
     }
   }
 }
