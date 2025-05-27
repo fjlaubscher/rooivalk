@@ -1,4 +1,5 @@
 export const DISCORD_MESSAGE_LIMIT = 2000;
+export const DISCORD_MAX_MESSAGE_CHAIN_LENGTH = 10;
 export const DISCORD_EMOJI = 'rooivalk';
 
 export const REQUIRED_ENV = [
