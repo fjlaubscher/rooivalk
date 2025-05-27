@@ -70,7 +70,6 @@ class OpenAIClient {
       const result = await this._openai.images.generate({
         model: this._imageModel,
         prompt,
-        size: '512x512',
         n: 1,
         output_format: 'jpeg',
       });

@@ -252,7 +252,9 @@ class Rooivalk {
               await this.handleImageCommand(interaction);
               break;
             default:
-              console.error(`Invalid command received: ${interaction.commandName}`);
+              console.error(
+                `Invalid command received: ${interaction.commandName}`
+              );
               await interaction.reply({
                 content: `❌ Invalid command: \`${interaction.commandName}\`. Please use a valid command.`,
                 ephemeral: true,
