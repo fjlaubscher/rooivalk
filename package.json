@@ -1,6 +1,6 @@
 {
   "name": "rooivalk",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "main": "src/index.ts",
   "author": {
     "name": "Francois Laubscher",
