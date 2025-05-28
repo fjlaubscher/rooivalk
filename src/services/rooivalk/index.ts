@@ -1,5 +1,6 @@
 import { Events as DiscordEvents } from 'discord.js';
 import type { ChatInputCommandInteraction, Interaction } from 'discord.js';
+import { APIError } from 'openai';
 
 import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
@@ -166,9 +167,17 @@ class Rooivalk {
     } catch (error) {
       console.error('Error handling image command:', error);
 
-      await interaction.editReply({
-        content: this._discord.getRooivalkResponse('error'),
-      });
+      if (error instanceof APIError && error.code === 'moderation_blocked') {
+        const errorMessage = this._discord.getRooivalkResponse('error');
+        const moderationMessage = `${errorMessage}\n\nThis specific request was blocked by OpenAI's safety policy. Please try a different prompt.`;
+        await interaction.editReply({
+          content: moderationMessage,
+        });
+      } else {
+        await interaction.editReply({
+          content: this._discord.getRooivalkResponse('error'),
+        });
+      }
     }
   }
 

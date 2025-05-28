@@ -1,6 +1,8 @@
 import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
 import type { MockInstance } from 'vitest';
+import { APIError } from 'openai';
 
+import { DISCORD_COMMANDS } from '@/constants';
 import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
 import OpenAIClient from '@/services/openai';
@@ -50,6 +52,7 @@ const mockDiscordServiceInstance = (() => {
 
 const mockOpenAIClientInstance = {
   createResponse: vi.fn(),
+  createImage: vi.fn(),
 } as unknown as OpenAIClient;
 
 describe('Rooivalk', () => {
@@ -234,7 +237,7 @@ describe('Rooivalk', () => {
       // Patch the once method to immediately call the callback for ClientReady
       vi.spyOn(mockDiscordServiceInstance, 'once').mockImplementation(
         (event, cb) => {
-          if (event === 'ready') cb();
+          if (event === 'ready') cb(); // Simulate 'ready' event
           return mockDiscordServiceInstance;
         }
       );
@@ -256,11 +259,117 @@ describe('Rooivalk', () => {
       await rooivalk.init();
 
       expect(mockDiscordServiceInstance.once).toHaveBeenCalled();
-      expect(onSpy).toHaveBeenCalled();
+      expect(onSpy).toHaveBeenCalled(); // Ensures event handlers are attached
       expect(loginSpy).toHaveBeenCalled();
       expect(registerSlashCommandsSpy).toHaveBeenCalled();
       expect(sendReadyMessageSpy).toHaveBeenCalled();
       expect(setupMentionRegexSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('when handling /image command', () => {
+    let mockInteraction: any;
+
+    beforeEach(() => {
+      // Reset mocks before each test in this block
+      vi.clearAllMocks();
+      // Setup default mock for createImage, can be overridden in specific tests
+      (
+        mockOpenAIClientInstance.createImage as unknown as MockInstance
+      ).mockResolvedValue('base64ImageData');
+
+      mockInteraction = {
+        commandName: DISCORD_COMMANDS.IMAGE,
+        options: {
+          getString: vi.fn().mockReturnValue('A beautiful sunset'),
+        },
+        deferReply: vi.fn().mockResolvedValue(undefined),
+        editReply: vi.fn().mockResolvedValue(undefined),
+        isChatInputCommand: () => true,
+      };
+
+      // Ensure discordService.on is set up to capture the interaction handler
+      // This typically happens in rooivalk.init()
+      // We spy on 'on' to get the handler, assuming init() was called in global beforeEach or a dedicated setup
+      vi.spyOn(mockDiscordServiceInstance, 'once').mockImplementation(
+        (event, cb) => {
+          if (event === 'ready') cb();
+          return mockDiscordServiceInstance;
+        }
+      );
+      rooivalk.init(); // Initialize to set up event handlers
+    });
+
+    it('should reply with moderation error message when OpenAI blocks the request', async () => {
+      const apiError = new APIError(
+        400,
+        { error: { message: 'moderation_blocked', type: 'invalid_request_error', code: 'moderation_blocked' } },
+        'moderation_blocked',
+        {}
+      );
+      apiError.code = 'moderation_blocked'; // Ensure the code is set
+
+      (
+        mockOpenAIClientInstance.createImage as unknown as MockInstance
+      ).mockRejectedValue(apiError);
+      (
+        mockDiscordServiceInstance.getRooivalkResponse as unknown as MockInstance
+      ).mockReturnValue('Generic error message.'); // Mock the generic part of the message
+
+      // Get the interaction handler registered by rooivalk.init()
+      const interactionHandler = (
+        mockDiscordServiceInstance.on as MockInstance
+      ).mock.calls.find(
+        (call) => call[0] === 'interactionCreate' // Ensure we find the correct event name
+      )?.[1];
+
+      expect(interactionHandler).toBeDefined();
+      if (!interactionHandler) return; // Guard for type checking
+
+      await interactionHandler(mockInteraction);
+
+      expect(mockInteraction.deferReply).toHaveBeenCalled();
+      expect(mockOpenAIClientInstance.createImage).toHaveBeenCalledWith(
+        'A beautiful sunset'
+      );
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
+        content:
+          "Generic error message.\n\nThis specific request was blocked by OpenAI's safety policy. Please try a different prompt.",
+      });
+    });
+
+    it('should reply with a generic error for other APIErrors', async () => {
+      const apiError = new APIError(
+        500,
+        { error: { message: 'internal_server_error', type: 'server_error', code: 'internal_server_error' } },
+        'internal_server_error',
+        {}
+      );
+      apiError.code = 'internal_server_error';
+
+
+      (
+        mockOpenAIClientInstance.createImage as unknown as MockInstance
+      ).mockRejectedValue(apiError);
+      (
+        mockDiscordServiceInstance.getRooivalkResponse as unknown as MockInstance
+      ).mockReturnValue('Generic error message.');
+
+      const interactionHandler = (
+        mockDiscordServiceInstance.on as MockInstance
+      ).mock.calls.find(
+        (call) => call[0] === 'interactionCreate'
+      )?.[1];
+
+      expect(interactionHandler).toBeDefined();
+      if (!interactionHandler) return;
+
+      await interactionHandler(mockInteraction);
+
+      expect(mockInteraction.deferReply).toHaveBeenCalled();
+      expect(mockInteraction.editReply).toHaveBeenCalledWith({
+        content: 'Generic error message.',
+      });
     });
   });
 });
