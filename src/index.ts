@@ -17,6 +17,8 @@ async function main() {
   }
 
   const config = await loadConfig();
+  // Pass config to Rooivalk and other services as needed
+  const rooivalk = new Rooivalk(config);
 
   // Watch for config changes and reload in-memory config
   watchConfigs(async (_) => {
@@ -28,8 +30,6 @@ async function main() {
     }
   });
 
-  // Pass config to Rooivalk and other services as needed
-  const rooivalk = new Rooivalk(config);
   await rooivalk.init(); // Await the init method
 
   initCronTasks(rooivalk); // Call this after init completes
