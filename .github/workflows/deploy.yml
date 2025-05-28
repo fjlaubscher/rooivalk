@@ -11,7 +11,18 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build project
+        run: yarn build
 
       - name: Set up SSH
         run: |
@@ -22,9 +33,13 @@ jobs:
 
       - name: Deploy via rsync
         run: |
-          rsync -az --delete --exclude='.git' --exclude='.env' ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            ./dist ./dist/config ./package.json ./yarn.lock \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
-      - name: Build and restart on server
+      - name: Install and restart on server
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
             export NVM_DIR="$HOME/.nvm"
@@ -32,9 +47,5 @@ jobs:
 
             cd ${{ secrets.DEPLOY_PATH }}
             yarn install --frozen-lockfile
-            yarn build
             pm2 restart rooivalk || pm2 start dist/index.js --name rooivalk
           EOF
-
-
-

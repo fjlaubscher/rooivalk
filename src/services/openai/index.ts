@@ -1,47 +1,39 @@
 import OpenAI from 'openai';
 
-import {
-  OPENAI_CONTEXT_ROOIVALK,
-  OPENAI_CONTEXT_ROOIVALK_LEARN,
-} from './context';
-
-type Persona = 'rooivalk' | 'rooivalk-learn';
-
-type Tool = {
-  type: 'web_search_preview';
-  search_context_size?: 'low' | 'medium' | 'high';
-};
+import type { InMemoryConfig, Persona } from '@/types';
 
 class OpenAIClient {
+  private _config: InMemoryConfig;
   private _model: string;
   private _imageModel: string;
   private _openai: OpenAI;
-  private _tools: Tool[];
+  private _tools: OpenAI.Responses.Tool[];
 
-  constructor(model?: string, imageModel?: string) {
+  constructor(config: InMemoryConfig, model?: string, imageModel?: string) {
+    this._config = config;
     this._openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY!,
     });
 
     this._model = model || process.env.OPENAI_MODEL!;
-    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
-
     this._tools = [
       {
         type: 'web_search_preview',
         search_context_size: 'low',
       },
     ];
+
+    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
   }
 
-  private getContext(persona: Persona): string {
+  private getInstructions(persona: Persona): string {
     switch (persona) {
       case 'rooivalk':
-        return OPENAI_CONTEXT_ROOIVALK;
-      case 'rooivalk-learn':
-        return OPENAI_CONTEXT_ROOIVALK_LEARN;
+        return this._config.instructionsRooivalk;
+      case 'learn':
+        return this._config.instructionsLearn;
       default:
-        return OPENAI_CONTEXT_ROOIVALK;
+        return this._config.instructionsRooivalk;
     }
   }
 
@@ -50,7 +42,7 @@ class OpenAIClient {
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
-        instructions: this.getContext(persona),
+        instructions: this.getInstructions(persona),
         input: prompt,
       });
 
@@ -63,6 +55,10 @@ class OpenAIClient {
 
       throw new Error('Error creating chat completion');
     }
+  }
+
+  public reloadConfig(newConfig: InMemoryConfig): void {
+    this._config = newConfig;
   }
 
   async createImage(prompt: string) {
