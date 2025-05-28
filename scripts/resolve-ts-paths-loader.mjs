@@ -29,9 +29,12 @@ export async function resolve(specifier, context, nextResolve) {
       const subPath = specifier.slice(aliasPrefix.length).replace(/^\/+/, '');
       // Map "./src" to "./dist"
       const distTarget = targetPrefix.replace(rootDir, outDir);
-      const resolvedPath = pathToFileURL(
-        path.resolve(distTarget, subPath)
-      ).href;
+      let resolvedFile = path.resolve(distTarget, subPath);
+      // Always append .js extension if not present
+      if (!path.extname(resolvedFile)) {
+        resolvedFile += '.js';
+      }
+      const resolvedPath = pathToFileURL(resolvedFile).href;
       return nextResolve(resolvedPath, context);
     }
   }
