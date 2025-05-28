@@ -47,5 +47,6 @@ jobs:
 
             cd ${{ secrets.DEPLOY_PATH }}
             yarn install --frozen-lockfile
-            pm2 start dist/index.js --name rooivalk --interpreter="node" --interpreter-args="--loader ./dist/resolve-ts-paths-loader.mjs" --force
+            pm2 delete rooivalk || true
+            pm2 start dist/index.js --name rooivalk --interpreter="node" --interpreter-args="--loader ./dist/resolve-ts-paths-loader.mjs"
           EOF
