@@ -25,7 +25,8 @@ export async function resolve(specifier, context, nextResolve) {
   for (const { aliasPrefix, targetPrefix } of aliasMap) {
     if (specifier.startsWith(aliasPrefix)) {
       // Replace alias with outDir equivalent
-      const subPath = specifier.slice(aliasPrefix.length);
+      // Strip any leading slash from subPath to avoid absolute path resolution
+      const subPath = specifier.slice(aliasPrefix.length).replace(/^\/+/, '');
       // Map "./src" to "./dist"
       const distTarget = targetPrefix.replace(rootDir, outDir);
       const resolvedPath = pathToFileURL(
