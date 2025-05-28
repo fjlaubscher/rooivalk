@@ -31,3 +31,13 @@ function copyConfigs() {
 }
 
 copyConfigs();
+
+// Copy the ESM loader to dist
+const loaderSrc = path.join(__dirname, 'resolve-ts-paths-loader.mjs');
+const loaderDest = path.join(__dirname, '..', 'dist', 'resolve-ts-paths-loader.mjs');
+if (fs.existsSync(loaderSrc)) {
+  fs.copyFileSync(loaderSrc, loaderDest);
+  console.log('[postbuild] Copied resolve-ts-paths-loader.mjs to dist/');
+} else {
+  console.warn('[postbuild] Loader file not found:', loaderSrc);
+}
