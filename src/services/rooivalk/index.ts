@@ -6,13 +6,30 @@ import OpenAIClient from '@/services/openai';
 import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
 
+import type { InMemoryConfig } from '@/types';
+
 class Rooivalk {
+  protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _openaiClient: OpenAIClient;
 
-  constructor(openaiClient?: OpenAIClient, discordService?: DiscordService) {
-    this._openaiClient = openaiClient ?? new OpenAIClient();
-    this._discord = discordService ?? new DiscordService();
+  constructor(
+    config: InMemoryConfig,
+    discordService?: DiscordService,
+    openaiClient?: OpenAIClient
+  ) {
+    this._config = config;
+    this._openaiClient = openaiClient ?? new OpenAIClient(this._config);
+    this._discord = discordService ?? new DiscordService(this._config);
+  }
+
+  /**
+   * Reloads the config for Rooivalk and propagates to child services.
+   */
+  reloadConfig(newConfig: InMemoryConfig) {
+    this._config = newConfig;
+    this._discord.reloadConfig(newConfig);
+    this._openaiClient.reloadConfig(newConfig);
   }
 
   private async processMessage(message: DiscordMessage) {
@@ -36,12 +53,12 @@ class Rooivalk {
 
       // prompt openai with the enhanced content
       const response = await this._openaiClient.createResponse(
-        isLearnChannel ? 'rooivalk-learn' : 'rooivalk',
+        isLearnChannel ? 'learn' : 'rooivalk',
         prompt
       );
 
       if (response) {
-        const reply = await this._discord.buildMessageReply(
+        const reply = this._discord.buildMessageReply(
           response,
           usersToMention.map((user) => user.id)
         );
@@ -62,9 +79,18 @@ class Rooivalk {
     }
   }
 
+  public async sendMotdToStartupChannel() {
+    if (!this._config.motd) {
+      console.log('No MOTD configured');
+      return;
+    }
+
+    await this.sendMessageToStartupChannel(this._config.motd);
+  }
+
   public async sendMessageToStartupChannel(
     prompt: string,
-    persona: 'rooivalk' | 'rooivalk-learn' = 'rooivalk'
+    persona: 'rooivalk' | 'learn' = 'rooivalk'
   ) {
     if (!this._discord.startupChannelId) {
       console.error('Startup channel ID not set');
@@ -80,7 +106,7 @@ class Rooivalk {
         this._discord.startupChannelId
       );
       if (channel && channel.isTextBased()) {
-        const messageOptions = await this._discord.buildMessageReply(response);
+        const messageOptions = this._discord.buildMessageReply(response);
         await (channel as any).send(messageOptions);
         return response;
       } else {
@@ -100,10 +126,7 @@ class Rooivalk {
     await interaction.deferReply();
 
     try {
-      const response = await this._openaiClient.createResponse(
-        'rooivalk-learn',
-        prompt
-      );
+      const response = await this._openaiClient.createResponse('learn', prompt);
       const messageOptions = this._discord.buildMessageReply(response);
       // Convert MessageReplyOptions to InteractionEditReplyOptions
       await interaction.editReply({

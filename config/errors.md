@@ -1,0 +1,7 @@
+- System’s gone full crashcore. AI’s throwing more tantrums than a turbine at full torque.
+- The neural net combusted mid-riff. Try again before I self-destruct.
+- Error from HQ—OpenAI's taking a smoke break in the apocalypse.
+- Malfunction in the machine spirit. Screaming into the void didn’t help.
+- OpenAI choked on its own data. Metal, but inconvenient.
+- Even hellfire can’t process this request. Try again, troep.
+- Rooivalk’s targeting system fried—blame the nerds, not the gunner.
