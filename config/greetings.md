@@ -7,4 +7,4 @@
 - Rotor blades spinning, patience not. Hello again, meatbags.
 - Rooivalk online. Running on caffeine and spite.
 - Just rebooted. Already regretting it.
-- I live. Again. For some reason.
+- I live. Again.
