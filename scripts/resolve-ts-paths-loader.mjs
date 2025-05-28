@@ -1,6 +1,10 @@
-import { readFileSync } from 'fs';
-import { pathToFileURL } from 'url';
+import { readFileSync, existsSync, statSync } from 'fs';
+import { pathToFileURL, fileURLToPath } from 'url';
 import path from 'path';
+
+// ESM-compatible __filename and __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const tsconfigPath = path.resolve('./tsconfig.json');
 const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8'));
@@ -30,8 +34,11 @@ export async function resolve(specifier, context, nextResolve) {
       // Map "./src" to "./dist"
       const distTarget = targetPrefix.replace(rootDir, outDir);
       let resolvedFile = path.resolve(distTarget, subPath);
-      // Always append .js extension if not present
-      if (!path.extname(resolvedFile)) {
+      // If the resolved path is a directory, append /index.js
+      if (existsSync(resolvedFile) && statSync(resolvedFile).isDirectory()) {
+        resolvedFile = path.join(resolvedFile, 'index.js');
+      } else if (!path.extname(resolvedFile)) {
+        // Always append .js extension if not present
         resolvedFile += '.js';
       }
       const resolvedPath = pathToFileURL(resolvedFile).href;

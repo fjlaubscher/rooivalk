@@ -10,7 +10,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "postbuild": "node ./scripts/postbuild.js",
+    "postbuild": "node ./scripts/postbuild.mjs",
     "start": "node dist/index.js",
     "test": "vitest run",
     "format": "prettier --write \"src/**/*\" \"src/*\""

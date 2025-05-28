@@ -1,7 +1,12 @@
 import { existsSync, watch } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 export type ConfigReloadCallback = (changedFile: string) => void;
+
+// ESM-compatible __filename and __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const CONFIG_DIR = join(__dirname, '..', '..', 'config');
 
