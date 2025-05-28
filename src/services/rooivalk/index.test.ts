@@ -5,17 +5,9 @@ import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
 import OpenAIClient from '@/services/openai';
 import { createMockMessage } from '@/test-utils/createMockMessage';
+import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
 
 import Rooivalk from '.';
-
-const MOCK_ENV = {
-  DISCORD_TOKEN: 'test-token',
-  DISCORD_APP_ID: 'test-app-id',
-  DISCORD_GUILD_ID: 'test-guild-id',
-  DISCORD_STARTUP_CHANNEL_ID: 'test-startup-channel-id',
-  DISCORD_LEARN_CHANNEL_ID: 'test-learn-channel-id',
-  OPENAI_API_KEY: 'test-openai-key',
-};
 
 const BOT_ID = 'test-bot-id';
 
@@ -71,6 +63,7 @@ describe('Rooivalk', () => {
       .fn()
       .mockResolvedValue('Mocked AI Response');
     mockDiscordServiceInstance.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
+
     Object.defineProperty(mockDiscordServiceInstance, 'client', {
       get: () => ({
         user: { id: BOT_ID, tag: 'TestBot#0000' },
@@ -80,8 +73,9 @@ describe('Rooivalk', () => {
     });
 
     rooivalk = new Rooivalk(
-      mockOpenAIClientInstance,
-      mockDiscordServiceInstance
+      MOCK_CONFIG,
+      mockDiscordServiceInstance,
+      mockOpenAIClientInstance
     );
   });
 
@@ -126,7 +120,7 @@ describe('Rooivalk', () => {
     });
 
     describe('and message is in the learn channel', () => {
-      it('should use "rooivalk-learn" persona in learn channel', async () => {
+      it('should use "learn" persona in learn channel', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Teach me!`,
           channel: {
@@ -140,7 +134,7 @@ describe('Rooivalk', () => {
         ).mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
-          'rooivalk-learn',
+          'learn',
           'Teach me!'
         );
       });

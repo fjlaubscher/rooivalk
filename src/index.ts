@@ -1,6 +1,9 @@
 import 'dotenv/config';
+
 import { REQUIRED_ENV } from '@/constants';
-import initCronTasks from '@/cron';
+import { watchConfigs } from '@/config/watcher';
+import { loadConfig } from '@/config/loader';
+import initCronTasks from '@/services/cron';
 import Rooivalk from '@/services/rooivalk';
 
 async function main() {
@@ -13,7 +16,20 @@ async function main() {
     process.exit(1);
   }
 
-  const rooivalk = new Rooivalk();
+  const config = await loadConfig();
+
+  // Watch for config changes and reload in-memory config
+  watchConfigs(async (_) => {
+    try {
+      const newConfig = await loadConfig();
+      rooivalk.reloadConfig(newConfig);
+    } catch (error) {
+      console.error('Failed to reload config:', error);
+    }
+  });
+
+  // Pass config to Rooivalk and other services as needed
+  const rooivalk = new Rooivalk(config);
   await rooivalk.init(); // Await the init method
 
   initCronTasks(rooivalk); // Call this after init completes

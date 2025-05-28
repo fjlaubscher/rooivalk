@@ -3,9 +3,11 @@ import type { MockInstance } from 'vitest';
 import { Client as DiscordClient, TextChannel } from 'discord.js';
 
 import { createMockMessage } from '@/test-utils/createMockMessage';
+import { MOCK_CONFIG } from '@/test-utils/mock';
+import type { ResponseType } from '@/types';
 
 import { DiscordService } from '.';
-import type { DiscordMessage, RooivalkResponseType } from '.';
+import type { DiscordMessage } from '.';
 
 vi.mock('discord.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -39,7 +41,7 @@ describe('DiscordService', () => {
 
   beforeEach(() => {
     discordClient = createMockDiscordClient();
-    service = new DiscordService(discordClient);
+    service = new DiscordService(MOCK_CONFIG, discordClient);
     vi.clearAllMocks();
     process.env.DISCORD_STARTUP_CHANNEL_ID = 'startup-channel';
     process.env.DISCORD_TOKEN = 'token';
@@ -56,7 +58,7 @@ describe('DiscordService', () => {
           'string'
         );
         expect(() =>
-          service.getRooivalkResponse('not-a-type' as RooivalkResponseType)
+          service.getRooivalkResponse('not-a-type' as ResponseType)
         ).toThrow();
       });
     });

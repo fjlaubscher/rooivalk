@@ -10,7 +10,6 @@ import {
 } from 'discord.js';
 import type {
   Message,
-  MessageReplyOptions,
   OmitPartialGroupDMChannel,
   TextChannel,
   ClientEvents,
@@ -20,20 +19,20 @@ import {
   DISCORD_MESSAGE_LIMIT,
   DISCORD_MAX_MESSAGE_CHAIN_LENGTH,
   DISCORD_COMMAND_DEFINITIONS,
-  ROOIVALK_ERROR_MESSAGES,
-  ROOIVALK_EXCEEDED_DISCORD_LIMIT_MESSAGES,
-  ROOIVALK_GREETING_MESSAGES,
 } from '@/constants';
 
+import type { InMemoryConfig, ResponseType } from '@/types';
+
 export type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
-export type RooivalkResponseType = 'error' | 'greeting' | 'discordLimit';
 
 export class DiscordService {
   private _discordClient: DiscordClient;
   private _mentionRegex: RegExp | null = null;
   private _startupChannelId: string | undefined;
+  private _config: InMemoryConfig;
 
-  constructor(discordClient?: DiscordClient) {
+  constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
+    this._config = config;
     this._discordClient =
       discordClient ??
       new DiscordClient({
@@ -45,6 +44,10 @@ export class DiscordService {
         ],
       });
     this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
+  }
+
+  public reloadConfig(newConfig: InMemoryConfig): void {
+    this._config = newConfig;
   }
 
   public get client(): DiscordClient {
@@ -63,17 +66,17 @@ export class DiscordService {
     return this._startupChannelId;
   }
 
-  public getRooivalkResponse(type: RooivalkResponseType): string {
+  public getRooivalkResponse(type: ResponseType): string {
     let arrayToUse: string[] = [];
     switch (type) {
       case 'error':
-        arrayToUse = ROOIVALK_ERROR_MESSAGES;
+        arrayToUse = this._config.errorMessages;
         break;
       case 'greeting':
-        arrayToUse = ROOIVALK_GREETING_MESSAGES;
+        arrayToUse = this._config.greetingMessages;
         break;
       case 'discordLimit':
-        arrayToUse = ROOIVALK_EXCEEDED_DISCORD_LIMIT_MESSAGES;
+        arrayToUse = this._config.discordLimitMessages;
         break;
       default:
         throw new Error('Invalid response type');
