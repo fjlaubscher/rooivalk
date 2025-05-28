@@ -297,7 +297,7 @@ describe('Rooivalk', () => {
           return mockDiscordServiceInstance;
         }
       );
-      rooivalk.init(); // Initialize to set up event handlers
+      await rooivalk.init(); // Initialize to set up event handlers
     });
 
     it('should reply with moderation error message when OpenAI blocks the request', async () => {
