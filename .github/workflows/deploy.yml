@@ -36,7 +36,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.env' \
-            ./dist ./dist/config ./package.json ./yarn.lock \
+            ./dist ./dist/config ./package.json ./yarn.lock ./tsconfig.json ./.nvmrc \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
       - name: Install and restart on server
