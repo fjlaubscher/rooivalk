@@ -70,12 +70,12 @@ class Rooivalk {
       console.error('Error processing message:', error);
       const errorMessage = this._discord.getRooivalkResponse('error');
 
-      if (error instanceof Error) {
-        const reply = `${errorMessage}\n\n\`\`\`${error.message}\`\`\``;
-        await message.reply(reply);
-      } else {
-        await message.reply(errorMessage);
-      }
+      const reply =
+        error instanceof Error
+          ? `${errorMessage}\n\n\`\`\`${error.message}\`\`\``
+          : errorMessage;
+      await message.reply(reply);
+      return;
     }
   }
 
@@ -139,6 +139,7 @@ class Rooivalk {
       await interaction.editReply({
         content: this._discord.getRooivalkResponse('error'),
       });
+      return;
     }
   }
 
@@ -171,10 +172,12 @@ class Rooivalk {
         await interaction.editReply({
           content: `${errorMessage}\n\n\`\`\`${error.message}\`\`\``,
         });
+        return;
       } else {
         await interaction.editReply({
           content: errorMessage,
         });
+        return;
       }
     }
   }
