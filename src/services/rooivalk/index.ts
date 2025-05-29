@@ -70,14 +70,12 @@ class Rooivalk {
       console.error('Error processing message:', error);
       const errorMessage = this._discord.getRooivalkResponse('error');
 
-      if (error instanceof Error) {
-        const reply = `${errorMessage}\n\n\`\`\`${error.message}\`\`\``;
-        await message.reply(reply);
-        return;
-      } else {
-        await message.reply(errorMessage);
-        return;
-      }
+      const reply =
+        error instanceof Error
+          ? `${errorMessage}\n\n\`\`\`${error.message}\`\`\``
+          : errorMessage;
+      await message.reply(reply);
+      return;
     }
   }
 
