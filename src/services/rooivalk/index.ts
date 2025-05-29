@@ -166,9 +166,16 @@ class Rooivalk {
     } catch (error) {
       console.error('Error handling image command:', error);
 
-      await interaction.editReply({
-        content: this._discord.getRooivalkResponse('error'),
-      });
+      const errorMessage = this._discord.getRooivalkResponse('error');
+      if (error instanceof Error) {
+        await interaction.editReply({
+          content: `${errorMessage}\n\n\`\`\`${error.message}\`\`\``,
+        });
+      } else {
+        await interaction.editReply({
+          content: errorMessage,
+        });
+      }
     }
   }
 
