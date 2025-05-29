@@ -3,6 +3,7 @@ import type { MockInstance } from 'vitest';
 
 import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
+import type { ChatInputCommandInteraction } from 'discord.js';
 import OpenAIClient from '@/services/openai';
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
@@ -37,6 +38,7 @@ const mockDiscordServiceInstance = (() => {
     getOriginalMessage: vi.fn(),
     getMessageChain: vi.fn(),
     buildMessageReply: vi.fn().mockResolvedValue({}),
+    buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
     getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
     buildPromptFromMessageChain: vi.fn(),
     registerSlashCommands: vi.fn(),
@@ -50,6 +52,7 @@ const mockDiscordServiceInstance = (() => {
 
 const mockOpenAIClientInstance = {
   createResponse: vi.fn(),
+  createImage: vi.fn(),
 } as unknown as OpenAIClient;
 
 describe('Rooivalk', () => {
@@ -62,6 +65,7 @@ describe('Rooivalk', () => {
     mockOpenAIClientInstance.createResponse = vi
       .fn()
       .mockResolvedValue('Mocked AI Response');
+    mockOpenAIClientInstance.createImage = vi.fn();
     mockDiscordServiceInstance.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
     Object.defineProperty(mockDiscordServiceInstance, 'client', {
@@ -226,6 +230,50 @@ describe('Rooivalk', () => {
           await rooivalk.sendMessageToStartupChannel('Hello startup!');
         expect(result).toBeNull();
       });
+    });
+  });
+
+  describe('when handling an image command', () => {
+    it('should send image when OpenAI returns data', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('cat') },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      (mockOpenAIClientInstance.createImage as unknown as MockInstance).mockResolvedValue('img');
+      (mockDiscordServiceInstance.buildImageReply as any).mockReturnValue({ embeds: ['e'], files: ['f'] });
+
+      await (rooivalk as any).handleImageCommand(interaction);
+      expect(interaction.editReply).toHaveBeenCalledWith({ embeds: ['e'], files: ['f'] });
+    });
+
+    it('should reply with error details if OpenAI throws', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('dog') },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      (mockOpenAIClientInstance.createImage as unknown as MockInstance).mockRejectedValue(new Error('blocked'));
+
+      await (rooivalk as any).handleImageCommand(interaction);
+      expect(interaction.editReply).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining('blocked') })
+      );
+    });
+
+    it('should reply with error message if OpenAI returns null', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('bird') },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      (mockOpenAIClientInstance.createImage as unknown as MockInstance).mockResolvedValue(null);
+
+      await (rooivalk as any).handleImageCommand(interaction);
+      expect(interaction.editReply).toHaveBeenCalledWith({ content: 'Error!' });
     });
   });
 
