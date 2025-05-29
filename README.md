@@ -34,6 +34,8 @@ Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when
    DISCORD_APP_ID=discord_app_id
    OPENAI_API_KEY=openai_key
    OPENAI_MODEL=gpt-4.1-nano
+   OPENAI_IMAGE_MODEL=gpt-image-1
+   ROOIVALK_MOTD_CRON="0 8 * * *"
    ```
 4. Build the project:
    ```sh
