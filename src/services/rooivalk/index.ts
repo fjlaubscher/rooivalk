@@ -73,8 +73,10 @@ class Rooivalk {
       if (error instanceof Error) {
         const reply = `${errorMessage}\n\n\`\`\`${error.message}\`\`\``;
         await message.reply(reply);
+        return;
       } else {
         await message.reply(errorMessage);
+        return;
       }
     }
   }
@@ -139,6 +141,7 @@ class Rooivalk {
       await interaction.editReply({
         content: this._discord.getRooivalkResponse('error'),
       });
+      return;
     }
   }
 
@@ -171,10 +174,12 @@ class Rooivalk {
         await interaction.editReply({
           content: `${errorMessage}\n\n\`\`\`${error.message}\`\`\``,
         });
+        return;
       } else {
         await interaction.editReply({
           content: errorMessage,
         });
+        return;
       }
     }
   }
