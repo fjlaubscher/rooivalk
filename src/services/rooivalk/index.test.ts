@@ -107,6 +107,50 @@ describe('Rooivalk', () => {
       });
     });
 
+
+    describe('Rooivalk private shouldProcessMessage', () => {
+      it('returns true for whitelisted bot', () => {
+        const allowedBotId = 'allowed-bot-id';
+
+        const msg = createMockMessage({
+          author: { id: allowedBotId, bot: true },
+
+          guild: { id: 'guild-id' }
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, [allowedBotId], 'guild-id')).toBe(true);
+      });
+
+      it('returns false for non-whitelisted bot', () => {
+        const msg = createMockMessage({
+          author: { id: 'not-allowed-bot-id', bot: true },
+          guild: { id: 'guild-id' }
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, ['some-other-id'], 'guild-id')).toBe(false);
+      });
+
+      it('returns false for wrong guild', () => {
+        const allowedBotId = 'allowed-bot-id';
+        const msg = createMockMessage({
+          author: { id: allowedBotId, bot: true },
+          guild: { id: 'other-guild' }
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, [allowedBotId], 'guild-id')).toBe(false);
+      });
+
+      it('returns true for a user (not a bot)', () => {
+        const msg = createMockMessage({
+          author: { id: 'user-id', bot: false },
+          guild: { id: 'guild-id' }
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, ['allowed-bot-id'], 'guild-id')).toBe(true);
+      });
+    });
+
+
     describe('and buildPromptFromMessageChain returns null', () => {
       it('should use message content if buildPromptFromMessageChain returns null', async () => {
         const userMessage = createMockMessage({
