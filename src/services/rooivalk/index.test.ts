@@ -1,59 +1,40 @@
 import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
-import type { MockInstance } from 'vitest';
 
-import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import OpenAIClient from '@/services/openai';
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
 
 import Rooivalk from '.';
 
-const BOT_ID = 'test-bot-id';
+// Create mock instances using vi.mocked
+const mockDiscordService = vi.mocked({
+  mentionRegex: new RegExp(`<@test-bot-id>`, 'g'),
+  client: {
+    user: { id: 'test-bot-id', tag: 'TestBot#0000' },
+    channels: { fetch: vi.fn() },
+  },
+  startupChannelId: 'test-startup-channel-id',
+  getOriginalMessage: vi.fn(),
+  getMessageChain: vi.fn(),
+  buildMessageReply: vi.fn().mockResolvedValue({}),
+  buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
+  getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
+  buildPromptFromMessageChain: vi.fn(),
+  registerSlashCommands: vi.fn(),
+  sendReadyMessage: vi.fn(),
+  setupMentionRegex: vi.fn(),
+  on: vi.fn(),
+  once: vi.fn(),
+  login: vi.fn(),
+} as any);
 
-const mockDiscordServiceInstance = (() => {
-  let _mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
-  let _client = { user: { id: BOT_ID, tag: 'TestBot#0000' } };
-  let _startupChannelId = 'test-startup-channel-id';
-  return {
-    get mentionRegex() {
-      return _mentionRegex;
-    },
-    set mentionRegex(val) {
-      _mentionRegex = val;
-    },
-    get client() {
-      return _client;
-    },
-    set client(val) {
-      _client = val;
-    },
-    get startupChannelId() {
-      return _startupChannelId;
-    },
-    set startupChannelId(val) {
-      _startupChannelId = val;
-    },
-    getOriginalMessage: vi.fn(),
-    getMessageChain: vi.fn(),
-    buildMessageReply: vi.fn().mockResolvedValue({}),
-    buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
-    getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
-    buildPromptFromMessageChain: vi.fn(),
-    registerSlashCommands: vi.fn(),
-    sendReadyMessage: vi.fn(),
-    setupMentionRegex: vi.fn(),
-    on: vi.fn(),
-    once: vi.fn(),
-    login: vi.fn(),
-  } as unknown as DiscordService;
-})();
-
-const mockOpenAIClientInstance = {
+const mockOpenAIClient = vi.mocked({
   createResponse: vi.fn(),
   createImage: vi.fn(),
-} as unknown as OpenAIClient;
+} as any);
+
+const BOT_ID = 'test-bot-id';
 
 describe('Rooivalk', () => {
   let rooivalk: Rooivalk;
@@ -62,13 +43,11 @@ describe('Rooivalk', () => {
     vi.clearAllMocks();
     vi.stubGlobal('process', { env: { ...MOCK_ENV } });
 
-    mockOpenAIClientInstance.createResponse = vi
-      .fn()
-      .mockResolvedValue('Mocked AI Response');
-    mockOpenAIClientInstance.createImage = vi.fn();
-    mockDiscordServiceInstance.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
+    mockOpenAIClient.createResponse.mockResolvedValue('Mocked AI Response');
+    mockOpenAIClient.createImage.mockReset();
+    mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
-    Object.defineProperty(mockDiscordServiceInstance, 'client', {
+    Object.defineProperty(mockDiscordService, 'client', {
       get: () => ({
         user: { id: BOT_ID, tag: 'TestBot#0000' },
         channels: { fetch: vi.fn() },
@@ -78,8 +57,8 @@ describe('Rooivalk', () => {
 
     rooivalk = new Rooivalk(
       MOCK_CONFIG,
-      mockDiscordServiceInstance,
-      mockOpenAIClientInstance
+      mockDiscordService,
+      mockOpenAIClient
     );
   });
 
@@ -93,30 +72,88 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<DiscordMessage>);
-        (
-          mockDiscordServiceInstance.buildPromptFromMessageChain as unknown as MockInstance
-        ).mockResolvedValue('User: Hi!\nRooivalk: Hello!');
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue('User: Hi!\nRooivalk: Hello!');
         await (rooivalk as any).processMessage(userMessage);
         expect(
-          mockDiscordServiceInstance.buildPromptFromMessageChain
+          mockDiscordService.buildPromptFromMessageChain
         ).toHaveBeenCalledWith(userMessage);
-        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
+        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
           'User: Hi!\nRooivalk: Hello!'
         );
       });
     });
 
+
+    describe('Rooivalk private shouldProcessMessage', () => {
+      it('returns true for whitelisted bot', () => {
+        const allowedBotId = 'allowed-bot-id';
+        // Set up environment with allowed bot ID
+        vi.stubGlobal('process', { env: { ...MOCK_ENV, DISCORD_ALLOWED_APPS: allowedBotId } });
+        
+        // Create new instance with updated environment
+        const testRooivalk = new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockOpenAIClient
+        );
+
+        const msg = Object.assign(createMockMessage(), {
+          author: { id: allowedBotId, bot: true } as any,
+          guild: { id: 'guild-id' } as any
+        });
+        // @ts-expect-error: testing private method
+        expect(testRooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(true);
+      });
+
+      it('returns false for non-whitelisted bot', () => {
+        const msg = Object.assign(createMockMessage(), {
+          author: { id: 'not-allowed-bot-id', bot: true } as any,
+          guild: { id: 'guild-id' } as any
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(false);
+      });
+
+      it('returns false for wrong guild', () => {
+        const allowedBotId = 'allowed-bot-id';
+        // Set up environment with allowed bot ID
+        vi.stubGlobal('process', { env: { ...MOCK_ENV, DISCORD_ALLOWED_APPS: allowedBotId } });
+        
+        // Create new instance with updated environment
+        const testRooivalk = new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockOpenAIClient
+        );
+
+        const msg = Object.assign(createMockMessage(), {
+          author: { id: allowedBotId, bot: true } as any,
+          guild: { id: 'other-guild' } as any
+        });
+        // @ts-expect-error: testing private method
+        expect(testRooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(false);
+      });
+
+      it('returns true for a user (not a bot)', () => {
+        const msg = Object.assign(createMockMessage(), {
+          author: { id: 'user-id', bot: false } as any,
+          guild: { id: 'guild-id' } as any
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(true);
+      });
+    });
+
+
     describe('and buildPromptFromMessageChain returns null', () => {
       it('should use message content if buildPromptFromMessageChain returns null', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hello bot!`,
         } as Partial<DiscordMessage>);
-        (
-          mockDiscordServiceInstance.buildPromptFromMessageChain as unknown as MockInstance
-        ).mockResolvedValue(null);
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
-        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
+        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
           'Hello bot!'
         );
@@ -133,11 +170,9 @@ describe('Rooivalk', () => {
             send: vi.fn(),
           },
         } as unknown as Partial<DiscordMessage>);
-        (
-          mockDiscordServiceInstance.buildPromptFromMessageChain as unknown as MockInstance
-        ).mockResolvedValue(null);
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
-        expect(mockOpenAIClientInstance.createResponse).toHaveBeenCalledWith(
+        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'learn',
           'Teach me!'
         );
@@ -149,12 +184,8 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
-        (
-          mockDiscordServiceInstance.buildPromptFromMessageChain as unknown as MockInstance
-        ).mockResolvedValue(null);
-        (
-          mockOpenAIClientInstance.createResponse as unknown as MockInstance
-        ).mockResolvedValue(null);
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockOpenAIClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith('Error!');
       });
@@ -165,12 +196,8 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
-        (
-          mockDiscordServiceInstance.buildPromptFromMessageChain as unknown as MockInstance
-        ).mockResolvedValue(null);
-        (
-          mockOpenAIClientInstance.createResponse as unknown as MockInstance
-        ).mockRejectedValue(new Error('OpenAI error!'));
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockOpenAIClient.createResponse.mockRejectedValue(new Error('OpenAI error!'));
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith(
           expect.stringContaining('OpenAI error!')
@@ -182,12 +209,10 @@ describe('Rooivalk', () => {
   describe('when sending a message to the startup channel', () => {
     describe('and the channel is available and text-based', () => {
       it('should send OpenAI response to startup channel', async () => {
-        (
-          mockOpenAIClientInstance.createResponse as unknown as MockInstance
-        ).mockResolvedValue('Startup response');
+        mockOpenAIClient.createResponse.mockResolvedValue('Startup response');
         const mockChannel = { isTextBased: () => true, send: vi.fn() };
         // Patch the client getter to return a channels.fetch mock for this test
-        Object.defineProperty(mockDiscordServiceInstance, 'client', {
+        Object.defineProperty(mockDiscordService, 'client', {
           get: () => ({
             user: { id: BOT_ID, tag: 'TestBot#0000' },
             channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
@@ -195,11 +220,9 @@ describe('Rooivalk', () => {
           configurable: true,
         });
         // Ensure buildMessageReply returns a valid message object
-        (mockDiscordServiceInstance.buildMessageReply as any).mockResolvedValue(
-          {
-            content: 'test',
-          }
-        );
+        mockDiscordService.buildMessageReply.mockResolvedValue({
+          content: 'test',
+        });
         await rooivalk.sendMessageToStartupChannel('Hello startup!');
         expect(mockChannel.send).toHaveBeenCalled();
       });
@@ -207,7 +230,7 @@ describe('Rooivalk', () => {
 
     describe('and the startup channel is not set', () => {
       it('should return null and log error if startup channel is not set', async () => {
-        Object.defineProperty(mockDiscordServiceInstance, 'startupChannelId', {
+        Object.defineProperty(mockDiscordService, 'startupChannelId', {
           get: () => undefined,
           configurable: true,
         });
@@ -219,13 +242,15 @@ describe('Rooivalk', () => {
 
     describe('and the channel is not text-based', () => {
       it('should return null and log error if channel is not text-based', async () => {
-        (
-          mockOpenAIClientInstance.createResponse as unknown as MockInstance
-        ).mockResolvedValue('Startup response');
+        mockOpenAIClient.createResponse.mockResolvedValue('Startup response');
         const mockChannel = { isTextBased: () => false, send: vi.fn() };
-        mockDiscordServiceInstance.client.channels = {
-          fetch: vi.fn().mockResolvedValue(mockChannel),
-        } as any;
+        Object.defineProperty(mockDiscordService, 'client', {
+          get: () => ({
+            user: { id: BOT_ID, tag: 'TestBot#0000' },
+            channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+          }),
+          configurable: true,
+        });
         const result =
           await rooivalk.sendMessageToStartupChannel('Hello startup!');
         expect(result).toBeNull();
@@ -241,8 +266,8 @@ describe('Rooivalk', () => {
         editReply: vi.fn(),
       } as unknown as ChatInputCommandInteraction;
 
-      (mockOpenAIClientInstance.createImage as unknown as MockInstance).mockResolvedValue('img');
-      (mockDiscordServiceInstance.buildImageReply as any).mockReturnValue({ embeds: ['e'], files: ['f'] });
+      mockOpenAIClient.createImage.mockResolvedValue('img');
+      mockDiscordService.buildImageReply.mockReturnValue({ embeds: ['e'], files: ['f'] });
 
       await (rooivalk as any).handleImageCommand(interaction);
       expect(interaction.editReply).toHaveBeenCalledWith({ embeds: ['e'], files: ['f'] });
@@ -255,7 +280,7 @@ describe('Rooivalk', () => {
         editReply: vi.fn(),
       } as unknown as ChatInputCommandInteraction;
 
-      (mockOpenAIClientInstance.createImage as unknown as MockInstance).mockRejectedValue(new Error('blocked'));
+      mockOpenAIClient.createImage.mockRejectedValue(new Error('blocked'));
 
       await (rooivalk as any).handleImageCommand(interaction);
       expect(interaction.editReply).toHaveBeenCalledWith(
@@ -270,7 +295,7 @@ describe('Rooivalk', () => {
         editReply: vi.fn(),
       } as unknown as ChatInputCommandInteraction;
 
-      (mockOpenAIClientInstance.createImage as unknown as MockInstance).mockResolvedValue(null);
+      mockOpenAIClient.createImage.mockResolvedValue(null);
 
       await (rooivalk as any).handleImageCommand(interaction);
       expect(interaction.editReply).toHaveBeenCalledWith({ content: 'Error!' });
@@ -280,35 +305,21 @@ describe('Rooivalk', () => {
   describe('when initialized', () => {
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
-      vi.spyOn(mockDiscordServiceInstance, 'once').mockImplementation(
-        (event, cb) => {
+      mockDiscordService.once.mockImplementation(
+        (event: string, cb: () => void) => {
           if (event === 'ready') cb();
-          return mockDiscordServiceInstance;
+          return mockDiscordService;
         }
-      );
-      const onSpy = vi.spyOn(mockDiscordServiceInstance, 'on');
-      const loginSpy = vi.spyOn(mockDiscordServiceInstance, 'login');
-      const registerSlashCommandsSpy = vi.spyOn(
-        mockDiscordServiceInstance,
-        'registerSlashCommands'
-      );
-      const sendReadyMessageSpy = vi.spyOn(
-        mockDiscordServiceInstance,
-        'sendReadyMessage'
-      );
-      const setupMentionRegexSpy = vi.spyOn(
-        mockDiscordServiceInstance,
-        'setupMentionRegex'
       );
 
       await rooivalk.init();
 
-      expect(mockDiscordServiceInstance.once).toHaveBeenCalled();
-      expect(onSpy).toHaveBeenCalled();
-      expect(loginSpy).toHaveBeenCalled();
-      expect(registerSlashCommandsSpy).toHaveBeenCalled();
-      expect(sendReadyMessageSpy).toHaveBeenCalled();
-      expect(setupMentionRegexSpy).toHaveBeenCalled();
+      expect(mockDiscordService.once).toHaveBeenCalled();
+      expect(mockDiscordService.on).toHaveBeenCalled();
+      expect(mockDiscordService.login).toHaveBeenCalled();
+      expect(mockDiscordService.registerSlashCommands).toHaveBeenCalled();
+      expect(mockDiscordService.sendReadyMessage).toHaveBeenCalled();
+      expect(mockDiscordService.setupMentionRegex).toHaveBeenCalled();
     });
   });
 });

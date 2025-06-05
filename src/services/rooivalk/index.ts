@@ -12,6 +12,7 @@ class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _openaiClient: OpenAIClient;
+  private _allowedAppIds: string[];
 
   constructor(
     config: InMemoryConfig,
@@ -21,6 +22,30 @@ class Rooivalk {
     this._config = config;
     this._openaiClient = openaiClient ?? new OpenAIClient(this._config);
     this._discord = discordService ?? new DiscordService(this._config);
+
+    // Parse DISCORD_ALLOWED_APPS once and store
+    const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
+    this._allowedAppIds = allowedAppsEnv
+      ? allowedAppsEnv.split(',').map((id) => id.trim()).filter(Boolean)
+      : [];
+  }
+
+  /**
+   * Determines if a message should be processed based on allowlist and guild.
+   * @param message The Discord message.
+   * @param guildId The guild/server ID to match.
+   */
+  private shouldProcessMessage(
+    message: DiscordMessage,
+    guildId: string
+  ): boolean {
+    if (
+      (message.author.bot && !this._allowedAppIds.includes(message.author.id)) ||
+      message.guild?.id !== guildId
+    ) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -196,10 +221,11 @@ class Rooivalk {
       await this._discord.registerSlashCommands();
 
       this._discord.on(DiscordEvents.MessageCreate, async (message) => {
-        // Ignore messages from other bots or from different guilds
         if (
-          message.author.bot ||
-          message.guild?.id !== process.env.DISCORD_GUILD_ID
+          !this.shouldProcessMessage(
+            message,
+            process.env.DISCORD_GUILD_ID!
+          )
         ) {
           return;
         }
