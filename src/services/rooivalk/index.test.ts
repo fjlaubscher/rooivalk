@@ -15,6 +15,7 @@ const mockDiscordService = vi.mocked({
     channels: { fetch: vi.fn() },
   },
   startupChannelId: 'test-startup-channel-id',
+  getReferencedMessage: vi.fn(),
   getOriginalMessage: vi.fn(),
   getMessageChain: vi.fn(),
   buildMessageReply: vi.fn().mockResolvedValue({}),
@@ -32,6 +33,7 @@ const mockDiscordService = vi.mocked({
 const mockOpenAIClient = vi.mocked({
   createResponse: vi.fn(),
   createImage: vi.fn(),
+  generateThreadName: vi.fn(),
 } as any);
 
 const BOT_ID = 'test-bot-id';
@@ -45,6 +47,7 @@ describe('Rooivalk', () => {
 
     mockOpenAIClient.createResponse.mockResolvedValue('Mocked AI Response');
     mockOpenAIClient.createImage.mockReset();
+    mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Title');
     mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
     Object.defineProperty(mockDiscordService, 'client', {
@@ -203,6 +206,59 @@ describe('Rooivalk', () => {
           expect.stringContaining('OpenAI error!')
         );
       });
+    });
+  });
+
+  describe('maybeCreateThread', () => {
+    it('creates a thread when replying to the bot', async () => {
+      const threadChannel = { send: vi.fn() } as any;
+      const startThread = vi.fn().mockResolvedValue(threadChannel);
+      const originalMessage = createMockMessage({
+        id: '1',
+        hasThread: false,
+        startThread,
+      } as any);
+      const botReply = createMockMessage({
+        id: '2',
+        author: { id: BOT_ID },
+        reference: { messageId: '1' },
+      } as any);
+      const userMessage = createMockMessage({
+        reference: { messageId: '2' },
+      } as any);
+
+      mockDiscordService.buildPromptFromMessageChain.mockResolvedValue('chain');
+      mockDiscordService.getReferencedMessage.mockResolvedValueOnce(botReply);
+      mockDiscordService.getOriginalMessage.mockResolvedValueOnce(originalMessage);
+
+      const thread = await (rooivalk as any).maybeCreateThread(userMessage);
+      expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith('chain');
+      expect(startThread).toHaveBeenCalledWith({ name: 'Thread Title' });
+      expect(thread).toBe(threadChannel);
+    });
+
+    it('returns existing thread if original message already has one', async () => {
+      const startThread = vi.fn();
+      const existingThread = { send: vi.fn() } as any;
+      const originalMessage = createMockMessage({
+        id: '1',
+        hasThread: true,
+        startThread,
+        thread: existingThread,
+      } as any);
+      const botReply = createMockMessage({
+        id: '2',
+        author: { id: BOT_ID },
+        reference: { messageId: '1' },
+      } as any);
+      const userMessage = createMockMessage({
+        reference: { messageId: '2' },
+      } as any);
+      mockDiscordService.getReferencedMessage.mockResolvedValueOnce(botReply);
+      mockDiscordService.getOriginalMessage.mockResolvedValueOnce(originalMessage);
+      const thread = await (rooivalk as any).maybeCreateThread(userMessage);
+      expect(startThread).not.toHaveBeenCalled();
+      expect(thread).toBe(existingThread);
     });
   });
 
