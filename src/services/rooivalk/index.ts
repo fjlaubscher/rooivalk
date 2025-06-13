@@ -256,7 +256,11 @@ class Rooivalk {
       if (response) {
         const chunks = this._discord.chunkContent(response);
         for (const chunk of chunks) {
-          await thread.send(chunk);
+          try {
+            await thread.send(chunk);
+          } catch (error) {
+            console.error('Error sending chunk to thread:', error);
+          }
         }
         await interaction.editReply({
           content: `Thread created: ${threadName}`,
