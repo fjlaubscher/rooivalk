@@ -1,6 +1,10 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { Client as DiscordClient, TextChannel } from 'discord.js';
+import {
+  Client as DiscordClient,
+  TextChannel,
+  type MessageReference,
+} from 'discord.js';
 
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG } from '@/test-utils/mock';
@@ -126,6 +130,7 @@ describe('DiscordService', () => {
         (
           msg.channel.messages.fetch as unknown as MockInstance
         ).mockRejectedValueOnce(new Error('fail'));
+
         expect(await service.getReferencedMessage(msg)).toBeNull();
       });
     });
@@ -134,13 +139,17 @@ describe('DiscordService', () => {
       it('walks the reply chain to find the first message', async () => {
         const root = createMockMessage();
         const mid = createMockMessage({
-          reference: { messageId: 'root' },
-          channel: { messages: { fetch: vi.fn().mockResolvedValue(root) } } as any,
-        });
+          reference: { messageId: 'root' } as MessageReference,
+          channel: {
+            messages: { fetch: vi.fn().mockResolvedValue(root) },
+          } as any,
+        } as Partial<DiscordMessage>);
         const msg = createMockMessage({
-          reference: { messageId: 'mid' },
-          channel: { messages: { fetch: vi.fn().mockResolvedValue(mid) } } as any,
-        });
+          reference: { messageId: 'mid' } as MessageReference,
+          channel: {
+            messages: { fetch: vi.fn().mockResolvedValue(mid) },
+          } as any,
+        } as Partial<DiscordMessage>);
         const result = await service.getOriginalMessage(msg);
         expect(result).toBe(root);
       });

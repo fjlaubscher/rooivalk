@@ -223,7 +223,7 @@ export class DiscordService {
         return null;
       }
 
-      let current: DiscordMessage = await message.channel.messages.fetch(
+      let current = await message.channel.messages.fetch(
         message.reference.messageId
       );
       let depth = 0;

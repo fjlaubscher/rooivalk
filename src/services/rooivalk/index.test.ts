@@ -58,11 +58,7 @@ describe('Rooivalk', () => {
       configurable: true,
     });
 
-    rooivalk = new Rooivalk(
-      MOCK_CONFIG,
-      mockDiscordService,
-      mockOpenAIClient
-    );
+    rooivalk = new Rooivalk(MOCK_CONFIG, mockDiscordService, mockOpenAIClient);
   });
 
   afterEach(() => {
@@ -75,7 +71,9 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue('User: Hi!\nRooivalk: Hello!');
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(
+          'User: Hi!\nRooivalk: Hello!'
+        );
         await (rooivalk as any).processMessage(userMessage);
         expect(
           mockDiscordService.buildPromptFromMessageChain
@@ -87,13 +85,14 @@ describe('Rooivalk', () => {
       });
     });
 
-
     describe('Rooivalk private shouldProcessMessage', () => {
       it('returns true for whitelisted bot', () => {
         const allowedBotId = 'allowed-bot-id';
         // Set up environment with allowed bot ID
-        vi.stubGlobal('process', { env: { ...MOCK_ENV, DISCORD_ALLOWED_APPS: allowedBotId } });
-        
+        vi.stubGlobal('process', {
+          env: { ...MOCK_ENV, DISCORD_ALLOWED_APPS: allowedBotId },
+        });
+
         // Create new instance with updated environment
         const testRooivalk = new Rooivalk(
           MOCK_CONFIG,
@@ -103,7 +102,7 @@ describe('Rooivalk', () => {
 
         const msg = Object.assign(createMockMessage(), {
           author: { id: allowedBotId, bot: true } as any,
-          guild: { id: 'guild-id' } as any
+          guild: { id: 'guild-id' } as any,
         });
         // @ts-expect-error: testing private method
         expect(testRooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(true);
@@ -112,7 +111,7 @@ describe('Rooivalk', () => {
       it('returns false for non-whitelisted bot', () => {
         const msg = Object.assign(createMockMessage(), {
           author: { id: 'not-allowed-bot-id', bot: true } as any,
-          guild: { id: 'guild-id' } as any
+          guild: { id: 'guild-id' } as any,
         });
         // @ts-expect-error: testing private method
         expect(rooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(false);
@@ -121,8 +120,10 @@ describe('Rooivalk', () => {
       it('returns false for wrong guild', () => {
         const allowedBotId = 'allowed-bot-id';
         // Set up environment with allowed bot ID
-        vi.stubGlobal('process', { env: { ...MOCK_ENV, DISCORD_ALLOWED_APPS: allowedBotId } });
-        
+        vi.stubGlobal('process', {
+          env: { ...MOCK_ENV, DISCORD_ALLOWED_APPS: allowedBotId },
+        });
+
         // Create new instance with updated environment
         const testRooivalk = new Rooivalk(
           MOCK_CONFIG,
@@ -132,7 +133,7 @@ describe('Rooivalk', () => {
 
         const msg = Object.assign(createMockMessage(), {
           author: { id: allowedBotId, bot: true } as any,
-          guild: { id: 'other-guild' } as any
+          guild: { id: 'other-guild' } as any,
         });
         // @ts-expect-error: testing private method
         expect(testRooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(false);
@@ -141,13 +142,12 @@ describe('Rooivalk', () => {
       it('returns true for a user (not a bot)', () => {
         const msg = Object.assign(createMockMessage(), {
           author: { id: 'user-id', bot: false } as any,
-          guild: { id: 'guild-id' } as any
+          guild: { id: 'guild-id' } as any,
         });
         // @ts-expect-error: testing private method
         expect(rooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(true);
       });
     });
-
 
     describe('and buildPromptFromMessageChain returns null', () => {
       it('should use message content if buildPromptFromMessageChain returns null', async () => {
@@ -200,7 +200,9 @@ describe('Rooivalk', () => {
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
         mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
-        mockOpenAIClient.createResponse.mockRejectedValue(new Error('OpenAI error!'));
+        mockOpenAIClient.createResponse.mockRejectedValue(
+          new Error('OpenAI error!')
+        );
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith(
           expect.stringContaining('OpenAI error!')
@@ -229,7 +231,9 @@ describe('Rooivalk', () => {
 
       mockDiscordService.buildPromptFromMessageChain.mockResolvedValue('chain');
       mockDiscordService.getReferencedMessage.mockResolvedValueOnce(botReply);
-      mockDiscordService.getOriginalMessage.mockResolvedValueOnce(originalMessage);
+      mockDiscordService.getOriginalMessage.mockResolvedValueOnce(
+        originalMessage
+      );
 
       const thread = await (rooivalk as any).maybeCreateThread(userMessage);
       expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith('chain');
@@ -255,7 +259,9 @@ describe('Rooivalk', () => {
         reference: { messageId: '2' },
       } as any);
       mockDiscordService.getReferencedMessage.mockResolvedValueOnce(botReply);
-      mockDiscordService.getOriginalMessage.mockResolvedValueOnce(originalMessage);
+      mockDiscordService.getOriginalMessage.mockResolvedValueOnce(
+        originalMessage
+      );
       const thread = await (rooivalk as any).maybeCreateThread(userMessage);
       expect(startThread).not.toHaveBeenCalled();
       expect(thread).toBe(existingThread);
@@ -323,10 +329,16 @@ describe('Rooivalk', () => {
       } as unknown as ChatInputCommandInteraction;
 
       mockOpenAIClient.createImage.mockResolvedValue('img');
-      mockDiscordService.buildImageReply.mockReturnValue({ embeds: ['e'], files: ['f'] });
+      mockDiscordService.buildImageReply.mockReturnValue({
+        embeds: ['e'],
+        files: ['f'],
+      });
 
       await (rooivalk as any).handleImageCommand(interaction);
-      expect(interaction.editReply).toHaveBeenCalledWith({ embeds: ['e'], files: ['f'] });
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        embeds: ['e'],
+        files: ['f'],
+      });
     });
 
     it('should reply with error details if OpenAI throws', async () => {

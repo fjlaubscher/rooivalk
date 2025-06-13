@@ -26,7 +26,10 @@ class Rooivalk {
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
     this._allowedAppIds = allowedAppsEnv
-      ? allowedAppsEnv.split(',').map((id) => id.trim()).filter(Boolean)
+      ? allowedAppsEnv
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
       : [];
   }
 
@@ -40,7 +43,8 @@ class Rooivalk {
     guildId: string
   ): boolean {
     if (
-      (message.author.bot && !this._allowedAppIds.includes(message.author.id)) ||
+      (message.author.bot &&
+        !this._allowedAppIds.includes(message.author.id)) ||
       message.guild?.id !== guildId
     ) {
       return false;
@@ -74,7 +78,9 @@ class Rooivalk {
       }
 
       // find the original user message
-      const original = await this._discord.getOriginalMessage(reply);
+      const original = await this._discord.getOriginalMessage(
+        reply as DiscordMessage
+      );
       if (!original) {
         return null;
       }
@@ -280,10 +286,7 @@ class Rooivalk {
 
       this._discord.on(DiscordEvents.MessageCreate, async (message) => {
         if (
-          !this.shouldProcessMessage(
-            message,
-            process.env.DISCORD_GUILD_ID!
-          )
+          !this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)
         ) {
           return;
         }
