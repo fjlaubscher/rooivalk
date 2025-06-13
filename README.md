@@ -57,31 +57,9 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    yarn start
    ```
 
-### Project Structure
+### Detailed Project Structure
 
-```
-rooivalk/
-├── src/
-│   ├── constants.ts
-│   ├── index.ts
-│   ├── test-utils/
-│   │   └── createMockMessage.ts
-│   └── services/
-│       ├── discord/
-│       │   ├── index.ts
-│       │   └── index.test.ts
-│       ├── openai/
-│       │   ├── constants.ts
-│       │   └── index.ts
-│       └── rooivalk/
-│           ├── constants.ts
-│           ├── index.test.ts
-│           └── index.ts
-├── package.json
-├── tsconfig.json
-├── .env.example
-└── README.md
-```
+For a detailed breakdown of the project structure, please refer to [AGENTS.md](./AGENTS.md).
 
 ### Customization
 - Edit `src/services/openai/index.ts` to change how prompts are sent to OpenAI.
@@ -91,9 +69,11 @@ rooivalk/
 
 ### Continuous Integration
 
-This project uses GitHub Actions to automatically run tests on every push and pull request to the `main` branch. You can find the workflow configuration in `.github/workflows/test.yml`.
+This project uses GitHub Actions to automatically run tests and deploy the bot. The workflows are located in `.github/workflows/`:
+- `test.yml`: Runs tests on every push and pull request to the `main` branch.
+- `deploy.yml`: Handles deployment tasks.
 
-No additional setup is required—tests will run automatically if you push changes or open a pull request.
+No additional setup is required—tests and deployments will run automatically if you push changes or open a pull request.
 
 ---
 
