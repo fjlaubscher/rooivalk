@@ -246,7 +246,12 @@ describe('Rooivalk', () => {
         userMessage
       );
 
-      expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith('chain');
+      expect(threadChannel.send).toHaveBeenCalledWith('TestUser: User message');
+
+      expect(threadChannel.send).toHaveBeenCalledWith('rooivalk: Bot reply');
+
+      expect(threadChannel.send).toHaveBeenCalledWith('TestUser: User reply');
+
       expect(startThread).toHaveBeenCalledWith({ name: 'Thread Title' });
       expect(thread).toBe(threadChannel);
     });

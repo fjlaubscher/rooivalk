@@ -8,6 +8,8 @@ import type { DiscordMessage } from '@/services/discord';
 
 import type { InMemoryConfig } from '@/types';
 
+const MESSAGE_CHAIN_THRESHOLD = 2;
+
 class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
@@ -87,7 +89,7 @@ class Rooivalk {
 
       // Check if the message chain has more than one reply
       const messageChain = await this._discord.getMessageChain(message);
-      if (messageChain.length < 2) {
+      if (messageChain.length <= MESSAGE_CHAIN_THRESHOLD) {
         return null; // No thread creation needed unless there are at least two messages in the chain
       }
 
@@ -103,8 +105,21 @@ class Rooivalk {
           message.content;
         const threadName =
           (await this._openaiClient.generateThreadName(namePrompt)) ||
-          'Conversation with Rooivalk';
-        return await (original as any).startThread({ name: threadName });
+          'Conversation with rooivalk';
+        const thread = await (original as any).startThread({
+          name: threadName,
+        });
+
+        // Send the message chain to the thread
+        for (const chainMessage of messageChain) {
+          const authorName =
+            chainMessage.author === 'user'
+              ? message.author.username
+              : this._discord.client.user?.username || 'rooivalk';
+          await thread.send(`${authorName}: ${chainMessage.content}`);
+        }
+
+        return thread;
       } catch (err) {
         console.error('Failed to create thread:', err);
         return null;
