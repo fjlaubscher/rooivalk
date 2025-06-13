@@ -92,7 +92,7 @@ class OpenAIClient {
         model: this._model,
         tools: this._tools,
         instructions:
-          'Provide a short title for this conversation in five words or less.',
+          'Provide a short title for this conversation in 100 characters or less. Only respond with the title, nothing else.',
         input: prompt,
       });
 
