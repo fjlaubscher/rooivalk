@@ -96,7 +96,14 @@ class OpenAIClient {
         input: prompt,
       });
 
-      return response.output_text.trim();
+      let threadName = response.output_text.trim();
+
+      // Ensure the thread name is within the 100-character limit
+      if (threadName.length > 100) {
+        threadName = threadName.substring(0, 97) + '...'; // Truncate and add ellipsis
+      }
+
+      return threadName;
     } catch (error) {
       console.error('Error with OpenAI:', error);
       if (error instanceof OpenAI.OpenAIError) {
