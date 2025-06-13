@@ -20,6 +20,7 @@ const mockDiscordService = vi.mocked({
   getMessageChain: vi.fn(),
   buildMessageReply: vi.fn().mockResolvedValue({}),
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
+  chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
   buildPromptFromMessageChain: vi.fn(),
   registerSlashCommands: vi.fn(),
@@ -310,6 +311,37 @@ describe('Rooivalk', () => {
 
       await (rooivalk as any).handleImageCommand(interaction);
       expect(interaction.editReply).toHaveBeenCalledWith({ content: 'Error!' });
+    });
+  });
+
+  describe('when handling a thread command', () => {
+    it('should chunk long responses', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('prompt') },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+        channel: {
+          threads: { create: vi.fn() },
+        },
+      } as unknown as ChatInputCommandInteraction;
+
+      const mockThread = { send: vi.fn() } as any;
+      (interaction.channel as any).threads.create.mockResolvedValue(mockThread);
+
+      const longResponse = 'a'.repeat(4500);
+      mockOpenAIClient.createResponse.mockResolvedValue(longResponse);
+      mockDiscordService.chunkContent.mockReturnValue([
+        'a'.repeat(2000),
+        'a'.repeat(2000),
+        'a'.repeat(500),
+      ]);
+
+      await (rooivalk as any).handleThreadCommand(interaction);
+
+      expect(mockThread.send).toHaveBeenCalledTimes(3);
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        content: expect.stringContaining('Thread created'),
+      });
     });
   });
 

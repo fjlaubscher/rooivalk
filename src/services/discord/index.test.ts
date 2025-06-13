@@ -101,6 +101,15 @@ describe('DiscordService', () => {
       });
     });
 
+    describe('chunkContent', () => {
+      it('splits content based on the discord limit', () => {
+        const longContent = 'a'.repeat(4500);
+        const chunks = service.chunkContent(longContent, 2000);
+        expect(chunks.length).toBe(3);
+        expect(chunks[0]!.length).toBe(2000);
+      });
+    });
+
     describe('getMessageChain', () => {
       it('should get a message chain and handle errors', async () => {
         const msg = createMockMessage();

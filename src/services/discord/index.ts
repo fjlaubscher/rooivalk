@@ -125,6 +125,28 @@ export class DiscordService {
     };
   }
 
+  /**
+   * Splits content into chunks that respect the Discord message limit.
+   */
+  public chunkContent(
+    content: string,
+    limit: number = DISCORD_MESSAGE_LIMIT
+  ): string[] {
+    const chunks: string[] = [];
+    let remaining = content;
+
+    while (remaining.length > limit) {
+      chunks.push(remaining.slice(0, limit));
+      remaining = remaining.slice(limit);
+    }
+
+    if (remaining.length > 0) {
+      chunks.push(remaining);
+    }
+
+    return chunks;
+  }
+
   public buildImageReply(prompt: string, base64Image: string) {
     return {
       files: [
