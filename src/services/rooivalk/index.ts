@@ -26,7 +26,10 @@ class Rooivalk {
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
     this._allowedAppIds = allowedAppsEnv
-      ? allowedAppsEnv.split(',').map((id) => id.trim()).filter(Boolean)
+      ? allowedAppsEnv
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
       : [];
   }
 
@@ -40,7 +43,8 @@ class Rooivalk {
     guildId: string
   ): boolean {
     if (
-      (message.author.bot && !this._allowedAppIds.includes(message.author.id)) ||
+      (message.author.bot &&
+        !this._allowedAppIds.includes(message.author.id)) ||
       message.guild?.id !== guildId
     ) {
       return false;
@@ -57,7 +61,55 @@ class Rooivalk {
     this._openaiClient.reloadConfig(newConfig);
   }
 
+  /**
+   * Checks if a message is replying to the bot and, if so, creates a thread on
+   * the original user message.
+   */
+  private async maybeCreateThread(message: DiscordMessage) {
+    if (message.author.bot || !message.reference?.messageId) {
+      return null;
+    }
+
+    try {
+      // fetch the message the user replied to
+      const reply = await this._discord.getReferencedMessage(message);
+      if (!reply || reply.author.id !== this._discord.client.user?.id) {
+        return null;
+      }
+
+      // find the original user message
+      const original = await this._discord.getOriginalMessage(
+        reply as DiscordMessage
+      );
+      if (!original) {
+        return null;
+      }
+
+      if (original.hasThread) {
+        return original.thread ?? null;
+      }
+
+      try {
+        const namePrompt =
+          (await this._discord.buildPromptFromMessageChain(message)) ||
+          message.content;
+        const threadName =
+          (await this._openaiClient.generateThreadName(namePrompt)) ||
+          'Conversation with Rooivalk';
+        return await (original as any).startThread({ name: threadName });
+      } catch (err) {
+        console.error('Failed to create thread:', err);
+        return null;
+      }
+    } catch (err) {
+      console.error('Error handling thread creation:', err);
+      return null;
+    }
+  }
+
   private async processMessage(message: DiscordMessage) {
+    const thread = await this.maybeCreateThread(message);
+
     try {
       let prompt = message.content
         .replace(this._discord.mentionRegex!, '')
@@ -87,9 +139,17 @@ class Rooivalk {
           response,
           usersToMention.map((user) => user.id)
         );
-        await message.reply(reply);
+        if (thread) {
+          await thread.send(reply);
+        } else {
+          await message.reply(reply);
+        }
       } else {
-        await message.reply(this._discord.getRooivalkResponse('error'));
+        if (thread) {
+          await thread.send(this._discord.getRooivalkResponse('error'));
+        } else {
+          await message.reply(this._discord.getRooivalkResponse('error'));
+        }
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -99,7 +159,11 @@ class Rooivalk {
         error instanceof Error
           ? `${errorMessage}\n\n\`\`\`${error.message}\`\`\``
           : errorMessage;
-      await message.reply(reply);
+      if (thread) {
+        await thread.send(reply);
+      } else {
+        await message.reply(reply);
+      }
       return;
     }
   }
@@ -222,10 +286,7 @@ class Rooivalk {
 
       this._discord.on(DiscordEvents.MessageCreate, async (message) => {
         if (
-          !this.shouldProcessMessage(
-            message,
-            process.env.DISCORD_GUILD_ID!
-          )
+          !this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)
         ) {
           return;
         }

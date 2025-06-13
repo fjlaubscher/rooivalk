@@ -198,13 +198,47 @@ export class DiscordService {
     return messageChain;
   }
 
-  public async getOriginalMessage(message: DiscordMessage) {
+  /**
+   * Fetches the message being replied to.
+   */
+  public async getReferencedMessage(message: DiscordMessage) {
     try {
       const reference = message.reference;
       if (!reference?.messageId) {
         return null;
       }
       return await message.channel.messages.fetch(reference.messageId);
+    } catch (error) {
+      console.error('Error fetching referenced message:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Walks up the reply chain to find the first message in the conversation.
+   */
+  public async getOriginalMessage(message: DiscordMessage) {
+    try {
+      if (!message.reference?.messageId) {
+        return null;
+      }
+
+      let current = await message.channel.messages.fetch(
+        message.reference.messageId
+      );
+      let depth = 0;
+
+      while (
+        current.reference?.messageId &&
+        depth < DISCORD_MAX_MESSAGE_CHAIN_LENGTH
+      ) {
+        current = await current.channel.messages.fetch(
+          current.reference.messageId
+        );
+        depth += 1;
+      }
+
+      return current;
     } catch (error) {
       console.error('Error fetching original message:', error);
       return null;
@@ -258,7 +292,7 @@ export class DiscordService {
     message: DiscordMessage
   ): Promise<string | null> {
     if (message.reference && message.reference.messageId) {
-      const repliedToMessage = await this.getOriginalMessage(message);
+      const repliedToMessage = await this.getReferencedMessage(message);
       if (
         repliedToMessage &&
         repliedToMessage.author.id === this._discordClient.user?.id

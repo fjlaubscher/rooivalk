@@ -85,6 +85,27 @@ class OpenAIClient {
       throw new Error('Error creating image');
     }
   }
+
+  async generateThreadName(prompt: string) {
+    try {
+      const response = await this._openai.responses.create({
+        model: this._model,
+        tools: this._tools,
+        instructions:
+          'Provide a short title for this conversation in five words or less.',
+        input: prompt,
+      });
+
+      return response.output_text.trim();
+    } catch (error) {
+      console.error('Error with OpenAI:', error);
+      if (error instanceof OpenAI.OpenAIError) {
+        throw new Error(error.message);
+      }
+
+      throw new Error('Error creating thread name');
+    }
+  }
 }
 
 export default OpenAIClient;

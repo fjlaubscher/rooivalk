@@ -1,6 +1,10 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { Client as DiscordClient, TextChannel } from 'discord.js';
+import {
+  Client as DiscordClient,
+  TextChannel,
+  type MessageReference,
+} from 'discord.js';
 
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG } from '@/test-utils/mock';
@@ -108,29 +112,56 @@ describe('DiscordService', () => {
       });
     });
 
-    describe('getOriginalMessage', () => {
-      describe('when the original message is fetched successfully', () => {
-        it('should get original message', async () => {
-          const msg = createMockMessage({
-            reference: { messageId: '123' },
-          } as Partial<DiscordMessage>);
-          (
-            msg.channel.messages.fetch as unknown as MockInstance
-          ).mockResolvedValueOnce('original');
-          expect(await service.getOriginalMessage(msg)).toBe('original');
-        });
+    describe('getReferencedMessage', () => {
+      it('should get the referenced message', async () => {
+        const msg = createMockMessage({
+          reference: { messageId: '123' },
+        } as Partial<DiscordMessage>);
+        (
+          msg.channel.messages.fetch as unknown as MockInstance
+        ).mockResolvedValueOnce('parent');
+        expect(await service.getReferencedMessage(msg)).toBe('parent');
       });
 
-      describe('when fetching the original message fails', () => {
-        it('should return null on error', async () => {
-          const msg = createMockMessage({
-            reference: { messageId: '123' },
-          } as Partial<DiscordMessage>);
-          (
-            msg.channel.messages.fetch as unknown as MockInstance
-          ).mockRejectedValueOnce(new Error('fail'));
-          expect(await service.getOriginalMessage(msg)).toBeNull();
-        });
+      it('should return null on error', async () => {
+        const msg = createMockMessage({
+          reference: { messageId: '123' },
+        } as Partial<DiscordMessage>);
+        (
+          msg.channel.messages.fetch as unknown as MockInstance
+        ).mockRejectedValueOnce(new Error('fail'));
+
+        expect(await service.getReferencedMessage(msg)).toBeNull();
+      });
+    });
+
+    describe('getOriginalMessage', () => {
+      it('walks the reply chain to find the first message', async () => {
+        const root = createMockMessage();
+        const mid = createMockMessage({
+          reference: { messageId: 'root' } as MessageReference,
+          channel: {
+            messages: { fetch: vi.fn().mockResolvedValue(root) },
+          } as any,
+        } as Partial<DiscordMessage>);
+        const msg = createMockMessage({
+          reference: { messageId: 'mid' } as MessageReference,
+          channel: {
+            messages: { fetch: vi.fn().mockResolvedValue(mid) },
+          } as any,
+        } as Partial<DiscordMessage>);
+        const result = await service.getOriginalMessage(msg);
+        expect(result).toBe(root);
+      });
+
+      it('returns null on fetch error', async () => {
+        const msg = createMockMessage({
+          reference: { messageId: '123' },
+        } as Partial<DiscordMessage>);
+        (
+          msg.channel.messages.fetch as unknown as MockInstance
+        ).mockRejectedValueOnce(new Error('fail'));
+        expect(await service.getOriginalMessage(msg)).toBeNull();
       });
     });
 
@@ -156,7 +187,7 @@ describe('DiscordService', () => {
         const msg = createMockMessage({
           reference: { messageId: '123' },
         } as Partial<DiscordMessage>);
-        vi.spyOn(service, 'getOriginalMessage').mockResolvedValue({
+        vi.spyOn(service, 'getReferencedMessage').mockResolvedValue({
           author: { id: BOT_ID },
         } as any);
         vi.spyOn(service, 'getMessageChain').mockResolvedValue([
