@@ -228,7 +228,7 @@ class Rooivalk {
     interaction: ChatInputCommandInteraction
   ): Promise<void> {
     const prompt = interaction.options.getString('prompt', true);
-    await interaction.deferReply();
+    await interaction.deferReply({ ephemeral: true });
 
     try {
       const threadName =
@@ -249,10 +249,14 @@ class Rooivalk {
         return;
       }
 
+      // echo the prompt in the new thread
+      await thread.send(`>>> ${prompt}`);
+
       const response = await this._openaiClient.createResponse(
         'rooivalk',
         prompt
       );
+
       if (response) {
         const chunks = this._discord.chunkContent(response);
         for (const chunk of chunks) {
@@ -262,9 +266,7 @@ class Rooivalk {
             console.error('Error sending chunk to thread:', error);
           }
         }
-        await interaction.editReply({
-          content: `Thread created: ${threadName}`,
-        });
+        await interaction.deleteReply();
       } else {
         await interaction.editReply({
           content: this._discord.getRooivalkResponse('error'),
