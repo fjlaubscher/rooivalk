@@ -71,13 +71,13 @@ class Rooivalk {
     }
 
     try {
-      // fetch the message the user replied to
+      // Fetch the message the user replied to
       const reply = await this._discord.getReferencedMessage(message);
       if (!reply || reply.author.id !== this._discord.client.user?.id) {
         return null;
       }
 
-      // find the original user message
+      // Fetch the original user message
       const original = await this._discord.getOriginalMessage(
         reply as DiscordMessage
       );
@@ -85,10 +85,18 @@ class Rooivalk {
         return null;
       }
 
-      if (original.hasThread) {
-        return original.thread ?? null;
+      // Check if the message chain has more than one reply
+      const messageChain = await this._discord.getMessageChain(message);
+      if (messageChain.length < 2) {
+        return null; // No thread creation needed unless there are at least two messages in the chain
       }
 
+      // Check if a thread already exists
+      if (original.hasThread && original.thread) {
+        return original.thread;
+      }
+
+      // Attempt to create a new thread
       try {
         const namePrompt =
           (await this._discord.buildPromptFromMessageChain(message)) ||

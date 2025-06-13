@@ -230,12 +230,22 @@ describe('Rooivalk', () => {
       } as any);
 
       mockDiscordService.buildPromptFromMessageChain.mockResolvedValue('chain');
+      mockDiscordService.getMessageChain.mockResolvedValue([
+        { author: 'user', content: 'User message' },
+        { author: 'rooivalk', content: 'Bot reply' },
+        { author: 'user', content: 'User reply' },
+      ]);
+
       mockDiscordService.getReferencedMessage.mockResolvedValueOnce(botReply);
       mockDiscordService.getOriginalMessage.mockResolvedValueOnce(
         originalMessage
       );
 
       const thread = await (rooivalk as any).maybeCreateThread(userMessage);
+      expect(mockDiscordService.getMessageChain).toHaveBeenCalledWith(
+        userMessage
+      );
+
       expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith('chain');
       expect(startThread).toHaveBeenCalledWith({ name: 'Thread Title' });
       expect(thread).toBe(threadChannel);
