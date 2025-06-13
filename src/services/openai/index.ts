@@ -92,7 +92,7 @@ class OpenAIClient {
         model: this._model,
         tools: this._tools,
         instructions:
-          'Provide a short title for this conversation in 100 characters or less. Only respond with the title, nothing else.',
+          'Summarize the conversation and provide a short title for this conversation in 100 characters or less. Only respond with the thread title.',
         input: prompt,
       });
 
