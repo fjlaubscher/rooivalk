@@ -88,11 +88,18 @@ class OpenAIClient {
 
   async generateThreadName(prompt: string) {
     try {
+      const instructions = `
+        You generate Discord thread titles.
+        Given any message, output only a short thread name (max 100 characters).
+        Never include any other text.
+        Do not reply with explanations.
+        If unsure, guess the topic.
+      `;
+
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
-        instructions:
-          'Summarize the conversation and provide a short title for this conversation in 100 characters or less. Only respond with the thread title.',
+        instructions,
         input: prompt,
       });
 
