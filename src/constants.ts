@@ -4,6 +4,7 @@ export const DISCORD_EMOJI = 'rooivalk';
 export const DISCORD_COMMANDS = {
   LEARN: 'learn',
   IMAGE: 'image',
+  THREAD: 'thread',
 };
 
 // Config file names for hot-swappable markdown configs
@@ -39,6 +40,16 @@ export const DISCORD_COMMAND_DEFINITIONS: Record<
       {
         name: 'prompt',
         description: 'Your prompt for the image',
+        required: true,
+      },
+    ],
+  },
+  [DISCORD_COMMANDS.THREAD]: {
+    description: 'Start a thread with @rooivalk!',
+    parameters: [
+      {
+        name: 'prompt',
+        description: 'Your prompt for the thread',
         required: true,
       },
     ],

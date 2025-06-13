@@ -1,5 +1,9 @@
 import { Events as DiscordEvents } from 'discord.js';
-import type { ChatInputCommandInteraction, Interaction } from 'discord.js';
+import type {
+  ChatInputCommandInteraction,
+  Interaction,
+  TextChannel,
+} from 'discord.js';
 
 import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
 import OpenAIClient from '@/services/openai';
@@ -7,8 +11,6 @@ import { DiscordService } from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
 
 import type { InMemoryConfig } from '@/types';
-
-const MESSAGE_CHAIN_THRESHOLD = 2;
 
 class Rooivalk {
   protected _config: InMemoryConfig;
@@ -63,76 +65,7 @@ class Rooivalk {
     this._openaiClient.reloadConfig(newConfig);
   }
 
-  /**
-   * Checks if a message is replying to the bot and, if so, creates a thread on
-   * the original user message.
-   */
-  private async maybeCreateThread(message: DiscordMessage) {
-    if (message.author.bot || !message.reference?.messageId) {
-      return null;
-    }
-
-    try {
-      // Fetch the message the user replied to
-      const reply = await this._discord.getReferencedMessage(message);
-      if (!reply || reply.author.id !== this._discord.client.user?.id) {
-        return null;
-      }
-
-      // Fetch the original user message
-      const original = await this._discord.getOriginalMessage(
-        reply as DiscordMessage
-      );
-      if (!original) {
-        return null;
-      }
-
-      // Check if the message chain has more than one reply
-      const messageChain = await this._discord.getMessageChain(message);
-      if (messageChain.length <= MESSAGE_CHAIN_THRESHOLD) {
-        return null; // No thread creation needed unless there are at least two messages in the chain
-      }
-
-      // Check if a thread already exists
-      if (original.hasThread && original.thread) {
-        return original.thread;
-      }
-
-      // Attempt to create a new thread
-      try {
-        const namePrompt =
-          (await this._discord.buildPromptFromMessageChain(message)) ||
-          message.content;
-        const threadName =
-          (await this._openaiClient.generateThreadName(namePrompt)) ||
-          'Conversation with rooivalk';
-        const thread = await (original as any).startThread({
-          name: threadName,
-        });
-
-        // Send the message chain to the thread
-        for (const chainMessage of messageChain) {
-          const authorName =
-            chainMessage.author === 'user'
-              ? message.author.username
-              : this._discord.client.user?.username || 'rooivalk';
-          await thread.send(`${authorName}: ${chainMessage.content}`);
-        }
-
-        return thread;
-      } catch (err) {
-        console.error('Failed to create thread:', err);
-        return null;
-      }
-    } catch (err) {
-      console.error('Error handling thread creation:', err);
-      return null;
-    }
-  }
-
   private async processMessage(message: DiscordMessage) {
-    const thread = await this.maybeCreateThread(message);
-
     try {
       let prompt = message.content
         .replace(this._discord.mentionRegex!, '')
@@ -162,17 +95,13 @@ class Rooivalk {
           response,
           usersToMention.map((user) => user.id)
         );
-        if (thread) {
-          await thread.send(reply);
+        if (message.thread) {
+          await message.thread.send(reply);
         } else {
           await message.reply(reply);
         }
       } else {
-        if (thread) {
-          await thread.send(this._discord.getRooivalkResponse('error'));
-        } else {
-          await message.reply(this._discord.getRooivalkResponse('error'));
-        }
+        await message.reply(this._discord.getRooivalkResponse('error'));
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -182,8 +111,9 @@ class Rooivalk {
         error instanceof Error
           ? `${errorMessage}\n\n\`\`\`${error.message}\`\`\``
           : errorMessage;
-      if (thread) {
-        await thread.send(reply);
+
+      if (message.thread) {
+        await message.thread.send(reply);
       } else {
         await message.reply(reply);
       }
@@ -294,6 +224,53 @@ class Rooivalk {
     }
   }
 
+  private async handleThreadCommand(
+    interaction: ChatInputCommandInteraction
+  ): Promise<void> {
+    const prompt = interaction.options.getString('prompt', true);
+    await interaction.deferReply();
+
+    try {
+      const threadName =
+        (await this._openaiClient.generateThreadName(prompt)) ||
+        'Conversation with rooivalk';
+
+      const thread = await (interaction.channel as TextChannel)?.threads.create(
+        {
+          name: threadName,
+          autoArchiveDuration: 60,
+        }
+      );
+
+      if (!thread) {
+        await interaction.editReply({
+          content: this._discord.getRooivalkResponse('error'),
+        });
+        return;
+      }
+
+      const response = await this._openaiClient.createResponse(
+        'rooivalk',
+        prompt
+      );
+      if (response) {
+        await thread.send(response);
+        await interaction.editReply({
+          content: `Thread created: ${threadName}`,
+        });
+      } else {
+        await interaction.editReply({
+          content: this._discord.getRooivalkResponse('error'),
+        });
+      }
+    } catch (error) {
+      console.error('Error handling thread command:', error);
+      await interaction.editReply({
+        content: this._discord.getRooivalkResponse('error'),
+      });
+    }
+  }
+
   public init(): Promise<void> {
     return new Promise(async (resolve) => {
       this._discord.once(DiscordEvents.ClientReady, async () => {
@@ -393,6 +370,9 @@ class Rooivalk {
               break;
             case DISCORD_COMMANDS.IMAGE:
               await this.handleImageCommand(interaction);
+              break;
+            case DISCORD_COMMANDS.THREAD:
+              await this.handleThreadCommand(interaction);
               break;
             default:
               console.error(
