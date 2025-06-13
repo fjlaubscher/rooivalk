@@ -294,7 +294,7 @@ class Rooivalk {
         // Check if the message is a reply to the bot
         let isReplyToBot = false;
         if (message.reference && message.reference.messageId) {
-          const repliedToMessage = await this._discord.getOriginalMessage(
+          const repliedToMessage = await this._discord.getReferencedMessage(
             message as DiscordMessage
           );
           if (
