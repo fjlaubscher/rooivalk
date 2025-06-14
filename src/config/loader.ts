@@ -61,15 +61,30 @@ export const loadInstructions = async (filename: string): Promise<string> => {
 };
 
 export const loadConfig = async (): Promise<InMemoryConfig> => {
+  const [
+    errorMessages,
+    greetingMessages,
+    discordLimitMessages,
+    instructionsRooivalk,
+    instructionsLearn,
+    motd,
+  ] = await Promise.all([
+    loadMessageList(CONFIG_FILE_ERRORS),
+    loadMessageList(CONFIG_FILE_GREETINGS),
+    loadMessageList(CONFIG_FILE_DISCORD_LIMIT),
+    loadInstructions(CONFIG_FILE_INSTRUCTIONS_ROOIVALK),
+    loadInstructions(CONFIG_FILE_INSTRUCTIONS_LEARN),
+    loadInstructions(CONFIG_FILE_MOTD),
+  ]);
+
   const config: InMemoryConfig = {
-    errorMessages: await loadMessageList(CONFIG_FILE_ERRORS),
-    greetingMessages: await loadMessageList(CONFIG_FILE_GREETINGS),
-    discordLimitMessages: await loadMessageList(CONFIG_FILE_DISCORD_LIMIT),
-    instructionsRooivalk: await loadInstructions(
-      CONFIG_FILE_INSTRUCTIONS_ROOIVALK
-    ),
-    instructionsLearn: await loadInstructions(CONFIG_FILE_INSTRUCTIONS_LEARN),
-    motd: await loadInstructions(CONFIG_FILE_MOTD),
+    errorMessages,
+    greetingMessages,
+    discordLimitMessages,
+    instructionsRooivalk,
+    instructionsLearn,
+    motd,
   };
+
   return config;
 };
