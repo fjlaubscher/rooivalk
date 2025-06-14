@@ -320,13 +320,16 @@ describe('Rooivalk', () => {
         options: { getString: vi.fn().mockReturnValue('prompt') },
         deferReply: vi.fn(),
         editReply: vi.fn(),
-        deleteReply: vi.fn(),
         channel: {
           threads: { create: vi.fn() },
         },
+        user: {
+          username: 'alice',
+          toString: () => '<@123>',
+        },
       } as unknown as ChatInputCommandInteraction;
 
-      const mockThread = { send: vi.fn() } as any;
+      const mockThread = { send: vi.fn(), url: 'thread-url' } as any;
       (interaction.channel as any).threads.create.mockResolvedValue(mockThread);
 
       const longResponse = 'a'.repeat(4500);
@@ -341,8 +344,11 @@ describe('Rooivalk', () => {
 
       expect(mockThread.send).toHaveBeenCalledTimes(4);
       expect(mockThread.send).toHaveBeenNthCalledWith(1, '>>> prompt');
-      expect(interaction.deleteReply).toHaveBeenCalled();
-      expect(interaction.editReply).not.toHaveBeenCalled();
+      expect(interaction.deferReply).toHaveBeenCalled();
+
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        content: '<@123> created a thread.\n>>> prompt',
+      });
     });
   });
 
