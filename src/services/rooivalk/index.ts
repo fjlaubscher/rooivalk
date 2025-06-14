@@ -1,4 +1,4 @@
-import { Events as DiscordEvents } from 'discord.js';
+import { Events as DiscordEvents, EmbedBuilder } from 'discord.js';
 import type {
   ChatInputCommandInteraction,
   Interaction,
@@ -228,7 +228,7 @@ class Rooivalk {
     interaction: ChatInputCommandInteraction
   ): Promise<void> {
     const prompt = interaction.options.getString('prompt', true);
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
 
     try {
       const threadName =
@@ -266,7 +266,10 @@ class Rooivalk {
             console.error('Error sending chunk to thread:', error);
           }
         }
-        await interaction.deleteReply();
+
+        await interaction.editReply({
+          content: `${interaction.user} created a thread.\n>>> ${prompt}`,
+        });
       } else {
         await interaction.editReply({
           content: this._discord.getRooivalkResponse('error'),
