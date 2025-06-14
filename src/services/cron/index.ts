@@ -1,12 +1,20 @@
-import cron from 'node-cron';
+import nodeCron, { type ScheduledTask } from 'node-cron';
 import type Rooivalk from '@/services/rooivalk';
 
-const DEFAULT_CRON = '0 8 * * *';
+export const DEFAULT_CRON = '0 8 * * *';
 
-const initCronTasks = (rooivalk: Rooivalk) => {
-  const cronExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;
-  // greeting with MOTD
-  cron.schedule(cronExpr, () => rooivalk.sendMotdToStartupChannel());
-};
+class Cron {
+  #tasks: ScheduledTask[] = [];
+  #rooivalk: Rooivalk;
 
-export default initCronTasks;
+  constructor(rooivalk: Rooivalk) {
+    this.#rooivalk = rooivalk;
+  }
+
+  public schedule(expression: string, task: () => void): void {
+    const job = nodeCron.schedule(expression, task);
+    this.#tasks.push(job);
+  }
+}
+
+export default Cron;
