@@ -12,7 +12,7 @@ This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The b
 
 The codebase uses a modular service-based architecture, grouping responsibilities under the `services/` directory.
 
-> **Note to agents:** All services should be implemented using TypeScript classes. Use private properties (`#propertyName`) to encapsulate internal state.
+> **Note to agents:** All services should be implemented using TypeScript classes. Use private properties with an underscore prefix (e.g., `private _propertyName`) to encapsulate internal state.
 
 ## Project Structure
 
@@ -22,6 +22,9 @@ rooivalk/
 │   ├── constants.ts            # Global constants
 │   ├── index.ts                # Main entry point
 │   ├── types.ts                # Shared TypeScript types
+│   ├── config/                 # Runtime config loader and watcher
+│   │   ├── loader.ts           # Loads markdown configs
+│   │   └── watcher.ts          # Watches config directory for changes
 │   ├── test-utils/             # Shared test utilities
 │   │   └── createMockMessage.ts
 │   ├── services/               # Core services
@@ -36,13 +39,18 @@ rooivalk/
 │   │   └── cron/               # Cron job service
 │   │       ├── index.ts        # CronService implementation
 │   │       └── index.test.ts   # Unit tests for CronService
-├── config/                     # Configuration files for the bot
+├── config/                     # Hot-swappable markdown configs
 │   ├── discord_limit.md        # Discord-specific rate limits and thresholds
 │   ├── errors.md               # Error messages and handling configurations
 │   ├── greetings.md            # Greeting messages for the bot
 │   ├── instructions_learn.md   # Instructions for the `/learn` command
 │   ├── instructions_rooivalk.md # System instructions for Rooivalk's behavior
 │   └── motd.md                 # Message of the Day configurations
+├── scripts/                    # Build helpers
+│   ├── postbuild.mjs
+│   └── resolve-ts-paths-loader.mjs
+├── vitest.config.ts            # Vitest configuration
+├── vitest.setup.ts             # Test setup hooks
 ├── package.json                # Node.js package configuration
 ├── tsconfig.json               # TypeScript configuration
 ├── .env.example                # Environment variable example file
@@ -74,7 +82,7 @@ rooivalk/
 - Wraps OpenAI API interactions.
 - Supports both `chat` and `image generation` endpoints.
 - Handles rate limiting, error handling, and prompt injection.
-- Constants related to models and API limits are stored in `services/openai/constants.ts`.
+- Models and API settings are configured via environment variables (`OPENAI_MODEL`, `OPENAI_IMAGE_MODEL`).
 
 #### RooivalkService (`services/rooivalk/index.ts`)
 
@@ -108,7 +116,7 @@ rooivalk/
 ## Coding Conventions
 
 - TypeScript only
-- Class-based services with private properties
+- Class-based services with private properties (use underscore prefixes for private fields)
 - Use dependency injection where applicable
 - Unit tests should be placed alongside service files (e.g. `index.test.ts`)
 - Use `async/await` for all async operations
@@ -119,7 +127,7 @@ rooivalk/
 | Task                         | File(s) to Modify                                          | Notes                                       |
 | ---------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | Add new Discord command      | `services/discord/index.ts`                                | Extend message or interaction handlers      |
-| Add new OpenAI model support | `services/openai/constants.ts`, `services/openai/index.ts` | Include model ID, modify API payload        |
+| Add new OpenAI model support | `services/openai/index.ts` | Include model ID, modify API payload, update env vars |
 | Enhance business logic       | `services/rooivalk/index.ts`                               | Extend message processing or state handling |
 | Add new test                 | `<service>/index.test.ts`                                  | Use `test-utils/createMockMessage.ts`       |
 | Update config                | `constants.ts`, `.env.example`                             | Add new constants or env vars               |
