@@ -121,42 +121,67 @@ class Rooivalk {
     }
   }
 
-  public async sendMotdToStartupChannel() {
+  public async sendMotdToMotdChannel() {
     if (!this._config.motd) {
       console.log('No MOTD configured');
       return;
     }
 
-    await this.sendMessageToStartupChannel(this._config.motd);
+    await this.sendMessageToMotdChannel(this._config.motd);
   }
 
   public async sendMessageToStartupChannel(
     prompt: string,
     persona: 'rooivalk' | 'learn' = 'rooivalk'
   ) {
-    if (!this._discord.startupChannelId) {
-      console.error('Startup channel ID not set');
+    return this.sendMessageToChannel(
+      this._discord.startupChannelId,
+      'startup',
+      prompt,
+      persona
+    );
+  }
+
+  public async sendMessageToMotdChannel(
+    prompt: string,
+    persona: 'rooivalk' | 'learn' = 'rooivalk'
+  ) {
+    return this.sendMessageToChannel(
+      this._discord.motdChannelId,
+      'motd',
+      prompt,
+      persona
+    );
+  }
+
+  private async sendMessageToChannel(
+    channelId: string | undefined,
+    label: string,
+    prompt: string,
+    persona: 'rooivalk' | 'learn' = 'rooivalk'
+  ) {
+    if (!channelId) {
+      console.error(
+        `${label.charAt(0).toUpperCase() + label.slice(1)} channel ID not set`
+      );
       return null;
     }
 
     try {
-      // Generate response from OpenAI
       const response = await this._openaiClient.createResponse(persona, prompt);
-
-      // Send the response to the startup channel
-      const channel = await this._discord.client.channels.fetch(
-        this._discord.startupChannelId
-      );
+      const channel = await this._discord.client.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
         const messageOptions = this._discord.buildMessageReply(response);
         await (channel as any).send(messageOptions);
         return response;
       } else {
-        console.error('Startup channel is not text-based');
+        console.error(
+          `${label.charAt(0).toUpperCase() + label.slice(1)} channel is not text-based`
+        );
         return null;
       }
     } catch (err) {
-      console.error('Error sending message to startup channel:', err);
+      console.error(`Error sending message to ${label} channel:`, err);
       return null;
     }
   }
