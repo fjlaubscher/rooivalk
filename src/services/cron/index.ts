@@ -6,7 +6,7 @@ const DEFAULT_CRON = '0 8 * * *';
 const initCronTasks = (rooivalk: Rooivalk) => {
   const cronExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;
   // greeting with MOTD
-  cron.schedule(cronExpr, () => rooivalk.sendMotdToStartupChannel());
+  cron.schedule(cronExpr, () => rooivalk.sendMotdToMotdChannel());
 };
 
 export default initCronTasks;
