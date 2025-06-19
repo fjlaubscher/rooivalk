@@ -29,6 +29,7 @@ export class DiscordService {
   private _discordClient: DiscordClient;
   private _mentionRegex: RegExp | null = null;
   private _startupChannelId: string | undefined;
+  private _motdChannelId: string | undefined;
   private _config: InMemoryConfig;
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
@@ -44,6 +45,7 @@ export class DiscordService {
         ],
       });
     this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
+    this._motdChannelId = process.env.DISCORD_MOTD_CHANNEL_ID;
   }
 
   public reloadConfig(newConfig: InMemoryConfig): void {
@@ -64,6 +66,10 @@ export class DiscordService {
 
   public get startupChannelId(): string | undefined {
     return this._startupChannelId;
+  }
+
+  public get motdChannelId(): string | undefined {
+    return this._motdChannelId;
   }
 
   public getRooivalkResponse(type: ResponseType): string {
