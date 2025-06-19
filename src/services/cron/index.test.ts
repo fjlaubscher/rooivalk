@@ -12,7 +12,7 @@ describe('initCronTasks', () => {
 
   it('schedules motd task with env expression', () => {
     process.env.ROOIVALK_MOTD_CRON = '*/5 * * * *';
-    const rooivalk = { sendMotdToStartupChannel: vi.fn() } as any;
+    const rooivalk = { sendMotdToMotdChannel: vi.fn() } as any;
 
     initCronTasks(rooivalk);
 
@@ -24,7 +24,7 @@ describe('initCronTasks', () => {
 
   it('defaults to 8am daily when env not set', () => {
     delete process.env.ROOIVALK_MOTD_CRON;
-    const rooivalk = { sendMotdToStartupChannel: vi.fn() } as any;
+    const rooivalk = { sendMotdToMotdChannel: vi.fn() } as any;
 
     initCronTasks(rooivalk);
 

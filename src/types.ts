@@ -1,5 +1,6 @@
 export type Env = {
   DISCORD_STARTUP_CHANNEL_ID: string;
+  DISCORD_MOTD_CHANNEL_ID: string;
   DISCORD_LEARN_CHANNEL_ID: string;
   DISCORD_GUILD_ID: string;
   DISCORD_APP_ID: string;

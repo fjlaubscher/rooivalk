@@ -26,7 +26,8 @@ rooivalk/
 │   │   ├── loader.ts           # Loads markdown configs
 │   │   └── watcher.ts          # Watches config directory for changes
 │   ├── test-utils/             # Shared test utilities
-│   │   └── createMockMessage.ts
+│   │   ├── createMockMessage.ts
+│   │   └── mock.ts
 │   ├── services/               # Core services
 │   │   ├── discord/            # Discord integration layer
 │   │   │   ├── index.ts        # DiscordService implementation
