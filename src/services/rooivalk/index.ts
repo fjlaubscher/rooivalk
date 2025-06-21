@@ -1,6 +1,7 @@
 import { Events as DiscordEvents, EmbedBuilder } from 'discord.js';
 import type {
   ChatInputCommandInteraction,
+  Client,
   Interaction,
   TextChannel,
 } from 'discord.js';
@@ -308,125 +309,124 @@ class Rooivalk {
     }
   }
 
-  public init(): Promise<void> {
-    return new Promise(async (resolve) => {
-      this._discord.once(DiscordEvents.ClientReady, async () => {
-        console.log(`🤖 Logged in as ${this._discord.client.user?.tag}`);
+  public async init(): Promise<void> {
+    const ready = new Promise<Client<boolean>>((res) =>
+      this._discord.once(DiscordEvents.ClientReady, (client) => res(client))
+    );
 
-        this._discord.setupMentionRegex();
+    await this._discord.registerSlashCommands();
 
-        await this._discord.sendReadyMessage();
-        resolve(); // Resolve the promise when ClientReady is fired
-      });
+    this._discord.on(DiscordEvents.MessageCreate, async (message) => {
+      if (!this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)) {
+        return;
+      }
 
-      await this._discord.registerSlashCommands();
-
-      this._discord.on(DiscordEvents.MessageCreate, async (message) => {
+      // Check if the message is a reply to the bot
+      let isReplyToBot = false;
+      if (message.reference && message.reference.messageId) {
+        const repliedToMessage = await this._discord.getReferencedMessage(
+          message as DiscordMessage
+        );
         if (
-          !this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)
+          repliedToMessage &&
+          repliedToMessage.author.id === this._discord.client.user?.id
         ) {
-          return;
+          isReplyToBot = true;
         }
+      }
 
-        // Check if the message is a reply to the bot
-        let isReplyToBot = false;
-        if (message.reference && message.reference.messageId) {
-          const repliedToMessage = await this._discord.getReferencedMessage(
-            message as DiscordMessage
-          );
-          if (
-            repliedToMessage &&
-            repliedToMessage.author.id === this._discord.client.user?.id
-          ) {
-            isReplyToBot = true;
-          }
-        }
+      // Check if the bot is mentioned directly
+      const isMentioned =
+        this._discord.mentionRegex &&
+        this._discord.mentionRegex.test(message.content);
 
-        // Check if the bot is mentioned directly
-        const isMentioned =
-          this._discord.mentionRegex &&
-          this._discord.mentionRegex.test(message.content);
+      // If not a reply to the bot and not mentioned, ignore the message
+      if (!isReplyToBot && !isMentioned) {
+        return;
+      }
 
-        // If not a reply to the bot and not mentioned, ignore the message
-        if (!isReplyToBot && !isMentioned) {
-          return;
-        }
+      // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
+      if (!this._discord.mentionRegex && !isReplyToBot) {
+        console.warn(
+          'Mention regex not initialized, ignoring non-reply message.'
+        );
+        return;
+      }
 
-        // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
-        if (!this._discord.mentionRegex && !isReplyToBot) {
-          console.warn(
-            'Mention regex not initialized, ignoring non-reply message.'
-          );
-          return;
-        }
-
-        this.processMessage(message as DiscordMessage);
-      });
-
-      this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction) => {
-        // Ignore reactions from:
-        // 1. Other bots
-        // 2. Messages not from the specified guild (server)
-        if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
-          return;
-        }
-
-        const isRooivalkMessage =
-          reaction.message?.author?.id === this._discord.client.user?.id;
-
-        if (reaction.emoji.name === DISCORD_EMOJI) {
-          const message = reaction.message as DiscordMessage;
-          if (isRooivalkMessage) {
-            const originalPrompt =
-              await this._discord.getOriginalMessage(message);
-            if (originalPrompt) {
-              await reaction.message.delete();
-              await this.processMessage(originalPrompt as DiscordMessage);
-            } else {
-              console.error(
-                'Original message not found or not a reply to a message'
-              );
-            }
-          } else {
-            // if the message is not from Rooivalk, we need to reformat it to be a prompt
-            const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
-            message.content = messageAsPrompt;
-            await this.processMessage(message);
-          }
-        }
-      });
-
-      this._discord.on(
-        DiscordEvents.InteractionCreate,
-        async (interaction: Interaction) => {
-          if (!interaction.isChatInputCommand()) return;
-
-          switch (interaction.commandName) {
-            case DISCORD_COMMANDS.LEARN:
-              await this.handleLearnCommand(interaction);
-              break;
-            case DISCORD_COMMANDS.IMAGE:
-              await this.handleImageCommand(interaction);
-              break;
-            case DISCORD_COMMANDS.THREAD:
-              await this.handleThreadCommand(interaction);
-              break;
-            default:
-              console.error(
-                `Invalid command received: ${interaction.commandName}`
-              );
-              await interaction.reply({
-                content: `❌ Invalid command: \`${interaction.commandName}\`. Please use a valid command.`,
-                ephemeral: true,
-              });
-              return;
-          }
-        }
-      );
-
-      // finally log in after all event handlers have been set up
-      await this._discord.login();
+      this.processMessage(message as DiscordMessage);
     });
+
+    this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction) => {
+      // Ignore reactions from:
+      // 1. Other bots
+      // 2. Messages not from the specified guild (server)
+      if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
+        return;
+      }
+
+      const isRooivalkMessage =
+        reaction.message?.author?.id === this._discord.client.user?.id;
+
+      if (reaction.emoji.name === DISCORD_EMOJI) {
+        const message = reaction.message as DiscordMessage;
+        if (isRooivalkMessage) {
+          const originalPrompt =
+            await this._discord.getOriginalMessage(message);
+          if (originalPrompt) {
+            await reaction.message.delete();
+            await this.processMessage(originalPrompt as DiscordMessage);
+          } else {
+            console.error(
+              'Original message not found or not a reply to a message'
+            );
+          }
+        } else {
+          // if the message is not from Rooivalk, we need to reformat it to be a prompt
+          const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
+          message.content = messageAsPrompt;
+          await this.processMessage(message);
+        }
+      }
+    });
+
+    this._discord.on(
+      DiscordEvents.InteractionCreate,
+      async (interaction: Interaction) => {
+        if (!interaction.isChatInputCommand()) return;
+
+        switch (interaction.commandName) {
+          case DISCORD_COMMANDS.LEARN:
+            await this.handleLearnCommand(interaction);
+            break;
+          case DISCORD_COMMANDS.IMAGE:
+            await this.handleImageCommand(interaction);
+            break;
+          case DISCORD_COMMANDS.THREAD:
+            await this.handleThreadCommand(interaction);
+            break;
+          default:
+            console.error(
+              `Invalid command received: ${interaction.commandName}`
+            );
+            await interaction.reply({
+              content: `❌ Invalid command: \`${interaction.commandName}\`. Please use a valid command.`,
+              ephemeral: true,
+            });
+            return;
+        }
+      }
+    );
+
+    // finally log in after all event handlers have been set up
+    await this._discord.login();
+
+    await ready;
+
+    console.log(`🤖 Logged in as ${this._discord.client.user?.tag}`);
+
+    this._discord.setupMentionRegex();
+
+    await this._discord.sendReadyMessage();
   }
 }
 
