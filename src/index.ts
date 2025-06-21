@@ -34,7 +34,7 @@ async function main() {
 
   const cron = new Cron(rooivalk);
   const motdExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;
-  cron.schedule(motdExpr, () => rooivalk.sendMotdToStartupChannel());
+  cron.schedule(motdExpr, () => rooivalk.sendMotdToMotdChannel());
 }
 
 main().catch((error) => {

@@ -4,25 +4,25 @@ import type Rooivalk from '@/services/rooivalk';
 export const DEFAULT_CRON = '0 8 * * *';
 
 class Cron {
-  #tasks: ScheduledTask[] = [];
-  #rooivalk: Rooivalk;
+  _tasks: ScheduledTask[] = [];
+  _rooivalk: Rooivalk;
 
   constructor(rooivalk: Rooivalk) {
-    this.#rooivalk = rooivalk;
+    this._rooivalk = rooivalk;
   }
 
   public schedule(expression: string, task: () => void): void {
     const job = nodeCron.schedule(expression, task);
-    this.#tasks.push(job);
+    this._tasks.push(job);
   }
   /**
    * Cancels a specific task by its index.
    * @param index - The index of the task to cancel.
    */
   public cancelTask(index: number): void {
-    if (index >= 0 && index < this.#tasks.length) {
-      this.#tasks[index].stop();
-      this.#tasks.splice(index, 1);
+    if (this._tasks[index]) {
+      this._tasks[index].stop();
+      this._tasks.splice(index, 1);
     } else {
       throw new Error('Invalid task index');
     }
@@ -32,10 +32,10 @@ class Cron {
    * Cancels all scheduled tasks and clears the task list.
    */
   public cancelAllTasks(): void {
-    for (const task of this.#tasks) {
+    for (const task of this._tasks) {
       task.stop();
     }
-    this.#tasks = [];
+    this._tasks = [];
   }
 }
 
