@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { REQUIRED_ENV } from '@/constants';
 import { watchConfigs } from '@/config/watcher';
 import { loadConfig } from '@/config/loader';
-import initCronTasks from '@/services/cron';
+import Cron, { DEFAULT_CRON } from '@/services/cron';
 import Rooivalk from '@/services/rooivalk';
 
 async function main() {
@@ -32,7 +32,9 @@ async function main() {
 
   await rooivalk.init(); // Await the init method
 
-  initCronTasks(rooivalk); // Call this after init completes
+  const cron = new Cron(rooivalk);
+  const motdExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;
+  cron.schedule(motdExpr, () => rooivalk.sendMotdToMotdChannel());
 }
 
 main().catch((error) => {

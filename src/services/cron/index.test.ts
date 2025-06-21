@@ -3,9 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('node-cron', () => ({ default: { schedule: vi.fn() } }));
 
 import cron from 'node-cron';
-import initCronTasks from '.';
+import Cron, { DEFAULT_CRON } from '.';
 
-describe('initCronTasks', () => {
+describe('Cron', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -13,8 +13,11 @@ describe('initCronTasks', () => {
   it('schedules motd task with env expression', () => {
     process.env.ROOIVALK_MOTD_CRON = '*/5 * * * *';
     const rooivalk = { sendMotdToMotdChannel: vi.fn() } as any;
+    const cronService = new Cron(rooivalk);
 
-    initCronTasks(rooivalk);
+    cronService.schedule(process.env.ROOIVALK_MOTD_CRON, () =>
+      rooivalk.sendMotdToStartupChannel()
+    );
 
     expect(cron.schedule).toHaveBeenCalledWith(
       '*/5 * * * *',
@@ -25,8 +28,11 @@ describe('initCronTasks', () => {
   it('defaults to 8am daily when env not set', () => {
     delete process.env.ROOIVALK_MOTD_CRON;
     const rooivalk = { sendMotdToMotdChannel: vi.fn() } as any;
+    const cronService = new Cron(rooivalk);
 
-    initCronTasks(rooivalk);
+    cronService.schedule(DEFAULT_CRON, () =>
+      rooivalk.sendMotdToStartupChannel()
+    );
 
     expect(cron.schedule).toHaveBeenCalledWith(
       '0 8 * * *',
