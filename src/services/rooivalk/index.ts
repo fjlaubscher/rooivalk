@@ -1,6 +1,7 @@
 import { Events as DiscordEvents, EmbedBuilder } from 'discord.js';
 import type {
   ChatInputCommandInteraction,
+  Client,
   Interaction,
   TextChannel,
 } from 'discord.js';
@@ -309,8 +310,8 @@ class Rooivalk {
   }
 
   public async init(): Promise<void> {
-    const ready = new Promise<void>((res) =>
-      this._discord.once(DiscordEvents.ClientReady, res)
+    const ready = new Promise<Client<boolean>>((res) =>
+      this._discord.once(DiscordEvents.ClientReady, (client) => res(client))
     );
 
     await this._discord.registerSlashCommands();
