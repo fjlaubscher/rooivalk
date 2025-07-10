@@ -39,7 +39,13 @@ async function main() {
     await rooivalk.sendTodaysEvents();
   });
 
-  cron.schedule('0 8 * * 1', () => rooivalk.sendWeeklyEvents());
+  cron.schedule('0 8 * * 1', async () => {
+    try {
+      await rooivalk.sendWeeklyEvents();
+    } catch (error) {
+      console.error('Failed to send weekly events:', error);
+    }
+  });
 }
 
 main().catch((error) => {
