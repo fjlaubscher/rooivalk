@@ -172,6 +172,27 @@ export class DiscordService {
     };
   }
 
+  public async fetchScheduledEventsBetween(
+    start: Date,
+    end: Date
+  ): Promise<{ name: string; date: Date }[]> {
+    try {
+      const guild = await this._discordClient.guilds.fetch(
+        process.env.DISCORD_GUILD_ID!
+      );
+      const events = await guild.scheduledEvents.fetch();
+      return Array.from(events.values())
+        .filter((event) => {
+          const date = event.scheduledStartAt;
+          return date && date >= start && date < end;
+        })
+        .map((event) => ({ name: event.name, date: event.scheduledStartAt! }));
+    } catch (error) {
+      console.error('Error fetching scheduled events:', error);
+      return [];
+    }
+  }
+
   public async getMessageChain(
     currentMessage: DiscordMessage
   ): Promise<{ author: 'user' | 'rooivalk'; content: string }[]> {

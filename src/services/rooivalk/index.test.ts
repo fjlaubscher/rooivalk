@@ -22,6 +22,7 @@ const mockDiscordService = vi.mocked({
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
   chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
+  fetchScheduledEventsBetween: vi.fn(),
   buildPromptFromMessageChain: vi.fn(),
   registerSlashCommands: vi.fn(),
   sendReadyMessage: vi.fn(),
