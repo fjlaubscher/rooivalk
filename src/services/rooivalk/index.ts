@@ -131,27 +131,93 @@ class Rooivalk {
     await this.sendMessageToMotdChannel(this._config.motd);
   }
 
+  public async sendWeeklyEvents() {
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+    const end = new Date(monday);
+    end.setDate(monday.getDate() + 7);
+
+    const events = await this._discord.fetchScheduledEventsBetween(monday, end);
+
+    if (!events.length) return;
+
+    const eventList = events
+      .map((e) => {
+        const day = e.date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+        });
+        const time = e.date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        return `- ${e.name} - this ${day} @ ${time}`;
+      })
+      .join('\n');
+
+    const prompt =
+      `Generate a friendly introduction for these upcoming events this week. Do not list the events, they will be appended after your message.\n` +
+      eventList;
+
+    await this.sendMessageToMotdChannel(prompt, 'rooivalk', eventList);
+  }
+
+  public async sendTodaysEvents() {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    const events = await this._discord.fetchScheduledEventsBetween(start, end);
+
+    if (!events.length) return;
+
+    const eventList = events
+      .map((e) => {
+        const time = e.date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        return `- ${e.name} - today @ ${time}`;
+      })
+      .join('\n');
+
+    const prompt =
+      `Give a short reminder about today's events. Do not list the events, they will be appended after your message.\n` +
+      eventList;
+
+    await this.sendMessageToMotdChannel(prompt, 'rooivalk', eventList);
+  }
+
   public async sendMessageToStartupChannel(
     prompt: string,
-    persona: 'rooivalk' | 'learn' = 'rooivalk'
+    persona: 'rooivalk' | 'learn' = 'rooivalk',
+    suffix?: string
   ) {
     return this.sendMessageToChannel(
       this._discord.startupChannelId,
       'startup',
       prompt,
-      persona
+      persona,
+      suffix
     );
   }
 
   public async sendMessageToMotdChannel(
     prompt: string,
-    persona: 'rooivalk' | 'learn' = 'rooivalk'
+    persona: 'rooivalk' | 'learn' = 'rooivalk',
+    suffix?: string
   ) {
     return this.sendMessageToChannel(
       this._discord.motdChannelId,
       'motd',
       prompt,
-      persona
+      persona,
+      suffix
     );
   }
 
@@ -159,7 +225,8 @@ class Rooivalk {
     channelId: string | undefined,
     label: string,
     prompt: string,
-    persona: 'rooivalk' | 'learn' = 'rooivalk'
+    persona: 'rooivalk' | 'learn' = 'rooivalk',
+    suffix?: string
   ) {
     if (!channelId) {
       console.error(
@@ -170,9 +237,10 @@ class Rooivalk {
 
     try {
       const response = await this._openaiClient.createResponse(persona, prompt);
+      const content = suffix ? `${response}\n${suffix}` : response;
       const channel = await this._discord.client.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
-        const messageOptions = this._discord.buildMessageReply(response);
+        const messageOptions = this._discord.buildMessageReply(content);
         await (channel as any).send(messageOptions);
         return response;
       } else {

@@ -34,7 +34,12 @@ async function main() {
 
   const cron = new Cron(rooivalk);
   const motdExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;
-  cron.schedule(motdExpr, () => rooivalk.sendMotdToMotdChannel());
+  cron.schedule(motdExpr, async () => {
+    await rooivalk.sendMotdToMotdChannel();
+    await rooivalk.sendTodaysEvents();
+  });
+
+  cron.schedule('0 8 * * 1', () => rooivalk.sendWeeklyEvents());
 }
 
 main().catch((error) => {

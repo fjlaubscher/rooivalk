@@ -18,6 +18,15 @@ The codebase uses a modular service-based architecture, grouping responsibilitie
 
 ```bash
 rooivalk/
+├── .editorconfig
+├── .env.example
+├── .gitattributes
+├── .github/
+├── .gitignore
+├── .nvmrc
+├── .prettierrc
+├── AGENTS.md
+├── README.md
 ├── src/
 │   ├── constants.ts            # Global constants
 │   ├── index.ts                # Main entry point
@@ -50,13 +59,12 @@ rooivalk/
 ├── scripts/                    # Build helpers
 │   ├── postbuild.mjs
 │   └── resolve-ts-paths-loader.mjs
+├── tsconfig.json               # TypeScript configuration
 ├── vitest.config.ts            # Vitest configuration
 ├── vitest.setup.ts             # Test setup hooks
 ├── package.json                # Node.js package configuration
-├── tsconfig.json               # TypeScript configuration
-├── .env.example                # Environment variable example file
 ├── yarn.lock                   # Yarn lockfile
-└── README.md                   # Project documentation
+└── node_modules/               # Installed dependencies
 ```
 
 ## Architectural Notes
