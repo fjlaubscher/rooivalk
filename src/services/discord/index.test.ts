@@ -10,7 +10,7 @@ import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG } from '@/test-utils/mock';
 import type { ResponseType } from '@/types';
 
-import { DiscordService } from '.';
+import DiscordService from '.';
 import type { DiscordMessage } from '.';
 
 vi.mock('discord.js', async (importOriginal) => {

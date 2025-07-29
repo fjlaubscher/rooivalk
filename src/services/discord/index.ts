@@ -25,7 +25,7 @@ import type { InMemoryConfig, ResponseType } from '@/types';
 
 export type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
 
-export class DiscordService {
+class DiscordService {
   private _discordClient: DiscordClient;
   private _mentionRegex: RegExp | null = null;
   private _startupChannelId: string | undefined;
@@ -172,7 +172,7 @@ export class DiscordService {
     };
   }
 
-  public async fetchScheduledEventsBetween(
+  public async getGuildEventsBetween(
     start: Date,
     end: Date
   ): Promise<{ name: string; date: Date }[]> {
@@ -397,3 +397,5 @@ export class DiscordService {
     await this._discordClient.login(process.env.DISCORD_TOKEN);
   }
 }
+
+export default DiscordService;

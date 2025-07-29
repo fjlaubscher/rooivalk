@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 
 import type { InMemoryConfig, Persona } from '@/types';
 
-class OpenAIClient {
+class OpenAIService {
   private _config: InMemoryConfig;
   private _model: string;
   private _imageModel: string;
@@ -122,4 +122,4 @@ class OpenAIClient {
   }
 }
 
-export default OpenAIClient;
+export default OpenAIService;

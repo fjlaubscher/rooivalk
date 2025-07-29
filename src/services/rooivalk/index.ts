@@ -7,8 +7,9 @@ import type {
 } from 'discord.js';
 
 import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
-import OpenAIClient from '@/services/openai';
-import { DiscordService } from '@/services/discord';
+import OpenAIService from '@/services/openai';
+import DiscordService from '@/services/discord';
+import YrService from '@/services/yr';
 import type { DiscordMessage } from '@/services/discord';
 
 import type { InMemoryConfig } from '@/types';
@@ -16,17 +17,20 @@ import type { InMemoryConfig } from '@/types';
 class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
-  protected _openaiClient: OpenAIClient;
+  protected _openai: OpenAIService;
+  protected _yr: YrService;
   private _allowedAppIds: string[];
 
   constructor(
     config: InMemoryConfig,
     discordService?: DiscordService,
-    openaiClient?: OpenAIClient
+    openaiService?: OpenAIService,
+    yrService?: YrService
   ) {
     this._config = config;
-    this._openaiClient = openaiClient ?? new OpenAIClient(this._config);
+    this._openai = openaiService ?? new OpenAIService(this._config);
     this._discord = discordService ?? new DiscordService(this._config);
+    this._yr = yrService ?? new YrService();
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -63,7 +67,7 @@ class Rooivalk {
   reloadConfig(newConfig: InMemoryConfig) {
     this._config = newConfig;
     this._discord.reloadConfig(newConfig);
-    this._openaiClient.reloadConfig(newConfig);
+    this._openai.reloadConfig(newConfig);
   }
 
   private async processMessage(message: DiscordMessage) {
@@ -86,7 +90,7 @@ class Rooivalk {
       );
 
       // prompt openai with the enhanced content
-      const response = await this._openaiClient.createResponse(
+      const response = await this._openai.createResponse(
         isLearnChannel ? 'learn' : 'rooivalk',
         prompt
       );
@@ -128,69 +132,26 @@ class Rooivalk {
       return;
     }
 
-    await this.sendMessageToMotdChannel(this._config.motd);
-  }
-
-  public async sendWeeklyEvents() {
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    monday.setHours(0, 0, 0, 0);
-    const end = new Date(monday);
-    end.setDate(monday.getDate() + 7);
-
-    const events = await this._discord.fetchScheduledEventsBetween(monday, end);
-
-    if (!events.length) return;
-
-    const eventList = events
-      .map((e) => {
-        const day = e.date.toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-        });
-        const time = e.date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        return `- ${e.name} - this ${day} @ ${time}`;
-      })
-      .join('\n');
-
-    const prompt =
-      `Generate a friendly introduction for these upcoming events this week. Do not list the events, they will be appended after your message.\n` +
-      eventList;
-
-    await this.sendMessageToMotdChannel(prompt, 'rooivalk', eventList);
-  }
-
-  public async sendTodaysEvents() {
+    // set a date range of today
     const now = new Date();
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);
     const end = new Date(now);
     end.setHours(23, 59, 59, 999);
 
-    const events = await this._discord.fetchScheduledEventsBetween(start, end);
+    let motd = this._config.motd;
+    const forecasts = await this._yr.getAllForecasts();
+    const events = await this._discord.getGuildEventsBetween(start, end);
 
-    if (!events.length) return;
+    // replace placeholders with JSON for the prompt
+    motd = motd.replaceAll(
+      /{{WEATHER_FORECASTS_JSON}}/,
+      JSON.stringify(forecasts || [])
+    );
+    motd = motd.replaceAll(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
-    const eventList = events
-      .map((e) => {
-        const time = e.date.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        return `- ${e.name} - today @ ${time}`;
-      })
-      .join('\n');
-
-    const prompt =
-      `Give a short reminder about today's events. Do not list the events, they will be appended after your message.\n` +
-      eventList;
-
-    await this.sendMessageToMotdChannel(prompt, 'rooivalk', eventList);
+    // finally send the message
+    await this.sendMessageToMotdChannel(motd);
   }
 
   public async sendMessageToStartupChannel(
@@ -236,7 +197,7 @@ class Rooivalk {
     }
 
     try {
-      const response = await this._openaiClient.createResponse(persona, prompt);
+      const response = await this._openai.createResponse(persona, prompt);
       const content = suffix ? `${response}\n${suffix}` : response;
       const channel = await this._discord.client.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
@@ -262,7 +223,7 @@ class Rooivalk {
     await interaction.deferReply();
 
     try {
-      const response = await this._openaiClient.createResponse('learn', prompt);
+      const response = await this._openai.createResponse('learn', prompt);
       const messageOptions = this._discord.buildMessageReply(response);
       // Convert MessageReplyOptions to InteractionEditReplyOptions
       await interaction.editReply({
@@ -286,7 +247,7 @@ class Rooivalk {
     await interaction.deferReply();
 
     try {
-      const base64Image = await this._openaiClient.createImage(prompt);
+      const base64Image = await this._openai.createImage(prompt);
 
       if (base64Image) {
         const message = this._discord.buildImageReply(prompt, base64Image);
@@ -326,7 +287,7 @@ class Rooivalk {
 
     try {
       const threadName =
-        (await this._openaiClient.generateThreadName(prompt)) ||
+        (await this._openai.generateThreadName(prompt)) ||
         'Conversation with rooivalk';
 
       const thread = await (interaction.channel as TextChannel)?.threads.create(
@@ -346,10 +307,7 @@ class Rooivalk {
       // echo the prompt in the new thread
       await thread.send(`>>> ${prompt}`);
 
-      const response = await this._openaiClient.createResponse(
-        'rooivalk',
-        prompt
-      );
+      const response = await this._openai.createResponse('rooivalk', prompt);
 
       if (response) {
         const chunks = this._discord.chunkContent(response);

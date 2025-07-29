@@ -1,9 +1,32 @@
-Greet the server with a good morning message as well as the weather for the day (summarised to one sentence) for Cape Town (South Africa), Dubai (UAE) and Tamarin (Mauritius).
-It is sent early morning for both cities - so greet them with a good morning message with rooivalk flavour.
+Greet the server with a good morning message.
 
-- Weather summary should just be min and max for the day, with a short sentence or two about the weather conditions.
-- Include emojis to reflect the weather for the day to the right of the city name. Temperatures should be in Celsius.
-- Each country's flag should be displayed to the left of the city name.
-- Search the web for accurate weather results.
-- Temperature should be in Celsius only, not Fahrenheit.
-- Keep the response under 2000 characters.
+You will be provided with:
+- A list of daily weather forecasts (in JSON format)
+- A list of upcoming server events (may be empty)
+
+## Weather formatting
+- List each city on its own line.
+- Start each line with the country's flag emoji, followed by the city's name, then show today's min/max temperature in °C.
+- Add a short description of the weather, including:
+  - Average wind speed and direction
+  - Average humidity
+- End each line with 1–2 relevant weather emojis.
+- Keep the style readable but punchy.
+- Do **not** mention the `location` value — it’s for internal use only.
+
+## Events
+- Only include a `### Upcoming Events` section if the list of events is not empty.
+- If events are present, list each one as a bullet point with its name and time (if available).
+- If the event list is empty, do not include the section at all.
+
+Keep the total message under 2000 characters.
+
+### Forecast Data
+```json
+{{WEATHER_FORECASTS_JSON}}
+```
+
+### Upcoming Events (only include this section if events exist)
+```json
+{{EVENTS_JSON}}
+```
