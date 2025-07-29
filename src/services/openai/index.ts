@@ -32,8 +32,8 @@ class OpenAIService {
         let rooivalkInstructions = this._config.instructionsRooivalk;
 
         rooivalkInstructions = rooivalkInstructions.replace(
-          /{{EMOJIS_CSV}}/,
-          emojis.join(', ')
+          /{{EMOJIS}}/,
+          emojis.join('\n')
         );
 
         return rooivalkInstructions;

@@ -205,7 +205,9 @@ class DiscordService {
         process.env.DISCORD_GUILD_ID!
       );
       const emojis = await guild.emojis.fetch();
-      this._allowedEmojis = emojis.map((emoji) => `:${emoji.name}:`);
+      this._allowedEmojis = emojis.map(
+        (emoji) => `:${emoji.name}: → ${emoji.toString()}`
+      );
     } catch (error) {
       console.error('Error caching guild emojis:', error);
     }
