@@ -390,6 +390,21 @@ class DiscordService {
     return null;
   }
 
+  public async buildHistoryFromMessageChain(
+    message: DiscordMessage
+  ): Promise<string | null> {
+    const chain = await this.buildPromptFromMessageChain(message);
+    if (!chain) {
+      return null;
+    }
+    const lines = chain.split('\n');
+    if (lines.length === 0) {
+      return null;
+    }
+    lines.pop();
+    return lines.length > 0 ? lines.join('\n') : null;
+  }
+
   public setupMentionRegex(): void {
     if (this._discordClient.user?.id) {
       this._mentionRegex = new RegExp(

@@ -36,6 +36,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 #### DiscordService
 - Discord API integration, event listening, message routing, and reply handling.
+- `buildHistoryFromMessageChain` returns a formatted conversation history without the latest message.
 
 #### OpenAIService
 - OpenAI API integration (chat, image generation), prompt injection, error and rate limit handling.

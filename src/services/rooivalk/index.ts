@@ -78,12 +78,8 @@ class Rooivalk {
       const isLearnChannel =
         message.channel.id === process.env.DISCORD_LEARN_CHANNEL_ID;
 
-      // Use DiscordService helper to build prompt from message chain if replying to bot
-      const chainPrompt =
-        await this._discord.buildPromptFromMessageChain(message);
-      if (chainPrompt) {
-        prompt = chainPrompt;
-      }
+      // Build conversation history context if replying to the bot
+      const history = await this._discord.buildHistoryFromMessageChain(message);
 
       const usersToMention = message.mentions.users.filter(
         (user) => user.id !== this._discord.client.user?.id
@@ -93,7 +89,8 @@ class Rooivalk {
       const response = await this._openai.createResponse(
         isLearnChannel ? 'learn' : 'rooivalk',
         prompt,
-        this._discord.allowedEmojis
+        this._discord.allowedEmojis,
+        history
       );
 
       if (response) {
@@ -201,7 +198,8 @@ class Rooivalk {
       const response = await this._openai.createResponse(
         persona,
         prompt,
-        this._discord.allowedEmojis
+        this._discord.allowedEmojis,
+        undefined
       );
       const content = suffix ? `${response}\n${suffix}` : response;
       const channel = await this._discord.client.channels.fetch(channelId);
@@ -228,7 +226,12 @@ class Rooivalk {
     await interaction.deferReply();
 
     try {
-      const response = await this._openai.createResponse('learn', prompt);
+      const response = await this._openai.createResponse(
+        'learn',
+        prompt,
+        [],
+        undefined
+      );
       const messageOptions = this._discord.buildMessageReply(response);
       // Convert MessageReplyOptions to InteractionEditReplyOptions
       await interaction.editReply({
@@ -315,7 +318,8 @@ class Rooivalk {
       const response = await this._openai.createResponse(
         'rooivalk',
         prompt,
-        this._discord.allowedEmojis
+        this._discord.allowedEmojis,
+        undefined
       );
 
       if (response) {

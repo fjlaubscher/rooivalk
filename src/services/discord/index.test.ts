@@ -253,6 +253,20 @@ describe('DiscordService', () => {
       });
     });
 
+    describe('buildHistoryFromMessageChain', () => {
+      it('should build history without the latest message', async () => {
+        const msg = createMockMessage({
+          reference: { messageId: '123' },
+        } as Partial<DiscordMessage>);
+        vi.spyOn(service, 'buildPromptFromMessageChain').mockResolvedValue(
+          'User: hello\nRooivalk: hi\nUser: again'
+        );
+
+        const history = await service.buildHistoryFromMessageChain(msg);
+        expect(history).toBe('User: hello\nRooivalk: hi');
+      });
+    });
+
     describe('setupMentionRegex', () => {
       it('should set up mention regex', () => {
         service.setupMentionRegex();

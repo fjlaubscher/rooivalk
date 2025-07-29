@@ -13,6 +13,7 @@ It is written in TypeScript and designed for easy customization and extension.
 - Retry responses by reacting to a bot message with a specific emoji.
 - Custom error messages for failed completions
 - Fully configurable (with runtime "hot-reloading") system instructions and fallback messages via `config/*.md` files
+- Conversation history is passed as context rather than part of the prompt
 
 ### Rooivalk in action
 

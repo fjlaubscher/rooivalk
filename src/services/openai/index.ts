@@ -47,13 +47,20 @@ class OpenAIService {
   async createResponse(
     persona: Persona,
     prompt: string,
-    emojis: string[] = []
+    emojis: string[] = [],
+    history?: string | null
   ) {
     try {
+      let instructions = this.getInstructions(persona, emojis);
+
+      if (history) {
+        instructions += `\n\nConversation history:\n${history}`;
+      }
+
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
-        instructions: this.getInstructions(persona, emojis),
+        instructions,
         input: prompt,
       });
 
