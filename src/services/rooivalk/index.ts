@@ -145,11 +145,11 @@ class Rooivalk {
     const events = await this._discord.getGuildEventsBetween(start, end);
 
     // replace placeholders with JSON for the prompt
-    motd = motd.replaceAll(
+    motd = motd.replace(
       /{{WEATHER_FORECASTS_JSON}}/,
       JSON.stringify(forecasts || [])
     );
-    motd = motd.replaceAll(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
+    motd = motd.replace(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
     // finally send the message
     await this.sendMessageToMotdChannel(motd);

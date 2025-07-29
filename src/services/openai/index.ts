@@ -31,7 +31,10 @@ class OpenAIService {
       case 'rooivalk':
         let rooivalkInstructions = this._config.instructionsRooivalk;
 
-        rooivalkInstructions = rooivalkInstructions.replaceAll(/{{EMOJIS_CSV}}/, emojis.join(', '));
+        rooivalkInstructions = rooivalkInstructions.replace(
+          /{{EMOJIS_CSV}}/,
+          emojis.join(', ')
+        );
 
         return rooivalkInstructions;
       case 'learn':
