@@ -36,15 +36,6 @@ async function main() {
   const motdExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;
   cron.schedule(motdExpr, async () => {
     await rooivalk.sendMotdToMotdChannel();
-    await rooivalk.sendTodaysEvents();
-  });
-
-  cron.schedule('0 8 * * 1', async () => {
-    try {
-      await rooivalk.sendWeeklyEvents();
-    } catch (error) {
-      console.error('Failed to send weekly events:', error);
-    }
   });
 }
 
