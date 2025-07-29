@@ -398,6 +398,9 @@ class DiscordService {
       return null;
     }
     const lines = chain.split('\n');
+    if (lines.length === 0) {
+      return null;
+    }
     lines.pop();
     return lines.length > 0 ? lines.join('\n') : null;
   }
