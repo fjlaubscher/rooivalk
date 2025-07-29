@@ -1,4 +1,49 @@
-import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
+import {
+  vi,
+  describe,
+  beforeEach,
+  afterEach,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+} from 'vitest';
+
+let errorSpy: ReturnType<typeof vi.spyOn>;
+let logSpy: ReturnType<typeof vi.spyOn>;
+
+beforeAll(() => {
+  errorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      (args[0].includes('OpenAI error!') ||
+        args[0].includes('Startup channel ID not set') ||
+        args[0].includes('blocked'))
+    ) {
+      return;
+    }
+    // Optionally, call the original if you want to see other errors:
+    // errorSpy.mockRestore();
+    // console.error(...args);
+  });
+  logSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
+    if (
+      typeof args[0] === 'string' &&
+      (args[0].includes('🤖 Logged in as') ||
+        args[0].includes('Successfully registered slash commands.'))
+    ) {
+      return;
+    }
+    // Optionally, call the original if you want to see other logs:
+    // logSpy.mockRestore();
+    // console.log(...args);
+  });
+});
+
+afterAll(() => {
+  errorSpy.mockRestore();
+  logSpy.mockRestore();
+});
 
 import type { DiscordMessage } from '@/services/discord';
 import type { ChatInputCommandInteraction } from 'discord.js';
