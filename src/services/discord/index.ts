@@ -30,6 +30,7 @@ class DiscordService {
   private _mentionRegex: RegExp | null = null;
   private _startupChannelId: string | undefined;
   private _motdChannelId: string | undefined;
+  private _allowedEmojis: string[];
   private _config: InMemoryConfig;
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
@@ -46,6 +47,7 @@ class DiscordService {
       });
     this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
     this._motdChannelId = process.env.DISCORD_MOTD_CHANNEL_ID;
+    this._allowedEmojis = [];
   }
 
   public reloadConfig(newConfig: InMemoryConfig): void {
@@ -70,6 +72,10 @@ class DiscordService {
 
   public get motdChannelId(): string | undefined {
     return this._motdChannelId;
+  }
+
+  public get allowedEmojis(): string[] {
+    return this._allowedEmojis;
   }
 
   public getRooivalkResponse(type: ResponseType): string {
@@ -190,6 +196,18 @@ class DiscordService {
     } catch (error) {
       console.error('Error fetching scheduled events:', error);
       return [];
+    }
+  }
+
+  public async cacheGuildEmojis() {
+    try {
+      const guild = await this._discordClient.guilds.fetch(
+        process.env.DISCORD_GUILD_ID!
+      );
+      const emojis = await guild.emojis.fetch();
+      this._allowedEmojis = emojis.map((emoji) => `:${emoji.name}:`);
+    } catch (error) {
+      console.error('Error caching guild emojis:', error);
     }
   }
 

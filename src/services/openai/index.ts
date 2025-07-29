@@ -26,10 +26,14 @@ class OpenAIService {
     this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
   }
 
-  private getInstructions(persona: Persona): string {
+  private getInstructions(persona: Persona, emojis: string[] = []): string {
     switch (persona) {
       case 'rooivalk':
-        return this._config.instructionsRooivalk;
+        let rooivalkInstructions = this._config.instructionsRooivalk;
+
+        rooivalkInstructions.replaceAll(/{{EMOJIS_CSV}}/, emojis.join(', '));
+
+        return rooivalkInstructions;
       case 'learn':
         return this._config.instructionsLearn;
       default:
@@ -37,12 +41,16 @@ class OpenAIService {
     }
   }
 
-  async createResponse(persona: Persona, prompt: string) {
+  async createResponse(
+    persona: Persona,
+    prompt: string,
+    emojis: string[] = []
+  ) {
     try {
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
-        instructions: this.getInstructions(persona),
+        instructions: this.getInstructions(persona, emojis),
         input: prompt,
       });
 
