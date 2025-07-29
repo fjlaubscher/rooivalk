@@ -59,6 +59,7 @@ const mockDiscordService = vi.mocked({
     user: { id: 'test-bot-id', tag: 'TestBot#0000' },
     channels: { fetch: vi.fn() },
   },
+  allowedEmojis: [],
   startupChannelId: 'test-startup-channel-id',
   getReferencedMessage: vi.fn(),
   getOriginalMessage: vi.fn(),
@@ -72,6 +73,7 @@ const mockDiscordService = vi.mocked({
   registerSlashCommands: vi.fn(),
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
+  cacheGuildEmojis: vi.fn(), // Add mock for cacheGuildEmojis
   on: vi.fn(),
   once: vi.fn(),
   login: vi.fn(),
@@ -125,9 +127,11 @@ describe('Rooivalk', () => {
         expect(
           mockDiscordService.buildPromptFromMessageChain
         ).toHaveBeenCalledWith(userMessage);
+
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
-          'User: Hi!\nRooivalk: Hello!'
+          'User: Hi!\nRooivalk: Hello!',
+          []
         );
       });
     });
@@ -203,9 +207,11 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
         mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
+
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
-          'Hello bot!'
+          'Hello bot!',
+          []
         );
       });
     });
@@ -222,9 +228,11 @@ describe('Rooivalk', () => {
         } as unknown as Partial<DiscordMessage>);
         mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
+
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'learn',
-          'Teach me!'
+          'Teach me!',
+          []
         );
       });
     });

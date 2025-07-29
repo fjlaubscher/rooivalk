@@ -28,8 +28,8 @@ class Rooivalk {
     yrService?: YrService
   ) {
     this._config = config;
-    this._openai = openaiService ?? new OpenAIService(this._config);
     this._discord = discordService ?? new DiscordService(this._config);
+    this._openai = openaiService ?? new OpenAIService(this._config);
     this._yr = yrService ?? new YrService();
 
     // Parse DISCORD_ALLOWED_APPS once and store
@@ -92,7 +92,8 @@ class Rooivalk {
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
         isLearnChannel ? 'learn' : 'rooivalk',
-        prompt
+        prompt,
+        this._discord.allowedEmojis
       );
 
       if (response) {
@@ -197,7 +198,11 @@ class Rooivalk {
     }
 
     try {
-      const response = await this._openai.createResponse(persona, prompt);
+      const response = await this._openai.createResponse(
+        persona,
+        prompt,
+        this._discord.allowedEmojis
+      );
       const content = suffix ? `${response}\n${suffix}` : response;
       const channel = await this._discord.client.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
@@ -307,7 +312,11 @@ class Rooivalk {
       // echo the prompt in the new thread
       await thread.send(`>>> ${prompt}`);
 
-      const response = await this._openai.createResponse('rooivalk', prompt);
+      const response = await this._openai.createResponse(
+        'rooivalk',
+        prompt,
+        this._discord.allowedEmojis
+      );
 
       if (response) {
         const chunks = this._discord.chunkContent(response);
@@ -451,6 +460,7 @@ class Rooivalk {
     console.log(`🤖 Logged in as ${this._discord.client.user?.tag}`);
 
     this._discord.setupMentionRegex();
+    this._discord.cacheGuildEmojis();
 
     await this._discord.sendReadyMessage();
   }
