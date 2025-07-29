@@ -44,7 +44,7 @@ class YrService {
       'NNW',
     ];
     const index = Math.round(degrees / 22.5) % 16;
-    return directions[index] ?? '';
+    return directions[index] ?? 'Unknown';
   }
 
   private parseYrResponse(
