@@ -14,6 +14,7 @@ export function silenceConsole(options: ConsoleMockOptions = {}) {
     ) {
       return;
     }
+    console.error(...args);
   });
 
   const logSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
