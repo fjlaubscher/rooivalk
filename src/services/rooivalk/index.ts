@@ -397,7 +397,7 @@ class Rooivalk {
             });
             await thread.members.add(message.author.id);
             await thread.send(`>>> ${prompt}`);
-            (message as any).thread = thread;
+            (message as DiscordMessageWithThread).thread = thread;
           }
         }
       }
