@@ -1,14 +1,8 @@
 import { existsSync, watch } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+
+import { CONFIG_DIR } from './constants';
 
 export type ConfigReloadCallback = (changedFile: string) => void;
-
-// ESM-compatible __filename and __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const CONFIG_DIR = join(__dirname, '..', '..', 'config');
 
 /**
  * Watches the config directory for changes to .md files and triggers the callback.

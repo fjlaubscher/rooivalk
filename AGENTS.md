@@ -53,6 +53,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 - Global constants: `src/constants.ts`
 - Shared types: `src/types.ts`
 - Service-specific constants: `services/<service>/constants.ts`
+- Config directory resolver: `src/config/constants.ts`
 
 ### Environment
 
