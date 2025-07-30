@@ -1,9 +1,8 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 
-import { CONFIG_DIR } from './constants';
-
 import {
+  CONFIG_DIR,
   CONFIG_FILE_ERRORS,
   CONFIG_FILE_GREETINGS,
   CONFIG_FILE_DISCORD_LIMIT,

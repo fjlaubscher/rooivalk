@@ -1,3 +1,6 @@
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
 export const DISCORD_MESSAGE_LIMIT = 2000;
 export const DISCORD_MAX_MESSAGE_CHAIN_LENGTH = 10;
 export const DISCORD_EMOJI = 'rooivalk';
@@ -14,6 +17,13 @@ export const CONFIG_FILE_DISCORD_LIMIT = 'discord_limit.md';
 export const CONFIG_FILE_INSTRUCTIONS_ROOIVALK = 'instructions_rooivalk.md';
 export const CONFIG_FILE_INSTRUCTIONS_LEARN = 'instructions_learn.md';
 export const CONFIG_FILE_MOTD = 'motd.md';
+
+// ESM-compatible __filename and __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Directory where config markdown files are located (relative to dist or src)
+export const CONFIG_DIR = join(__dirname, '..', 'config');
 
 type DiscordCommand = (typeof DISCORD_COMMANDS)[keyof typeof DISCORD_COMMANDS];
 
