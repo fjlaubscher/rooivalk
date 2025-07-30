@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
+
+import { CONFIG_DIR } from './constants';
 
 import {
   CONFIG_FILE_ERRORS,
@@ -11,13 +12,6 @@ import {
   CONFIG_FILE_MOTD,
 } from '@/constants';
 import type { InMemoryConfig } from '@/types';
-
-// ESM-compatible __filename and __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Directory where config markdown files are located (relative to dist or src)
-const CONFIG_DIR = join(__dirname, '..', '..', 'config');
 
 export const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
