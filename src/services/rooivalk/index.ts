@@ -369,7 +369,8 @@ class Rooivalk {
 
       const inBotThread =
         message.channel.isThread() &&
-        (message.channel as ThreadChannel).ownerId === client.user?.id;
+        this.isThreadChannel(message.channel) &&
+        message.channel.ownerId === client.user?.id;
       // messages in bot-owned threads should be processed even without a mention
 
       let isReplyToBot = false;
