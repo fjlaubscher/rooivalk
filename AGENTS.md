@@ -47,6 +47,9 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 #### RooivalkService
 - Core business logic: processes messages, prepares prompts, integrates weather/events, shapes responses, manages context.
+- Automatically starts a new thread when a user replies to a bot message without one and continues conversations in that thread.
+- Messages inside bot-owned threads do not require a mention to be processed.
+- The original reply is deleted and the user is mentioned in the quoted prompt posted in the thread.
 
 ### Utilities & Constants
 

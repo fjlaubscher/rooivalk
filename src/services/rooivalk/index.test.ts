@@ -388,6 +388,77 @@ describe('Rooivalk', () => {
     });
   });
 
+  describe('message create thread behavior', () => {
+    it('creates a thread when replying to bot without one', async () => {
+      let messageHandler: (msg: DiscordMessage) => Promise<void>;
+      mockDiscordService.on.mockImplementation((event: string, cb: any) => {
+        if (event === 'messageCreate') messageHandler = cb;
+        return mockDiscordService;
+      });
+      mockDiscordService.once.mockImplementation((event: string, cb: any) => {
+        if (event === 'ready') cb();
+        return mockDiscordService;
+      });
+
+      await rooivalk.init();
+
+      const thread = { members: { add: vi.fn() }, send: vi.fn() } as any;
+      const botMessage = createMockMessage({
+        author: { id: BOT_ID, bot: true } as any,
+        hasThread: false,
+        startThread: vi.fn().mockResolvedValue(thread),
+        guild: { id: MOCK_ENV.DISCORD_GUILD_ID } as any,
+      });
+
+      mockDiscordService.getReferencedMessage.mockResolvedValue(botMessage);
+
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> hello`,
+        reference: { messageId: '1' } as any,
+        channel: { isThread: () => false, messages: { fetch: vi.fn() } },
+        guild: { id: MOCK_ENV.DISCORD_GUILD_ID } as any,
+      } as Partial<DiscordMessage>);
+
+      await messageHandler!(userMessage);
+
+      expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith('hello');
+      expect(botMessage.startThread).toHaveBeenCalledWith({
+        name: 'Thread Title',
+        autoArchiveDuration: 60,
+      });
+      expect(thread.members.add).toHaveBeenCalledWith(userMessage.author.id);
+      expect(thread.send).toHaveBeenCalledWith(`<@${userMessage.author.id}>\n>>> hello`);
+      expect(userMessage.delete).toHaveBeenCalled();
+      expect(mockOpenAIClient.createResponse).toHaveBeenCalled();
+    });
+
+    it('processes messages in bot-owned threads without mention', async () => {
+      let messageHandler: (msg: DiscordMessage) => Promise<void>;
+      mockDiscordService.on.mockImplementation((event: string, cb: any) => {
+        if (event === 'messageCreate') messageHandler = cb;
+        return mockDiscordService;
+      });
+      mockDiscordService.once.mockImplementation((event: string, cb: any) => {
+        if (event === 'ready') cb();
+        return mockDiscordService;
+      });
+
+      await rooivalk.init();
+
+      const threadChannel = { isThread: () => true, ownerId: BOT_ID } as any;
+      const msg = createMockMessage({
+        content: 'hi',
+        channel: threadChannel,
+        mentions: { users: { filter: vi.fn().mockReturnValue([]) } } as any,
+        guild: { id: MOCK_ENV.DISCORD_GUILD_ID } as any,
+      } as Partial<DiscordMessage>);
+
+      await messageHandler!(msg);
+
+      expect(mockOpenAIClient.createResponse).toHaveBeenCalled();
+    });
+  });
+
   describe('when initialized', () => {
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
