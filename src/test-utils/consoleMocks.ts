@@ -25,6 +25,7 @@ export function silenceConsole(options: ConsoleMockOptions = {}) {
     ) {
       return;
     }
+    console.log(...args);
   });
 
   return function restoreConsole() {
