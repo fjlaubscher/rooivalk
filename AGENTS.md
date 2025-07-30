@@ -49,7 +49,8 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 ### Utilities & Constants
 
-- Test utilities: `src/test-utils/`
+- Test utilities: `src/test-utils/` (e.g., `createMockMessage.ts`,
+  `consoleMocks.ts`)
 - Global constants: `src/constants.ts`
 - Shared types: `src/types.ts`
 - Service-specific constants: `services/<service>/constants.ts`

@@ -17,6 +17,7 @@ import {
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG } from '@/test-utils/mock';
 import type { ResponseType } from '@/types';
+import { silenceConsole } from '@/test-utils/consoleMocks';
 
 import DiscordService from '.';
 import type { DiscordMessage } from '.';
@@ -37,40 +38,21 @@ vi.mock('discord.js', async (importOriginal) => {
 
 const BOT_ID = 'test-bot-id';
 
-// Silence expected error logs for specific known error messages
-let errorSpy: ReturnType<typeof vi.spyOn>;
-let logSpy: ReturnType<typeof vi.spyOn>;
+let restoreConsole: () => void;
 
 beforeAll(() => {
-  errorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Error sending ready message') ||
-        args[0].includes('Error fetching referenced message') ||
-        args[0].includes('Error fetching original message'))
-    ) {
-      return;
-    }
-    // Uncomment the next line to allow unexpected errors to show:
-    // errorSpy.mockRestore(); console.error(...args);
-  });
-
-  logSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('Successfully registered slash commands.') ||
-        args[0].includes('🤖 Logged in as'))
-    ) {
-      return;
-    }
-    // Uncomment the next line to allow unexpected logs to show:
-    // logSpy.mockRestore(); console.log(...args);
+  restoreConsole = silenceConsole({
+    ignoreErrors: [
+      'Error sending ready message',
+      'Error fetching referenced message',
+      'Error fetching original message',
+    ],
+    ignoreLogs: ['Successfully registered slash commands.', '🤖 Logged in as'],
   });
 });
 
 afterAll(() => {
-  errorSpy.mockRestore();
-  logSpy.mockRestore();
+  restoreConsole();
 });
 
 function createMockDiscordClient() {
