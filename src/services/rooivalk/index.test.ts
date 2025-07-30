@@ -8,41 +8,19 @@ import {
   beforeAll,
   afterAll,
 } from 'vitest';
+import { silenceConsole } from '@/test-utils/consoleMocks';
 
-let errorSpy: ReturnType<typeof vi.spyOn>;
-let logSpy: ReturnType<typeof vi.spyOn>;
+let restoreConsole: () => void;
 
 beforeAll(() => {
-  errorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('OpenAI error!') ||
-        args[0].includes('Startup channel ID not set') ||
-        args[0].includes('blocked'))
-    ) {
-      return;
-    }
-    // Optionally, call the original if you want to see other errors:
-    // errorSpy.mockRestore();
-    // console.error(...args);
-  });
-  logSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      (args[0].includes('🤖 Logged in as') ||
-        args[0].includes('Successfully registered slash commands.'))
-    ) {
-      return;
-    }
-    // Optionally, call the original if you want to see other logs:
-    // logSpy.mockRestore();
-    // console.log(...args);
+  restoreConsole = silenceConsole({
+    ignoreErrors: ['OpenAI error!', 'Startup channel ID not set', 'blocked'],
+    ignoreLogs: ['🤖 Logged in as', 'Successfully registered slash commands.'],
   });
 });
 
 afterAll(() => {
-  errorSpy.mockRestore();
-  logSpy.mockRestore();
+  restoreConsole();
 });
 
 import type { DiscordMessage } from '@/services/discord';
