@@ -16,6 +16,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 
 - `src/services/discord/` – DiscordService (Discord integration)
 - `src/services/openai/` – OpenAIService (OpenAI API integration)
+  - `src/services/openai/index.test.ts` – unit tests for OpenAIService
 - `src/services/rooivalk/` – RooivalkService (core business logic)
 - `src/services/yr/` – YrService (weather integration)
 - `src/services/cron/` – CronService (scheduled jobs)
