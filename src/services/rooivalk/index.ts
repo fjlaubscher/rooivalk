@@ -1,9 +1,14 @@
-import { Events as DiscordEvents, EmbedBuilder } from 'discord.js';
+import {
+  Events as DiscordEvents,
+  EmbedBuilder,
+  ThreadAutoArchiveDuration,
+} from 'discord.js';
 import type {
   ChatInputCommandInteraction,
   Client,
   Interaction,
   TextChannel,
+  ThreadChannel,
 } from 'discord.js';
 
 import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
@@ -360,7 +365,13 @@ class Rooivalk {
         return;
       }
 
-      // Check if the message is a reply to the bot
+      const client = this._discord.client;
+
+      const inBotThread =
+        message.channel.isThread() &&
+        (message.channel as ThreadChannel).ownerId === client.user?.id;
+      // messages in bot-owned threads should be processed even without a mention
+
       let isReplyToBot = false;
       if (message.reference && message.reference.messageId) {
         const repliedToMessage = await this._discord.getReferencedMessage(
@@ -368,24 +379,37 @@ class Rooivalk {
         );
         if (
           repliedToMessage &&
-          repliedToMessage.author.id === this._discord.client.user?.id
+          repliedToMessage.author.id === client.user?.id
         ) {
           isReplyToBot = true;
+
+          if (!repliedToMessage.hasThread && !message.channel.isThread()) {
+            const prompt = this._discord.mentionRegex
+              ? message.content.replace(this._discord.mentionRegex, '').trim()
+              : message.content.trim();
+            const name =
+              (await this._openai.generateThreadName(prompt)) ||
+              'Conversation with rooivalk';
+            const thread = await repliedToMessage.startThread({
+              name,
+              autoArchiveDuration: ThreadAutoArchiveDuration.OneHour,
+            });
+            await thread.members.add(message.author.id);
+            await thread.send(`>>> ${prompt}`);
+            (message as any).thread = thread;
+          }
         }
       }
 
-      // Check if the bot is mentioned directly
       const isMentioned =
         this._discord.mentionRegex &&
         this._discord.mentionRegex.test(message.content);
 
-      // If not a reply to the bot and not mentioned, ignore the message
-      if (!isReplyToBot && !isMentioned) {
+      if (!isReplyToBot && !isMentioned && !inBotThread) {
         return;
       }
 
-      // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
-      if (!this._discord.mentionRegex && !isReplyToBot) {
+      if (!this._discord.mentionRegex && !isReplyToBot && !inBotThread) {
         console.warn(
           'Mention regex not initialized, ignoring non-reply message.'
         );
