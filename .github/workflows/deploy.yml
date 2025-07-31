@@ -19,10 +19,10 @@ jobs:
           node-version: '22.x'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install
 
       - name: Build project
-        run: yarn build
+        run: pnpm run build
 
       - name: Set up SSH
         run: |
@@ -36,7 +36,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.env' \
-            ./dist ./config ./package.json ./yarn.lock ./tsconfig.json ./.nvmrc ./ts-paths-loader.mjs ./index.mjs \
+            ./dist ./config ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc ./ts-paths-loader.mjs ./index.mjs \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
       - name: Install and restart on server
@@ -46,7 +46,7 @@ jobs:
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             cd ${{ secrets.DEPLOY_PATH }}
-            yarn install --frozen-lockfile
+            pnpm install
             pm2 delete rooivalk || true
             pm2 start index.mjs --name rooivalk
           EOF

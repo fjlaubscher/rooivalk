@@ -1,7 +1,6 @@
 export type Env = {
   DISCORD_STARTUP_CHANNEL_ID: string;
   DISCORD_MOTD_CHANNEL_ID: string;
-  DISCORD_LEARN_CHANNEL_ID: string;
   DISCORD_GUILD_ID: string;
   DISCORD_APP_ID: string;
   DISCORD_TOKEN: string;
@@ -23,7 +22,18 @@ export type InMemoryConfig = {
 export type Persona = 'rooivalk' | 'learn';
 export type ResponseType = 'error' | 'greeting' | 'discordLimit';
 
+export type DiscordCommandParams = {
+  description: string;
+  parameters: {
+    name: string;
+    description: string;
+    required: boolean;
+    choices?: { name: string; value: string }[];
+  }[];
+};
+
 export type WeatherLocation = {
+  name: string;
   latitude: number;
   longitude: number;
 };

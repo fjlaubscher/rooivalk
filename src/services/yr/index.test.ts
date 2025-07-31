@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import YrService, { LOCATIONS } from './index';
+import { YR_COORDINATES } from '@/constants';
 import type { YrResponse, WeatherForecast } from '@/types';
+import YrService from './index';
 
 const mockYrResponse = (overrides: Partial<YrResponse> = {}): YrResponse => ({
   type: 'Feature',
@@ -87,7 +88,7 @@ describe('YrService', () => {
     const forecast = await yrService.getForecastByLocation('CAPE_TOWN');
     expect(forecast).not.toBeNull();
     expect(forecast?.location).toBe('CAPE_TOWN');
-    expect(forecast?.friendlyName).toBe(LOCATIONS.CAPE_TOWN);
+    expect(forecast?.friendlyName).toBe(YR_COORDINATES.CAPE_TOWN.name);
     expect(forecast?.minTemp).toBe(15);
     expect(forecast?.maxTemp).toBe(20);
     expect(forecast?.avgHumidity).toBe(57.5);
@@ -106,7 +107,6 @@ describe('YrService', () => {
   });
 
   it('throws error for invalid location', async () => {
-    // @ts-expect-error
     await expect(yrService.getForecastByLocation('INVALID')).rejects.toThrow(
       /Invalid location/
     );
@@ -151,7 +151,7 @@ describe('YrService', () => {
 
     const forecasts = await yrService.getAllForecasts();
     expect(Array.isArray(forecasts)).toBe(true);
-    expect(forecasts.length).toBe(Object.keys(LOCATIONS).length);
+    expect(forecasts.length).toBe(Object.keys(YR_COORDINATES).length);
     forecasts.forEach((forecast) => {
       expect(forecast).not.toBeNull();
       expect(typeof forecast?.location).toBe('string');
@@ -173,7 +173,7 @@ describe('YrService', () => {
       );
 
     const forecasts = await yrService.getAllForecasts();
-    expect(forecasts.length).toBe(Object.keys(LOCATIONS).length - 1);
+    expect(forecasts.length).toBe(Object.keys(YR_COORDINATES).length - 1);
   });
 
   it('convertDegreesToCompass returns correct direction', () => {

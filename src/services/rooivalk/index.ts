@@ -1,4 +1,4 @@
-import { Events as DiscordEvents, EmbedBuilder } from 'discord.js';
+import { Events as DiscordEvents, EmbedBuilder, userMention } from 'discord.js';
 import type {
   ChatInputCommandInteraction,
   Client,
@@ -75,8 +75,6 @@ class Rooivalk {
       let prompt = message.content
         .replace(this._discord.mentionRegex!, '')
         .trim();
-      const isLearnChannel =
-        message.channel.id === process.env.DISCORD_LEARN_CHANNEL_ID;
 
       // Build conversation history context if replying to the bot
       const history = await this._discord.buildHistoryFromMessageChain(message);
@@ -87,7 +85,7 @@ class Rooivalk {
 
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
-        isLearnChannel ? 'learn' : 'rooivalk',
+        'rooivalk',
         prompt,
         this._discord.allowedEmojis,
         history
@@ -112,7 +110,7 @@ class Rooivalk {
 
       const reply =
         error instanceof Error
-          ? `${errorMessage}\n\n\`\`\`${error.message}\`\`\``
+          ? `${errorMessage}\n\`\`\`${error.message}\`\`\``
           : errorMessage;
 
       if (message.thread) {
@@ -360,17 +358,35 @@ class Rooivalk {
         return;
       }
 
+      let isInThread = message.thread !== null;
+
       // Check if the message is a reply to the bot
       let isReplyToBot = false;
-      if (message.reference && message.reference.messageId) {
+      if (message.reference?.messageId) {
         const repliedToMessage = await this._discord.getReferencedMessage(
           message as DiscordMessage
         );
+
         if (
           repliedToMessage &&
           repliedToMessage.author.id === this._discord.client.user?.id
         ) {
           isReplyToBot = true;
+
+          // since the user is replying to the bot, create a thread to continue the discussion
+          if (!isInThread) {
+            const history =
+              await this._discord.buildHistoryFromMessageChain(message);
+            const threadName = await this._openai.generateThreadName(
+              history ?? message.content.trim()
+            );
+            const thread = await message.startThread({
+              name: threadName,
+              autoArchiveDuration: 60,
+            });
+            await thread.members.add(message.author.id);
+            isInThread = true;
+          }
         }
       }
 
@@ -380,18 +396,19 @@ class Rooivalk {
         this._discord.mentionRegex.test(message.content);
 
       // If not a reply to the bot and not mentioned, ignore the message
-      if (!isReplyToBot && !isMentioned) {
+      if (!isReplyToBot && !isMentioned && !isInThread) {
         return;
       }
 
       // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
-      if (!this._discord.mentionRegex && !isReplyToBot) {
+      if (!this._discord.mentionRegex && !isReplyToBot && !isInThread) {
         console.warn(
           'Mention regex not initialized, ignoring non-reply message.'
         );
         return;
       }
 
+      // thread messages always get processessed regardless of mention / reply
       this.processMessage(message as DiscordMessage);
     });
 

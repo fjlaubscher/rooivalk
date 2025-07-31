@@ -1,27 +1,7 @@
-import type { WeatherLocation, WeatherForecast, YrResponse } from '@/types';
+import { YR_COORDINATES, YR_USER_AGENT } from '@/constants';
+import type { WeatherForecast, YrResponse } from '@/types';
 
-const USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
-
-export const LOCATIONS = {
-  CAPE_TOWN: 'Cape Town, South Africa',
-  DUBAI: 'Dubai, United Arab Emirates',
-  TAMARIN: 'Tamarin, Mauritius',
-};
-
-const COORDINATES: Record<keyof typeof LOCATIONS, WeatherLocation> = {
-  CAPE_TOWN: {
-    latitude: -33.92584,
-    longitude: 18.42322,
-  },
-  DUBAI: {
-    latitude: 25.26472,
-    longitude: 55.29241,
-  },
-  TAMARIN: {
-    latitude: -20.32922,
-    longitude: 57.37768,
-  },
-};
+type ValidLocation = keyof typeof YR_COORDINATES;
 
 class YrService {
   private convertDegreesToCompass(degrees: number): string {
@@ -48,7 +28,7 @@ class YrService {
   }
 
   private parseYrResponse(
-    location: keyof typeof LOCATIONS,
+    location: ValidLocation,
     response: YrResponse
   ): WeatherForecast {
     const todayIso = new Date().toISOString().split('T')[0];
@@ -73,8 +53,8 @@ class YrService {
     const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
 
     return {
-      location,
-      friendlyName: LOCATIONS[location],
+      location: location as string,
+      friendlyName: YR_COORDINATES[location].name,
       minTemp: Math.min(...temps),
       maxTemp: Math.max(...temps),
       avgWindSpeed: avg(windSpeeds),
@@ -84,9 +64,9 @@ class YrService {
   }
 
   public async getForecastByLocation(
-    location: keyof typeof LOCATIONS
+    location: ValidLocation
   ): Promise<WeatherForecast | null> {
-    const coordinates = COORDINATES[location];
+    const coordinates = YR_COORDINATES[location];
     if (!coordinates) {
       throw new Error(`Invalid location: ${location}`);
     }
@@ -94,7 +74,7 @@ class YrService {
     const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${coordinates.latitude}&lon=${coordinates.longitude}`;
     const response = await fetch(url, {
       headers: {
-        'User-Agent': USER_AGENT,
+        'User-Agent': YR_USER_AGENT,
       },
     });
 
@@ -108,8 +88,8 @@ class YrService {
 
   public async getAllForecasts() {
     const forecasts = await Promise.all(
-      Object.keys(COORDINATES).map((key) =>
-        this.getForecastByLocation(key as keyof typeof COORDINATES)
+      Object.keys(YR_COORDINATES).map((key) =>
+        this.getForecastByLocation(key as keyof typeof YR_COORDINATES)
       )
     );
 

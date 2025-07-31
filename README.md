@@ -41,7 +41,6 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    ```env
    DISCORD_STARTUP_CHANNEL_ID=channelidforstartup
    DISCORD_MOTD_CHANNEL_ID=channelidformotd
-   DISCORD_LEARN_CHANNEL_ID=channelidforlearning
    DISCORD_TOKEN=discord_app_token
    DISCORD_GUILD_ID=discord_server_id
    DISCORD_APP_ID=discord_app_id
