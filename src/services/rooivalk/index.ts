@@ -1,4 +1,4 @@
-import { Events as DiscordEvents, EmbedBuilder, userMention } from 'discord.js';
+import { Events as DiscordEvents } from 'discord.js';
 import type {
   ChatInputCommandInteraction,
   Client,
@@ -7,10 +7,10 @@ import type {
 } from 'discord.js';
 
 import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
-import OpenAIService from '@/services/openai';
 import DiscordService from '@/services/discord';
-import YrService from '@/services/yr';
 import type { DiscordMessage } from '@/services/discord';
+import OpenAIService from '@/services/openai';
+import YrService from '@/services/yr';
 
 import type { InMemoryConfig } from '@/types';
 
@@ -408,7 +408,7 @@ class Rooivalk {
         return;
       }
 
-      // thread messages always get processessed regardless of mention / reply
+      // thread messages are always processed regardless of mention / reply
       this.processMessage(message as DiscordMessage);
     });
 
