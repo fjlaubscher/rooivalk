@@ -76,8 +76,15 @@ class Rooivalk {
         .replace(this._discord.mentionRegex!, '')
         .trim();
 
-      // Build conversation history context if replying to the bot
-      const history = await this._discord.buildHistoryFromMessageChain(message);
+      let conversationHistory: string | null = null;
+
+      if (message.thread) {
+        conversationHistory =
+          await this._discord.buildPromptFromMessageThread(message);
+      } else {
+        conversationHistory =
+          await this._discord.buildPromptFromMessageChain(message);
+      }
 
       const usersToMention = message.mentions.users.filter(
         (user) => user.id !== this._discord.client.user?.id
@@ -88,7 +95,7 @@ class Rooivalk {
         'rooivalk',
         prompt,
         this._discord.allowedEmojis,
-        history
+        conversationHistory
       );
 
       if (response) {
@@ -346,6 +353,43 @@ class Rooivalk {
     }
   }
 
+  public async handleWeatherCommand(
+    interaction: ChatInputCommandInteraction
+  ): Promise<void> {
+    const city = interaction.options.getString('city');
+    if (city) {
+      const weather = await this._yr.getForecastByLocation(city);
+      if (weather) {
+        const prompt = `
+          You will be provided with a daily weather forecast in JSON format.
+
+          ## Weather formatting
+          - Add a short description of the weather, including:
+            - Average wind speed and direction
+            - Average humidity
+          - Add 1–2 relevant weather emojis.
+          - Keep the style readable but punchy.
+          - Do **not** mention the \`location\` value — it’s for internal use only.
+          - Mention the data is provided by yr.no under the CC BY 4.0 license. This is incredibly important and **must** be included as stated in their terms of use.
+
+          ### Forecast Data
+          \`\`\`json
+          ${JSON.stringify(weather)}
+          \`\`\`
+        `;
+
+        const response = await this._openai.createResponse(
+          'rooivalk',
+          prompt,
+          this._discord.allowedEmojis
+        );
+        await interaction.editReply({
+          content: response,
+        });
+      }
+    }
+  }
+
   public async init(): Promise<void> {
     const ready = new Promise<Client<boolean>>((res) =>
       this._discord.once(DiscordEvents.ClientReady, (client) => res(client))
@@ -376,7 +420,7 @@ class Rooivalk {
           // since the user is replying to the bot, create a thread to continue the discussion
           if (!isInThread) {
             const history =
-              await this._discord.buildHistoryFromMessageChain(message);
+              await this._discord.buildPromptFromMessageChain(message);
             const threadName = await this._openai.generateThreadName(
               history ?? message.content.trim()
             );
@@ -459,6 +503,9 @@ class Rooivalk {
             break;
           case DISCORD_COMMANDS.THREAD:
             await this.handleThreadCommand(interaction);
+            break;
+          case DISCORD_COMMANDS.WEATHER:
+            await this.handleWeatherCommand(interaction);
             break;
           default:
             console.error(
