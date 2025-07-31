@@ -2,6 +2,12 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DiscordCommandParams, WeatherLocation } from '@/types';
 
+export const ALLOWED_ATTACHMENT_CONTENT_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+];
+
 export const DISCORD_MESSAGE_LIMIT = 2000;
 export const DISCORD_MAX_MESSAGE_CHAIN_LENGTH = 10;
 export const DISCORD_EMOJI = 'rooivalk';

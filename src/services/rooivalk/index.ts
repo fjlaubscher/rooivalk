@@ -7,7 +7,11 @@ import type {
   ThreadChannel,
 } from 'discord.js';
 
-import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
+import {
+  ALLOWED_ATTACHMENT_CONTENT_TYPES,
+  DISCORD_COMMANDS,
+  DISCORD_EMOJI,
+} from '@/constants';
 import DiscordService from '@/services/discord';
 import type { DiscordMessage } from '@/services/discord';
 import OpenAIService from '@/services/openai';
@@ -94,12 +98,22 @@ class Rooivalk {
         (user) => user.id !== this._discord.client.user?.id
       );
 
+      // filter attachments to only those with allowed content types
+      const attachmentUrls = message.attachments
+        .filter((attachment) =>
+          attachment.contentType
+            ? ALLOWED_ATTACHMENT_CONTENT_TYPES.includes(attachment.contentType)
+            : false
+        )
+        .map((attachment) => attachment.url);
+
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
         'rooivalk',
         prompt,
         this._discord.allowedEmojis,
-        conversationHistory
+        conversationHistory,
+        attachmentUrls.length > 0 ? attachmentUrls : null
       );
 
       if (response) {
