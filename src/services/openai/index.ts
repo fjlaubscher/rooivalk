@@ -48,7 +48,7 @@ class OpenAIService {
     persona: Persona,
     prompt: string,
     emojis: string[] = [],
-    history?: string | null
+    history: string | null = null
   ) {
     try {
       let instructions = this.getInstructions(persona, emojis);

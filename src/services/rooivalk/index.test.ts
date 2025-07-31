@@ -48,7 +48,7 @@ const mockDiscordService = vi.mocked({
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
   fetchScheduledEventsBetween: vi.fn(),
   buildPromptFromMessageChain: vi.fn(),
-  buildHistoryFromMessageChain: vi.fn(),
+  buildPromptFromMessageThread: vi.fn(),
   registerSlashCommands: vi.fn(),
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
@@ -94,17 +94,17 @@ describe('Rooivalk', () => {
   });
 
   describe('when processing a message', () => {
-    describe('and buildHistoryFromMessageChain returns history', () => {
+    describe('and buildPromptFromMessageChain returns history', () => {
       it('should pass history to OpenAI if available', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildHistoryFromMessageChain.mockResolvedValue(
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(
           'User: Hi!\nRooivalk: Hello!'
         );
         await (rooivalk as any).processMessage(userMessage);
         expect(
-          mockDiscordService.buildHistoryFromMessageChain
+          mockDiscordService.buildPromptFromMessageChain
         ).toHaveBeenCalledWith(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
@@ -180,12 +180,12 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and buildHistoryFromMessageChain returns null', () => {
+    describe('and buildPromptFromMessageChain returns null', () => {
       it('should use message content if no history is available', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hello bot!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildHistoryFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
@@ -202,7 +202,7 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildHistoryFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith('Error!');
@@ -214,7 +214,7 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildHistoryFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockRejectedValue(
           new Error('OpenAI error!')
         );

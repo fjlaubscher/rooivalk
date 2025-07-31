@@ -215,14 +215,14 @@ class DiscordService {
 
   public async getMessageChain(
     currentMessage: DiscordMessage
-  ): Promise<{ author: 'user' | 'rooivalk'; content: string }[]> {
-    const messageChain: { author: 'user' | 'rooivalk'; content: string }[] = [];
+  ): Promise<{ author: string | 'rooivalk'; content: string }[]> {
+    const messageChain: { author: string | 'rooivalk'; content: string }[] = [];
     try {
       if (currentMessage.reference && currentMessage.reference.messageId) {
         let referencedMessage = await currentMessage.channel.messages.fetch(
           currentMessage.reference.messageId
         );
-        const tempChain: { author: 'user' | 'rooivalk'; content: string }[] =
+        const tempChain: { author: string | 'rooivalk'; content: string }[] =
           [];
         while (
           referencedMessage &&
@@ -232,7 +232,7 @@ class DiscordService {
             author:
               referencedMessage.author.id === this._discordClient.user?.id
                 ? 'rooivalk'
-                : 'user',
+                : referencedMessage.author.displayName,
             content: referencedMessage.content,
           });
           if (
@@ -261,7 +261,7 @@ class DiscordService {
       author:
         currentMessage.author.id === this._discordClient.user?.id
           ? 'rooivalk'
-          : 'user',
+          : currentMessage.author.displayName,
       content: currentMessage.content,
     });
     return messageChain;
@@ -378,17 +378,14 @@ class DiscordService {
             ...entry,
             content:
               index === messageChain.length - 1 &&
-              entry.author === 'user' &&
+              entry.author !== 'rooivalk' &&
               this._mentionRegex
                 ? entry.content.replace(this._mentionRegex, '').trim()
                 : entry.content,
           }));
 
           return chainWithCleanContent
-            .map(
-              (entry) =>
-                `${entry.author === 'user' ? 'User' : 'Rooivalk'}: ${entry.content}`
-            )
+            .map((entry) => `${entry.author}: ${entry.content}`)
             .join('\n');
         }
       }
@@ -396,19 +393,37 @@ class DiscordService {
     return null;
   }
 
-  public async buildHistoryFromMessageChain(
+  public async buildPromptFromMessageThread(
     message: DiscordMessage
   ): Promise<string | null> {
-    const chain = await this.buildPromptFromMessageChain(message);
-    if (!chain) {
-      return null;
+    if (message.thread) {
+      const thread = await message.thread.messages.fetch();
+      const threadMessages = thread.map((msg) => ({
+        author:
+          msg.author.id === this._discordClient.user?.id
+            ? 'rooivalk'
+            : msg.author.displayName,
+        content: msg.content,
+      }));
+
+      if (threadMessages && threadMessages.length) {
+        const chainWithCleanContent = threadMessages.map((entry, index) => ({
+          ...entry,
+          content:
+            index === threadMessages.length - 1 &&
+            entry.author !== 'rooivalk' &&
+            this._mentionRegex
+              ? entry.content.replace(this._mentionRegex, '').trim()
+              : entry.content,
+        }));
+
+        return chainWithCleanContent
+          .map((entry) => `${entry.author}: ${entry.content}`)
+          .join('\n');
+      }
     }
-    const lines = chain.split('\n');
-    if (lines.length === 0) {
-      return null;
-    }
-    lines.pop();
-    return lines.length > 0 ? lines.join('\n') : null;
+
+    return null;
   }
 
   public setupMentionRegex(): void {
