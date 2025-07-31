@@ -252,5 +252,140 @@ describe('DiscordService', () => {
         expect(discordClient.login).toHaveBeenCalled();
       });
     });
+
+    describe('buildPromptFromMessageThread', () => {
+      it('should build prompt from thread messages in chronological order', async () => {
+        const mockThreadMessages = new Map([
+          [
+            '3',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Third message',
+            },
+          ],
+          [
+            '2',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Second message',
+            },
+          ],
+          [
+            '1',
+            {
+              author: { id: BOT_ID, displayName: 'Bot' },
+              content: 'First message',
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        service.mentionRegex = /<@test-bot-id>/g;
+        const prompt = await service.buildPromptFromMessageThread(msg);
+
+        expect(prompt).toBe(
+          'rooivalk: First message\nUser: Second message\nUser: Third message'
+        );
+        expect(mockThread.messages.fetch).toHaveBeenCalled();
+      });
+
+      it('should clean mention from last user message', async () => {
+        const mockThreadMessages = new Map([
+          [
+            '2',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: '<@test-bot-id> Hello bot!',
+            },
+          ],
+          [
+            '1',
+            {
+              author: { id: BOT_ID, displayName: 'Bot' },
+              content: 'Bot message',
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        service.mentionRegex = /<@test-bot-id>/g;
+        const prompt = await service.buildPromptFromMessageThread(msg);
+
+        expect(prompt).toBe('rooivalk: Bot message\nUser: Hello bot!');
+      });
+
+      it('should return null when not in a thread', async () => {
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(false),
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        const prompt = await service.buildPromptFromMessageThread(msg);
+        expect(prompt).toBeNull();
+      });
+
+      it('should return null when thread has no messages', async () => {
+        const mockThread = {
+          messages: {
+            fetch: vi.fn().mockResolvedValue(new Map()),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        const prompt = await service.buildPromptFromMessageThread(msg);
+        expect(prompt).toBeNull();
+      });
+
+      it('should handle thread messages fetch error', async () => {
+        const mockThread = {
+          messages: {
+            fetch: vi.fn().mockRejectedValue(new Error('Fetch failed')),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        // Should not throw, but will likely return null or handle gracefully
+        await expect(service.buildPromptFromMessageThread(msg)).rejects.toThrow(
+          'Fetch failed'
+        );
+      });
+    });
   });
 });

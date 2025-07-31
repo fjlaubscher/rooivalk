@@ -10,7 +10,7 @@ export function createMockMessage(
   };
   return {
     content: '',
-    author: { id: 'user-id', bot: false },
+    author: { id: 'user-id', bot: false, displayName: 'TestUser' },
     mentions: { users },
     reply: vi.fn(),
     reference: null,
@@ -19,8 +19,12 @@ export function createMockMessage(
       id: 'test-channel-id',
       messages: { fetch: vi.fn() },
       send: vi.fn(),
+      isThread: vi.fn().mockReturnValue(false),
+      fetchStarterMessage: vi.fn(),
       ...overrides.channel,
     },
+    thread: null,
+    startThread: vi.fn(),
     delete: vi.fn(),
     ...overrides,
   } as unknown as DiscordMessage;

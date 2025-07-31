@@ -78,7 +78,7 @@ class Rooivalk {
 
       let conversationHistory: string | null = null;
 
-      if (message.thread) {
+      if (message.channel.isThread()) {
         conversationHistory =
           await this._discord.buildPromptFromMessageThread(message);
       } else {
@@ -103,8 +103,8 @@ class Rooivalk {
           response,
           usersToMention.map((user) => user.id)
         );
-        if (message.thread) {
-          await message.thread.send(reply);
+        if (message.channel.isThread()) {
+          await message.channel.send(reply);
         } else {
           await message.reply(reply);
         }
@@ -120,8 +120,8 @@ class Rooivalk {
           ? `${errorMessage}\n\`\`\`${error.message}\`\`\``
           : errorMessage;
 
-      if (message.thread) {
-        await message.thread.send(reply);
+      if (message.channel.isThread()) {
+        await message.channel.send(reply);
       } else {
         await message.reply(reply);
       }
@@ -412,7 +412,28 @@ class Rooivalk {
         return;
       }
 
-      let isInThread = message.thread !== null;
+      // Check if the message is in a thread (not creating a thread)
+      let isInBotThread = false;
+      if (message.channel.isThread()) {
+        const thread = message.channel;
+        // Check if this thread was created by the bot by examining the starter message
+        try {
+          const starterMessage = await thread.fetchStarterMessage();
+          if (starterMessage) {
+            // If the starter message is a reply to the bot, then the bot created this thread
+            const repliedToMessage =
+              await this._discord.getReferencedMessage(starterMessage);
+            if (
+              repliedToMessage &&
+              repliedToMessage.author.id === this._discord.client.user?.id
+            ) {
+              isInBotThread = true;
+            }
+          }
+        } catch (error) {
+          console.error('Error checking thread ownership:', error);
+        }
+      }
 
       // Check if the message is a reply to the bot
       let isReplyToBot = false;
@@ -428,7 +449,7 @@ class Rooivalk {
           isReplyToBot = true;
 
           // since the user is replying to the bot, create a thread to continue the discussion
-          if (!isInThread) {
+          if (!isInBotThread) {
             const history =
               await this._discord.buildPromptFromMessageChain(message);
             const threadName = await this._openai.generateThreadName(
@@ -439,7 +460,7 @@ class Rooivalk {
               autoArchiveDuration: 60,
             });
             await thread.members.add(message.author.id);
-            isInThread = true;
+            isInBotThread = true;
           }
         }
       }
@@ -449,20 +470,20 @@ class Rooivalk {
         this._discord.mentionRegex &&
         this._discord.mentionRegex.test(message.content);
 
-      // If not a reply to the bot and not mentioned, ignore the message
-      if (!isReplyToBot && !isMentioned && !isInThread) {
+      // If not a reply to the bot and not mentioned and not in a bot thread, ignore the message
+      if (!isReplyToBot && !isMentioned && !isInBotThread) {
         return;
       }
 
-      // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot, ignore.
-      if (!this._discord.mentionRegex && !isReplyToBot && !isInThread) {
+      // If mentionRegex is null (bot not fully initialized), and it's not a reply to the bot or bot thread, ignore.
+      if (!this._discord.mentionRegex && !isReplyToBot && !isInBotThread) {
         console.warn(
           'Mention regex not initialized, ignoring non-reply message.'
         );
         return;
       }
 
-      // thread messages are always processed regardless of mention / reply
+      // Process the message (thread messages, replies, and mentions are all processed)
       this.processMessage(message as DiscordMessage);
     });
 

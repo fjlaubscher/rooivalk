@@ -386,4 +386,113 @@ describe('Rooivalk', () => {
       expect(mockDiscordService.setupMentionRegex).toHaveBeenCalled();
     });
   });
+
+  describe('thread handling', () => {
+    describe('when message is sent in a thread', () => {
+      it('should use thread history when processing messages in threads', async () => {
+        const threadMessage = createMockMessage({
+          content: 'Hello in thread',
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            send: vi.fn(),
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildPromptFromMessageThread.mockResolvedValue(
+          'thread conversation history'
+        );
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'Response',
+        });
+
+        await (rooivalk as any).processMessage(threadMessage);
+
+        expect(
+          mockDiscordService.buildPromptFromMessageThread
+        ).toHaveBeenCalledWith(threadMessage);
+        expect(
+          mockDiscordService.buildPromptFromMessageChain
+        ).not.toHaveBeenCalled();
+        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+          'rooivalk',
+          'Hello in thread',
+          [],
+          'thread conversation history'
+        );
+      });
+
+      it('should send response to thread channel', async () => {
+        const threadMessage = createMockMessage({
+          content: 'Hello in thread',
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            send: vi.fn(),
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildPromptFromMessageThread.mockResolvedValue(null);
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'Response',
+        });
+
+        await (rooivalk as any).processMessage(threadMessage);
+
+        expect(threadMessage.channel.send).toHaveBeenCalled();
+        expect(threadMessage.reply).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('when message is not in a thread', () => {
+      it('should use message chain history when processing non-thread messages', async () => {
+        const regularMessage = createMockMessage({
+          content: 'Hello outside thread',
+          channel: {
+            isThread: vi.fn().mockReturnValue(false),
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(
+          'message chain history'
+        );
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'Response',
+        });
+
+        await (rooivalk as any).processMessage(regularMessage);
+
+        expect(
+          mockDiscordService.buildPromptFromMessageChain
+        ).toHaveBeenCalledWith(regularMessage);
+        expect(
+          mockDiscordService.buildPromptFromMessageThread
+        ).not.toHaveBeenCalled();
+        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+          'rooivalk',
+          'Hello outside thread',
+          [],
+          'message chain history'
+        );
+      });
+
+      it('should send response as reply when not in thread', async () => {
+        const regularMessage = createMockMessage({
+          content: 'Hello outside thread',
+          channel: {
+            isThread: vi.fn().mockReturnValue(false),
+            send: vi.fn(),
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'Response',
+        });
+
+        await (rooivalk as any).processMessage(regularMessage);
+
+        expect(regularMessage.reply).toHaveBeenCalled();
+        expect(regularMessage.channel.send).not.toHaveBeenCalled();
+      });
+    });
+  });
 });

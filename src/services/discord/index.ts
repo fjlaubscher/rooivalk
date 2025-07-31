@@ -396,21 +396,24 @@ class DiscordService {
   public async buildPromptFromMessageThread(
     message: DiscordMessage
   ): Promise<string | null> {
-    if (message.thread) {
-      const thread = await message.thread.messages.fetch();
-      const threadMessages = thread.map((msg) => ({
-        author:
-          msg.author.id === this._discordClient.user?.id
-            ? 'rooivalk'
-            : msg.author.displayName,
-        content: msg.content,
-      }));
+    if (message.channel.isThread()) {
+      const thread = message.channel;
+      const threadMessages = await thread.messages.fetch();
+      const messageArray = Array.from(threadMessages.values())
+        .reverse() // Discord returns messages in descending order, so reverse for chronological order
+        .map((msg) => ({
+          author:
+            msg.author.id === this._discordClient.user?.id
+              ? 'rooivalk'
+              : msg.author.displayName,
+          content: msg.content,
+        }));
 
-      if (threadMessages && threadMessages.length) {
-        const chainWithCleanContent = threadMessages.map((entry, index) => ({
+      if (messageArray && messageArray.length) {
+        const chainWithCleanContent = messageArray.map((entry, index) => ({
           ...entry,
           content:
-            index === threadMessages.length - 1 &&
+            index === messageArray.length - 1 &&
             entry.author !== 'rooivalk' &&
             this._mentionRegex
               ? entry.content.replace(this._mentionRegex, '').trim()

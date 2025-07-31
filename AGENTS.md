@@ -4,9 +4,10 @@
 
 This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The bot integrates with Discord and OpenAI to:
 
-- Listen for mentions
-- Generate responses via OpenAI's API
+- Listen for mentions and replies
+- Generate responses via OpenAI's API  
 - Generate images via OpenAI image API
+- Create and manage Discord threads for conversations
 - Post responses back to Discord
 - Maintain some internal state via class-based services with private fields
 
@@ -37,7 +38,9 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 #### DiscordService
 - Discord API integration, event listening, message routing, and reply handling.
-- `buildHistoryFromMessageChain` returns a formatted conversation history without the latest message.
+- `buildPromptFromMessageChain` returns formatted conversation history from reply chains.
+- `buildPromptFromMessageThread` returns formatted conversation history from Discord threads.
+- Thread management: creates threads when users reply to bot, handles thread ownership verification.
 
 #### OpenAIService
 - OpenAI API integration (chat, image generation), prompt injection, error and rate limit handling.
@@ -45,8 +48,10 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 #### YrService
 - Fetches and summarizes weather data from Yr.no for predefined locations; used by RooivalkService for MOTD and enhanced responses.
 
-#### RooivalkService
+#### RooivalkService  
 - Core business logic: processes messages, prepares prompts, integrates weather/events, shapes responses, manages context.
+- Thread handling: automatically responds to all messages in bot-created threads without requiring mentions.
+- Message filtering: determines when to process messages based on mentions, replies to bot, or thread ownership.
 
 ### Utilities & Constants
 
@@ -74,6 +79,20 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 - Group imports by origin (Node.js, external, internal)
 - Type annotate function arguments/returns unless trivially inferred
 
+## Bot Behavior
+
+### Message Processing Logic
+1. **Direct mentions**: Bot responds when mentioned anywhere (`@rooivalk message`)
+2. **Replies to bot**: When users reply to bot messages, creates a thread automatically
+3. **Thread conversations**: Bot responds to ALL messages in threads it created (no mentions needed)
+4. **Other threads**: Bot ignores messages unless directly mentioned
+
+### Thread Management
+- Threads created automatically when users reply to bot messages
+- Thread names generated via OpenAI based on conversation context
+- Full conversation history maintained within threads for better context
+- Threads auto-archive after 60 minutes of inactivity
+
 ## Agent Task Examples
 
 | Task                         | File(s) to Modify                        | Notes                                       |
@@ -81,6 +100,9 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Add Discord command          | `services/discord/index.ts`              | Extend message/interaction handlers         |
 | Add OpenAI model support     | `services/openai/index.ts`               | Add model ID, update API payload/env vars   |
 | Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
+| Modify thread behavior       | `services/rooivalk/index.ts`             | Update thread detection/creation logic      |
+| Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
+| Update message history       | `services/discord/index.ts`              | Modify `buildPromptFromMessage*` methods    |
 | Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts`       |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 
