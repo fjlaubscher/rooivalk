@@ -374,6 +374,7 @@ class Rooivalk {
           You will be provided with a daily weather forecast in JSON format.
 
           ## Weather formatting
+          - Include the friendlyName along with the country flag emoji.
           - Add a short description of the weather, including:
             - Average wind speed and direction
             - Average humidity
