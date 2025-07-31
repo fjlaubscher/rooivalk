@@ -396,7 +396,7 @@ class DiscordService {
   public async buildPromptFromMessageThread(
     message: DiscordMessage
   ): Promise<string | null> {
-    if (message.thread !== null) {
+    if (message.thread) {
       const thread = await message.thread.messages.fetch();
       const threadMessages = thread.map((msg) => ({
         author:

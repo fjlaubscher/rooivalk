@@ -356,7 +356,9 @@ class Rooivalk {
   public async handleWeatherCommand(
     interaction: ChatInputCommandInteraction
   ): Promise<void> {
-    const city = interaction.options.getString('city');
+    const city = interaction.options.getString('city', true);
+    await interaction.deferReply();
+
     if (city) {
       const weather = await this._yr.getForecastByLocation(city);
       if (weather) {
@@ -386,7 +388,15 @@ class Rooivalk {
         await interaction.editReply({
           content: response,
         });
+      } else {
+        await interaction.editReply({
+          content: this._discord.getRooivalkResponse('error'),
+        });
       }
+    } else {
+      await interaction.editReply({
+        content: this._discord.getRooivalkResponse('error'),
+      });
     }
   }
 
