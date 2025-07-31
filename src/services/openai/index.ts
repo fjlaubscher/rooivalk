@@ -48,20 +48,43 @@ class OpenAIService {
     persona: Persona,
     prompt: string,
     emojis: string[] = [],
-    history: string | null = null
+    history: string | null = null,
+    attachmentUrls: string[] | null = null
   ) {
     try {
       let instructions = this.getInstructions(persona, emojis);
 
       if (history) {
-        instructions += `\n\nConversation history:\n${history}`;
+        instructions += `\n\n### Conversation history:\n${history}`;
+      }
+
+      const inputContent: OpenAI.Responses.ResponseInputContent[] = [
+        {
+          type: 'input_text',
+          text: prompt,
+        },
+      ];
+
+      if (attachmentUrls && attachmentUrls.length > 0) {
+        attachmentUrls.forEach((url) => {
+          inputContent.push({
+            type: 'input_image',
+            image_url: url,
+            detail: 'auto',
+          });
+        });
       }
 
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
         instructions,
-        input: prompt,
+        input: [
+          {
+            role: 'user',
+            content: inputContent,
+          },
+        ],
       });
 
       return response.output_text;
