@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v22 or newer recommended)
-- [Yarn](https://yarnpkg.com/) (v1.x recommended)
+- [pnpm](https://pnpm.io/) (v10.x recommended)
 - A Discord bot token ([guide](https://discord.com/developers/applications))
 - An OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
 ### Installation
@@ -35,7 +35,7 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    ```
 2. Install dependencies:
    ```sh
-   yarn install
+   pnpm install
    ```
 3. Create a `.env` file in the root directory with the following contents:
    ```env
@@ -51,11 +51,11 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    ```
 4. Build the project:
    ```sh
-   yarn build
+   pnpm build
    ```
 5. Start the bot:
    ```sh
-   yarn start
+   pnpm start
    ```
 
 ### Detailed Project Structure
