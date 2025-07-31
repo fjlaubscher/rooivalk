@@ -26,6 +26,7 @@ export function createMockMessage(
     thread: null,
     startThread: vi.fn(),
     delete: vi.fn(),
+    attachments: [],
     ...overrides,
   } as unknown as DiscordMessage;
 }

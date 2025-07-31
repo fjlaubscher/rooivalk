@@ -111,7 +111,8 @@ describe('Rooivalk', () => {
           'rooivalk',
           'Hi!',
           [],
-          'User: Hi!\nRooivalk: Hello!'
+          'User: Hi!\nRooivalk: Hello!',
+          null
         );
       });
     });
@@ -192,6 +193,7 @@ describe('Rooivalk', () => {
           'rooivalk',
           'Hello bot!',
           [],
+          null,
           null
         );
       });
@@ -417,7 +419,8 @@ describe('Rooivalk', () => {
           'rooivalk',
           'Hello in thread',
           [],
-          'thread conversation history'
+          'thread conversation history',
+          null
         );
       });
 
@@ -470,7 +473,8 @@ describe('Rooivalk', () => {
           'rooivalk',
           'Hello outside thread',
           [],
-          'message chain history'
+          'message chain history',
+          null
         );
       });
 
