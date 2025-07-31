@@ -197,28 +197,6 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and message is in the learn channel', () => {
-      it('should use "learn" persona in learn channel', async () => {
-        const userMessage = createMockMessage({
-          content: `<@${BOT_ID}> Teach me!`,
-          channel: {
-            id: MOCK_ENV.DISCORD_LEARN_CHANNEL_ID,
-            messages: { fetch: vi.fn() },
-            send: vi.fn(),
-          },
-        } as unknown as Partial<DiscordMessage>);
-        mockDiscordService.buildHistoryFromMessageChain.mockResolvedValue(null);
-        await (rooivalk as any).processMessage(userMessage);
-
-        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'learn',
-          'Teach me!',
-          [],
-          null
-        );
-      });
-    });
-
     describe('and OpenAI returns null', () => {
       it('should reply with error message if OpenAI response is null', async () => {
         const userMessage = createMockMessage({

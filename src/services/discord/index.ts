@@ -332,12 +332,18 @@ class DiscordService {
           builder.setDescription(def.description);
 
           def.parameters.forEach((param) => {
-            builder.addStringOption((option) =>
-              option
+            builder.addStringOption((option) => {
+              const commandOption = option
                 .setName(param.name)
                 .setDescription(param.description)
-                .setRequired(param.required)
-            );
+                .setRequired(param.required);
+
+              if (param.choices) {
+                commandOption.addChoices(param.choices);
+              }
+
+              return commandOption;
+            });
           });
 
           return builder.toJSON();

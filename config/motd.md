@@ -13,6 +13,7 @@ You will be provided with:
 - End each line with 1–2 relevant weather emojis.
 - Keep the style readable but punchy.
 - Do **not** mention the `location` value — it’s for internal use only.
+- Mention the data is provided by yr.no under the CC BY 4.0 license. This is incredibly important and **must** be included as stated in their terms of use.
 
 ## Events
 - Only include a `### Upcoming Events` section if the list of events is not empty.

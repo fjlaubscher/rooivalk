@@ -1,5 +1,6 @@
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { DiscordCommandParams, WeatherLocation } from '@/types';
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
 export const DISCORD_MAX_MESSAGE_CHAIN_LENGTH = 10;
@@ -8,6 +9,7 @@ export const DISCORD_COMMANDS = {
   LEARN: 'learn',
   IMAGE: 'image',
   THREAD: 'thread',
+  WEATHER: 'weather',
 };
 
 // Config file names for hot-swappable markdown configs
@@ -25,14 +27,32 @@ const __dirname = dirname(__filename);
 // Directory where config markdown files are located (relative to dist or src)
 export const CONFIG_DIR = join(__dirname, '..', 'config');
 
+// Yr related constants
+export const YR_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
+
+export const YR_COORDINATES: Record<string, WeatherLocation> = {
+  CAPE_TOWN: {
+    name: 'Cape Town, South Africa',
+    latitude: -33.92584,
+    longitude: 18.42322,
+  },
+  DUBAI: {
+    name: 'Dubai, United Arab Emirates',
+    latitude: 25.26472,
+    longitude: 55.29241,
+  },
+  TAMARIN: {
+    name: 'Tamarin, Mauritius',
+    latitude: -20.32922,
+    longitude: 57.37768,
+  },
+};
+
 type DiscordCommand = (typeof DISCORD_COMMANDS)[keyof typeof DISCORD_COMMANDS];
 
 export const DISCORD_COMMAND_DEFINITIONS: Record<
   DiscordCommand,
-  {
-    description: string;
-    parameters: { name: string; description: string; required: boolean }[];
-  }
+  DiscordCommandParams
 > = {
   [DISCORD_COMMANDS.LEARN]: {
     description: 'Learn with @rooivalk!',
@@ -64,12 +84,25 @@ export const DISCORD_COMMAND_DEFINITIONS: Record<
       },
     ],
   },
+  [DISCORD_COMMANDS.WEATHER]: {
+    description: 'Get the weather with @rooivalk!',
+    parameters: [
+      {
+        name: 'city',
+        description: 'The city to get the weather for',
+        required: true,
+        choices: Object.keys(YR_COORDINATES).map((key) => ({
+          name: YR_COORDINATES[key].name,
+          value: key,
+        })),
+      },
+    ],
+  },
 };
 
 export const REQUIRED_ENV = [
   'DISCORD_STARTUP_CHANNEL_ID',
   'DISCORD_MOTD_CHANNEL_ID',
-  'DISCORD_LEARN_CHANNEL_ID',
   'DISCORD_GUILD_ID',
   'DISCORD_APP_ID',
   'DISCORD_TOKEN',

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { DiscordMessage } from '../services/discord';
+import type { DiscordMessage } from '@/services/discord';
 
 export function createMockMessage(
   overrides: Partial<DiscordMessage> = {}
