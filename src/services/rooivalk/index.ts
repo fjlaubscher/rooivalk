@@ -4,6 +4,7 @@ import type {
   Client,
   Interaction,
   TextChannel,
+  ThreadChannel,
 } from 'discord.js';
 
 import { DISCORD_COMMANDS, DISCORD_EMOJI } from '@/constants';
@@ -70,7 +71,10 @@ class Rooivalk {
     this._openai.reloadConfig(newConfig);
   }
 
-  private async processMessage(message: DiscordMessage) {
+  private async processMessage(
+    message: DiscordMessage,
+    targetChannel?: ThreadChannel
+  ) {
     try {
       let prompt = message.content
         .replace(this._discord.mentionRegex!, '')
@@ -103,7 +107,9 @@ class Rooivalk {
           response,
           usersToMention.map((user) => user.id)
         );
-        if (message.channel.isThread()) {
+        if (targetChannel) {
+          await targetChannel.send(reply);
+        } else if (message.channel.isThread()) {
           await message.channel.send(reply);
         } else {
           await message.reply(reply);
@@ -120,7 +126,9 @@ class Rooivalk {
           ? `${errorMessage}\n\`\`\`${error.message}\`\`\``
           : errorMessage;
 
-      if (message.channel.isThread()) {
+      if (targetChannel) {
+        await targetChannel.send(reply);
+      } else if (message.channel.isThread()) {
         await message.channel.send(reply);
       } else {
         await message.reply(reply);
@@ -460,7 +468,10 @@ class Rooivalk {
               autoArchiveDuration: 60,
             });
             await thread.members.add(message.author.id);
-            isInBotThread = true;
+
+            // Process the message in the newly created thread
+            await this.processMessage(message as DiscordMessage, thread);
+            return;
           }
         }
       }
@@ -484,7 +495,7 @@ class Rooivalk {
       }
 
       // Process the message (thread messages, replies, and mentions are all processed)
-      this.processMessage(message as DiscordMessage);
+      await this.processMessage(message as DiscordMessage);
     });
 
     this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction) => {
