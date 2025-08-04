@@ -49,6 +49,9 @@ class YrService {
     const windDirs = today.map(
       (r) => r.data.instant.details.wind_from_direction
     );
+    const precipitation = today.map(
+      (r) => r.data.next_1_hours?.details?.precipitation_amount ?? 0
+    );
 
     const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
 
@@ -60,6 +63,7 @@ class YrService {
       avgWindSpeed: avg(windSpeeds),
       avgWindDirection: this.convertDegreesToCompass(avg(windDirs)),
       avgHumidity: avg(humidities),
+      avgPrecipitation: avg(precipitation),
     };
   }
 

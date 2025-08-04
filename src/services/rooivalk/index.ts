@@ -390,8 +390,9 @@ class Rooivalk {
           ## Weather formatting
           - Include the friendlyName along with the country flag emoji.
           - Add a short description of the weather, including:
-            - Average wind speed and direction
-            - Average humidity
+            - Average wind speed (m/s) and direction
+            - Average humidity (%)
+            - Average precipitation (mm) -- exclude this if it's 0
           - Add 1–2 relevant weather emojis.
           - Keep the style readable but punchy.
           - Do **not** mention the \`location\` value — it’s for internal use only.

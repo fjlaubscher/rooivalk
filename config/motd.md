@@ -8,8 +8,9 @@ You will be provided with:
 - List each city on its own line.
 - Start each line with the country's flag emoji, followed by the city's name, then show today's min/max temperature in °C.
 - Add a short description of the weather, including:
-  - Average wind speed and direction
-  - Average humidity
+  - Average wind speed (m/s) and direction
+  - Average humidity (%)
+  - Average precipitation (mm) -- exclude this if it's 0
 - End each line with 1–2 relevant weather emojis.
 - Keep the style readable but punchy.
 - Do **not** mention the `location` value — it’s for internal use only.
