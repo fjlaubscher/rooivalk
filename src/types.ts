@@ -46,7 +46,7 @@ export type WeatherForecast = {
   avgWindSpeed: number;
   avgWindDirection: string;
   avgHumidity: number;
-  avgPrecipitation: number;
+  totalPrecipitation: number;
 };
 
 export type YrResponse = {
