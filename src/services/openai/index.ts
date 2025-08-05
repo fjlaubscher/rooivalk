@@ -26,17 +26,10 @@ class OpenAIService {
     this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
   }
 
-  private getInstructions(persona: Persona, emojis: string[] = []): string {
+  private getInstructions(persona: Persona): string {
     switch (persona) {
       case 'rooivalk':
-        let rooivalkInstructions = this._config.instructionsRooivalk;
-
-        rooivalkInstructions = rooivalkInstructions.replace(
-          /{{EMOJIS}}/,
-          emojis.join('\n')
-        );
-
-        return rooivalkInstructions;
+        return this._config.instructionsRooivalk;
       case 'learn':
         return this._config.instructionsLearn;
       default:
@@ -46,16 +39,27 @@ class OpenAIService {
 
   async createResponse(
     persona: Persona,
+    author: string | 'rooivalk',
     prompt: string,
     emojis: string[] = [],
     history: string | null = null,
     attachmentUrls: string[] | null = null
   ) {
     try {
-      let instructions = this.getInstructions(persona, emojis);
+      let instructions = this.getInstructions(persona);
 
+      // inject emojis if available
+      if (emojis) {
+        instructions = instructions.replace(/{{EMOJIS}}/, emojis.join('\n'));
+      }
+
+      // inject conversation history if available
       if (history) {
         instructions += `\n\n### Conversation history:\n${history}`;
+      }
+
+      if (author !== 'rooivalk') {
+        instructions += `\n\n### Author: ${author}`;
       }
 
       const inputContent: OpenAI.Responses.ResponseInputContent[] = [

@@ -60,26 +60,26 @@ describe('OpenAIService', () => {
   describe('createResponse', () => {
     it('returns output text on success', async () => {
       responsesCreateMock.mockResolvedValueOnce({ output_text: 'ok' });
-      await expect(service.createResponse('rooivalk', 'hi')).resolves.toBe(
-        'ok'
-      );
+      await expect(
+        service.createResponse('rooivalk', 'test user', 'hi')
+      ).resolves.toBe('ok');
     });
 
     it('throws OpenAI error message', async () => {
       responsesCreateMock.mockRejectedValueOnce(
         new (OpenAI as any).OpenAIError('bad')
       );
-      await expect(service.createResponse('rooivalk', 'hi')).rejects.toThrow(
-        'bad'
-      );
+      await expect(
+        service.createResponse('rooivalk', 'test user', 'hi')
+      ).rejects.toThrow('bad');
       expect(errorSpy).toHaveBeenCalled();
     });
 
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
-      await expect(service.createResponse('rooivalk', 'hi')).rejects.toThrow(
-        'Error creating chat completion'
-      );
+      await expect(
+        service.createResponse('rooivalk', 'test user', 'hi')
+      ).rejects.toThrow('Error creating chat completion');
     });
   });
 
