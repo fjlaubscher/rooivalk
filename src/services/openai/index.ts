@@ -79,16 +79,25 @@ class OpenAIService {
         });
       }
 
+      const responseInput: OpenAI.Responses.ResponseInput = [];
+
+      if (author !== 'rooivalk') {
+        responseInput.push({
+          role: 'system',
+          content: `The following prompt is a discord message from ${author}`,
+        });
+      }
+
+      responseInput.push({
+        role: 'user',
+        content: inputContent,
+      });
+
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
         instructions,
-        input: [
-          {
-            role: 'user',
-            content: inputContent,
-          },
-        ],
+        input: responseInput,
       });
 
       return response.output_text;
