@@ -257,13 +257,8 @@ class DiscordService {
     } catch (error) {
       console.error('Error fetching message chain:', error);
     }
-    messageChain.push({
-      author:
-        currentMessage.author.id === this._discordClient.user?.id
-          ? 'rooivalk'
-          : currentMessage.author.displayName,
-      content: currentMessage.content,
-    });
+
+    // deliberately omit the current message from the chain
     return messageChain;
   }
 
@@ -363,7 +358,7 @@ class DiscordService {
     }
   }
 
-  public async buildPromptFromMessageChain(
+  public async buildMessageChainFromMessage(
     message: DiscordMessage
   ): Promise<string | null> {
     if (message.reference && message.reference.messageId) {
@@ -385,7 +380,7 @@ class DiscordService {
           }));
 
           return chainWithCleanContent
-            .map((entry) => `${entry.author}: ${entry.content}`)
+            .map((entry) => `- ${entry.author}: ${entry.content}`)
             .join('\n');
         }
       }
@@ -393,7 +388,7 @@ class DiscordService {
     return null;
   }
 
-  public async buildPromptFromMessageThread(
+  public async buildMessageChainFromThreadMessage(
     message: DiscordMessage
   ): Promise<string | null> {
     if (message.channel.isThread()) {
@@ -421,7 +416,7 @@ class DiscordService {
         }));
 
         return chainWithCleanContent
-          .map((entry) => `${entry.author}: ${entry.content}`)
+          .map((entry) => `- ${entry.author}: ${entry.content}`)
           .join('\n');
       }
     }

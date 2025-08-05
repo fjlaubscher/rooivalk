@@ -47,8 +47,8 @@ const mockDiscordService = vi.mocked({
   chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
   fetchScheduledEventsBetween: vi.fn(),
-  buildPromptFromMessageChain: vi.fn(),
-  buildPromptFromMessageThread: vi.fn(),
+  buildMessageChainFromMessage: vi.fn(),
+  buildMessageChainFromThreadMessage: vi.fn(),
   registerSlashCommands: vi.fn(),
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
@@ -94,24 +94,25 @@ describe('Rooivalk', () => {
   });
 
   describe('when processing a message', () => {
-    describe('and buildPromptFromMessageChain returns history', () => {
+    describe('and buildMessageChainFromMessage returns history', () => {
       it('should pass history to OpenAI if available', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(
-          'User: Hi!\nRooivalk: Hello!'
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
+          '- User: Hi!\n- Rooivalk: Hello!'
         );
         await (rooivalk as any).processMessage(userMessage);
         expect(
-          mockDiscordService.buildPromptFromMessageChain
+          mockDiscordService.buildMessageChainFromMessage
         ).toHaveBeenCalledWith(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
+          'TestUser',
           'Hi!',
           [],
-          'User: Hi!\nRooivalk: Hello!',
+          '- User: Hi!\n- Rooivalk: Hello!',
           null
         );
       });
@@ -181,16 +182,17 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and buildPromptFromMessageChain returns null', () => {
+    describe('and buildMessageChainFromMessage returns null', () => {
       it('should use message content if no history is available', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hello bot!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
+          'TestUser',
           'Hello bot!',
           [],
           null,
@@ -204,7 +206,7 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith('Error!');
@@ -216,7 +218,7 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<DiscordMessage>);
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockRejectedValue(
           new Error('OpenAI error!')
         );
@@ -400,7 +402,7 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        mockDiscordService.buildPromptFromMessageThread.mockResolvedValue(
+        mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
           'thread conversation history'
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
@@ -410,13 +412,14 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(threadMessage);
 
         expect(
-          mockDiscordService.buildPromptFromMessageThread
+          mockDiscordService.buildMessageChainFromThreadMessage
         ).toHaveBeenCalledWith(threadMessage);
         expect(
-          mockDiscordService.buildPromptFromMessageChain
+          mockDiscordService.buildMessageChainFromMessage
         ).not.toHaveBeenCalled();
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
+          'TestUser',
           'Hello in thread',
           [],
           'thread conversation history',
@@ -433,7 +436,9 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        mockDiscordService.buildPromptFromMessageThread.mockResolvedValue(null);
+        mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
+          null
+        );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -454,7 +459,7 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           'message chain history'
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
@@ -464,13 +469,14 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(regularMessage);
 
         expect(
-          mockDiscordService.buildPromptFromMessageChain
+          mockDiscordService.buildMessageChainFromMessage
         ).toHaveBeenCalledWith(regularMessage);
         expect(
-          mockDiscordService.buildPromptFromMessageThread
+          mockDiscordService.buildMessageChainFromThreadMessage
         ).not.toHaveBeenCalled();
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'rooivalk',
+          'TestUser',
           'Hello outside thread',
           [],
           'message chain history',
@@ -487,7 +493,7 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(null);
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -514,7 +520,7 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        mockDiscordService.buildPromptFromMessageChain.mockResolvedValue(
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           'conversation history'
         );
         mockDiscordService.buildMessageReply.mockReturnValue({

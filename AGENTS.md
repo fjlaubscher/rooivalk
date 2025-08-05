@@ -5,7 +5,7 @@
 This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The bot integrates with Discord and OpenAI to:
 
 - Listen for mentions and replies
-- Generate responses via OpenAI's API  
+- Generate responses via OpenAI's API
 - Generate images via OpenAI image API
 - Create and manage Discord threads for conversations
 - Post responses back to Discord
@@ -38,8 +38,8 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 #### DiscordService
 - Discord API integration, event listening, message routing, and reply handling.
-- `buildPromptFromMessageChain` returns formatted conversation history from reply chains.
-- `buildPromptFromMessageThread` returns formatted conversation history from Discord threads.
+- `buildMessageChainFromMessage` returns formatted conversation history from reply chains.
+- `buildMessageChainFromThreadMessage` returns formatted conversation history from Discord threads.
 - Thread management: creates threads when users reply to bot, handles thread ownership verification.
 
 #### OpenAIService
@@ -48,7 +48,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 #### YrService
 - Fetches and summarizes weather data from Yr.no for predefined locations; used by RooivalkService for MOTD and enhanced responses.
 
-#### RooivalkService  
+#### RooivalkService
 - Core business logic: processes messages, prepares prompts, integrates weather/events, shapes responses, manages context.
 - Thread handling: automatically responds to all messages in bot-created threads without requiring mentions.
 - Message filtering: determines when to process messages based on mentions, replies to bot, or thread ownership.
@@ -102,7 +102,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
 | Modify thread behavior       | `services/rooivalk/index.ts`             | Update thread detection/creation logic      |
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
-| Update message history       | `services/discord/index.ts`              | Modify `buildPromptFromMessage*` methods    |
+| Update message history       | `services/discord/index.ts`              | Modify `buildMessageChainFrom*` methods    |
 | Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts`       |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 

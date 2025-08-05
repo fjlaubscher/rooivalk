@@ -217,7 +217,7 @@ describe('DiscordService', () => {
       });
     });
 
-    describe('buildPromptFromMessageChain', () => {
+    describe('buildMessageChainFromMessage', () => {
       it('should build prompt from message chain', async () => {
         const msg = createMockMessage({
           reference: { messageId: '123' },
@@ -230,7 +230,7 @@ describe('DiscordService', () => {
           { author: 'rooivalk', content: 'yo' },
         ]);
         service.mentionRegex = /<@test-bot-id>/g;
-        const prompt = await service.buildPromptFromMessageChain(msg);
+        const prompt = await service.buildMessageChainFromMessage(msg);
         expect(typeof prompt).toBe('string');
       });
     });
@@ -253,7 +253,7 @@ describe('DiscordService', () => {
       });
     });
 
-    describe('buildPromptFromMessageThread', () => {
+    describe('buildMessageChainFromThreadMessage', () => {
       it('should build prompt from thread messages in chronological order', async () => {
         const mockThreadMessages = new Map([
           [
@@ -293,10 +293,10 @@ describe('DiscordService', () => {
         } as Partial<DiscordMessage>);
 
         service.mentionRegex = /<@test-bot-id>/g;
-        const prompt = await service.buildPromptFromMessageThread(msg);
+        const prompt = await service.buildMessageChainFromThreadMessage(msg);
 
         expect(prompt).toBe(
-          'rooivalk: First message\nUser: Second message\nUser: Third message'
+          '- rooivalk: First message\n- User: Second message\n- User: Third message'
         );
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
@@ -333,9 +333,9 @@ describe('DiscordService', () => {
         } as Partial<DiscordMessage>);
 
         service.mentionRegex = /<@test-bot-id>/g;
-        const prompt = await service.buildPromptFromMessageThread(msg);
+        const prompt = await service.buildMessageChainFromThreadMessage(msg);
 
-        expect(prompt).toBe('rooivalk: Bot message\nUser: Hello bot!');
+        expect(prompt).toBe('- rooivalk: Bot message\n- User: Hello bot!');
       });
 
       it('should return null when not in a thread', async () => {
@@ -345,7 +345,7 @@ describe('DiscordService', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        const prompt = await service.buildPromptFromMessageThread(msg);
+        const prompt = await service.buildMessageChainFromThreadMessage(msg);
         expect(prompt).toBeNull();
       });
 
@@ -363,7 +363,7 @@ describe('DiscordService', () => {
           } as any,
         } as Partial<DiscordMessage>);
 
-        const prompt = await service.buildPromptFromMessageThread(msg);
+        const prompt = await service.buildMessageChainFromThreadMessage(msg);
         expect(prompt).toBeNull();
       });
 
@@ -382,9 +382,9 @@ describe('DiscordService', () => {
         } as Partial<DiscordMessage>);
 
         // Should not throw, but will likely return null or handle gracefully
-        await expect(service.buildPromptFromMessageThread(msg)).rejects.toThrow(
-          'Fetch failed'
-        );
+        await expect(
+          service.buildMessageChainFromThreadMessage(msg)
+        ).rejects.toThrow('Fetch failed');
       });
     });
   });
