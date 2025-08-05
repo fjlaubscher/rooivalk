@@ -58,10 +58,6 @@ class OpenAIService {
         instructions += `\n\n### Conversation history:\n${history}`;
       }
 
-      if (author !== 'rooivalk') {
-        instructions += `\n\n### Author: ${author}`;
-      }
-
       const inputContent: OpenAI.Responses.ResponseInputContent[] = [
         {
           type: 'input_text',
