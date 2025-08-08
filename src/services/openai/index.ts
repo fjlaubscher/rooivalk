@@ -90,14 +90,12 @@ class OpenAIService {
         content: inputContent,
       });
 
-      const verbosity = (process.env.OPENAI_VERBOSITY as 'low' | 'medium' | 'high') || 'low';
       const reasoningEffort = (process.env.OPENAI_REASONING_EFFORT as ReasoningEffort) || 'minimal';
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
         instructions,
         input: responseInput,
-        verbosity,
         reasoning: {
           effort: reasoningEffort
         }
