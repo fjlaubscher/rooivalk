@@ -17,6 +17,7 @@ export type InMemoryConfig = {
   instructionsRooivalk: string;
   instructionsLearn: string;
   motd: string;
+  qotd: string;
 };
 
 export type Persona = 'rooivalk' | 'learn';

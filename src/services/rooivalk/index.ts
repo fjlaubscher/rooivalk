@@ -182,6 +182,16 @@ class Rooivalk {
     await this.sendMessageToMotdChannel(motd);
   }
 
+  public async sendQotdToMotdChannel(): Promise<void> {
+    if (!this._config.qotd) {
+      console.log('No QOTD configured');
+      return;
+    }
+
+    const qotd = this._config.qotd;
+    await this.sendMessageToMotdChannel(qotd, 'rooivalk');
+  }
+
   public async sendMessageToStartupChannel(
     prompt: string,
     persona: 'rooivalk' | 'learn' = 'rooivalk',
