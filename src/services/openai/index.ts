@@ -90,15 +90,11 @@ class OpenAIService {
         content: inputContent,
       });
 
-      const reasoningEffort = (process.env.OPENAI_REASONING_EFFORT as ReasoningEffort) || 'minimal';
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
         instructions,
         input: responseInput,
-        reasoning: {
-          effort: reasoningEffort
-        }
       });
 
       return response.output_text;
