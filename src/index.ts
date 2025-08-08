@@ -37,6 +37,11 @@ async function main() {
   cron.schedule(motdExpr, async () => {
     await rooivalk.sendMotdToMotdChannel();
   });
+
+  const qotdExpr = process.env.ROOIVALK_QOTD_CRON || DEFAULT_CRON;
+  cron.schedule(qotdExpr, async () => {
+    await rooivalk.sendQotdToMotdChannel();
+  });
 }
 
 main().catch((error) => {

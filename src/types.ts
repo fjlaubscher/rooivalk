@@ -8,6 +8,7 @@ export type Env = {
   OPENAI_MODEL: string;
   OPENAI_IMAGE_MODEL: string;
   ROOIVALK_MOTD_CRON: string;
+  ROOIVALK_QOTD_CRON: string;
 };
 
 export type InMemoryConfig = {
@@ -17,6 +18,7 @@ export type InMemoryConfig = {
   instructionsRooivalk: string;
   instructionsLearn: string;
   motd: string;
+  qotd: string;
 };
 
 export type Persona = 'rooivalk' | 'learn';
