@@ -9,6 +9,7 @@ import {
   CONFIG_FILE_INSTRUCTIONS_ROOIVALK,
   CONFIG_FILE_INSTRUCTIONS_LEARN,
   CONFIG_FILE_MOTD,
+  CONFIG_FILE_QOTD,
 } from '@/constants';
 import type { InMemoryConfig } from '@/types';
 
@@ -61,6 +62,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     instructionsRooivalk,
     instructionsLearn,
     motd,
+    qotd,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
     loadMessageList(CONFIG_FILE_GREETINGS),
@@ -68,6 +70,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_ROOIVALK),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_LEARN),
     loadInstructions(CONFIG_FILE_MOTD),
+    loadInstructions(CONFIG_FILE_QOTD),
   ]);
 
   const config: InMemoryConfig = {
@@ -77,6 +80,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     instructionsRooivalk,
     instructionsLearn,
     motd,
+    qotd,
   };
 
   return config;

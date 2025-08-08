@@ -25,8 +25,7 @@ export const CONFIG_FILE_DISCORD_LIMIT = 'discord_limit.md';
 export const CONFIG_FILE_INSTRUCTIONS_ROOIVALK = 'instructions_rooivalk.md';
 export const CONFIG_FILE_INSTRUCTIONS_LEARN = 'instructions_learn.md';
 export const CONFIG_FILE_MOTD = 'motd.md';
-
-// ESM-compatible __filename and __dirname
+export const CONFIG_FILE_QOTD = 'qotd.md';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
