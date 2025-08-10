@@ -32,6 +32,10 @@ class DiscordService {
   private _motdChannelId: string | undefined;
   private _allowedEmojis: string[];
   private _config: InMemoryConfig;
+  private _threadMessageCache: Record<
+    string,
+    { id: string; author: string; content: string }[]
+  >;
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
     this._config = config;
@@ -48,6 +52,7 @@ class DiscordService {
     this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
     this._motdChannelId = process.env.DISCORD_MOTD_CHANNEL_ID;
     this._allowedEmojis = [];
+    this._threadMessageCache = {};
   }
 
   public reloadConfig(newConfig: InMemoryConfig): void {
@@ -393,32 +398,60 @@ class DiscordService {
   ): Promise<string | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
-      const threadMessages = await thread.messages.fetch();
-      const messageArray = Array.from(threadMessages.values())
-        .reverse() // Discord returns messages in descending order, so reverse for chronological order
-        .map((msg) => ({
-          author:
-            msg.author.id === this._discordClient.user?.id
-              ? 'rooivalk'
-              : msg.author.displayName,
-          content: msg.content,
-        }));
+      let cache = this._threadMessageCache[thread.id];
 
-      if (messageArray && messageArray.length) {
-        const chainWithCleanContent = messageArray.map((entry, index) => ({
-          ...entry,
-          content:
-            index === messageArray.length - 1 &&
-            entry.author !== 'rooivalk' &&
-            this._mentionRegex
-              ? entry.content.replace(this._mentionRegex, '').trim()
-              : entry.content,
-        }));
+      if (!cache) {
+        const threadMessages = await thread.messages.fetch();
+        const messageArray = Array.from(threadMessages.values())
+          .reverse()
+          .map((msg) => ({
+            id: msg.id,
+            author:
+              msg.author.id === this._discordClient.user?.id
+                ? 'rooivalk'
+                : msg.author.displayName,
+            content: msg.content,
+          }));
 
-        return chainWithCleanContent
-          .map((entry) => `- ${entry.author}: ${entry.content}`)
-          .join('\n');
+        if (!messageArray.length) {
+          return null;
+        }
+
+        cache = messageArray;
+        this._threadMessageCache[thread.id] = cache;
+      } else {
+        const lastId = cache[cache.length - 1]?.id;
+        const newMessagesCollection = await thread.messages.fetch(
+          lastId ? { after: lastId } : undefined
+        );
+        const newMessages = Array.from(newMessagesCollection.values())
+          .reverse()
+          .map((msg) => ({
+            id: msg.id,
+            author:
+              msg.author.id === this._discordClient.user?.id
+                ? 'rooivalk'
+                : msg.author.displayName,
+            content: msg.content,
+          }));
+        if (newMessages.length) {
+          cache.push(...newMessages);
+        }
       }
+
+      const chainWithCleanContent = cache.map((entry, index) => ({
+        ...entry,
+        content:
+          index === cache.length - 1 &&
+          entry.author !== 'rooivalk' &&
+          this._mentionRegex
+            ? entry.content.replace(this._mentionRegex, '').trim()
+            : entry.content,
+      }));
+
+      return chainWithCleanContent
+        .map((entry) => `- ${entry.author}: ${entry.content}`)
+        .join('\n');
     }
 
     return null;

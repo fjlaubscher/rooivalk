@@ -37,18 +37,23 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 ### Services
 
 #### DiscordService
+
 - Discord API integration, event listening, message routing, and reply handling.
 - `buildMessageChainFromMessage` returns formatted conversation history from reply chains.
 - `buildMessageChainFromThreadMessage` returns formatted conversation history from Discord threads.
 - Thread management: creates threads when users reply to bot, handles thread ownership verification.
+ - Caches thread message history in memory to minimize repeated Discord API calls using a record keyed by thread ID for efficient lookups.
 
 #### OpenAIService
+
 - OpenAI API integration (chat, image generation), prompt injection, error and rate limit handling.
 
 #### YrService
+
 - Fetches and summarizes weather data from Yr.no for predefined locations; used by RooivalkService for MOTD and enhanced responses.
 
 #### RooivalkService
+
 - Core business logic: processes messages, prepares prompts, integrates weather/events, shapes responses, manages context.
 - Thread handling: automatically responds to all messages in bot-created threads without requiring mentions.
 - Message filtering: determines when to process messages based on mentions, replies to bot, or thread ownership.
@@ -82,12 +87,14 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 ## Bot Behavior
 
 ### Message Processing Logic
+
 1. **Direct mentions**: Bot responds when mentioned anywhere (`@rooivalk message`)
 2. **Replies to bot**: When users reply to bot messages, creates a thread automatically
 3. **Thread conversations**: Bot responds to ALL messages in threads it created (no mentions needed)
 4. **Other threads**: Bot ignores messages unless directly mentioned
 
 ### Thread Management
+
 - Threads created automatically when users reply to bot messages
 - Thread names generated via OpenAI based on conversation context
 - Full conversation history maintained within threads for better context
@@ -95,16 +102,16 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 ## Agent Task Examples
 
-| Task                         | File(s) to Modify                        | Notes                                       |
-|------------------------------|------------------------------------------|---------------------------------------------|
-| Add Discord command          | `services/discord/index.ts`              | Extend message/interaction handlers         |
-| Add OpenAI model support     | `services/openai/index.ts`               | Add model ID, update API payload/env vars   |
-| Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
-| Modify thread behavior       | `services/rooivalk/index.ts`             | Update thread detection/creation logic      |
-| Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
-| Update message history       | `services/discord/index.ts`              | Modify `buildMessageChainFrom*` methods    |
-| Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts`       |
-| Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
+| Task                     | File(s) to Modify                 | Notes                                     |
+| ------------------------ | --------------------------------- | ----------------------------------------- |
+| Add Discord command      | `services/discord/index.ts`       | Extend message/interaction handlers       |
+| Add OpenAI model support | `services/openai/index.ts`        | Add model ID, update API payload/env vars |
+| Enhance business logic   | `services/rooivalk/index.ts`      | Extend message/state handling             |
+| Modify thread behavior   | `services/rooivalk/index.ts`      | Update thread detection/creation logic    |
+| Add thread-related tests | `services/rooivalk/index.test.ts` | Use mock threads with `createMockMessage` |
+| Update message history   | `services/discord/index.ts`       | Modify `buildMessageChainFrom*` methods   |
+| Add test                 | `<service>/index.test.ts`         | Use `test-utils/createMockMessage.ts`     |
+| Update config/constants  | `constants.ts`, `.env.example`    | Add new constants or env vars             |
 
 ---
 

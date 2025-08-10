@@ -386,6 +386,72 @@ describe('DiscordService', () => {
           service.buildMessageChainFromThreadMessage(msg)
         ).rejects.toThrow('Fetch failed');
       });
+
+      it('should cache thread messages and fetch only new ones', async () => {
+        const initialMessages = new Map([
+          [
+            '2',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Second message',
+            },
+          ],
+          [
+            '1',
+            {
+              author: { id: BOT_ID, displayName: 'Bot' },
+              content: 'First message',
+            },
+          ],
+        ]);
+
+        const newMessages = new Map([
+          [
+            '3',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Third message',
+            },
+          ],
+        ]);
+
+        const fetchMock = vi
+          .fn()
+          .mockResolvedValueOnce(initialMessages)
+          .mockResolvedValueOnce(newMessages);
+
+        const mockThread = {
+          id: 'thread-id',
+          isThread: vi.fn().mockReturnValue(true),
+          messages: {
+            fetch: fetchMock,
+          },
+        };
+
+        const firstMsg = createMockMessage({
+          channel: mockThread as any,
+        } as Partial<DiscordMessage>);
+
+        service.mentionRegex = /<@test-bot-id>/g;
+        const firstPrompt =
+          await service.buildMessageChainFromThreadMessage(firstMsg);
+        expect(firstPrompt).toBe(
+          '- rooivalk: First message\n- User: Second message'
+        );
+
+        const secondMsg = createMockMessage({
+          channel: mockThread as any,
+        } as Partial<DiscordMessage>);
+
+        const secondPrompt =
+          await service.buildMessageChainFromThreadMessage(secondMsg);
+
+        expect(fetchMock).toHaveBeenNthCalledWith(1);
+        expect(fetchMock).toHaveBeenNthCalledWith(2, { after: '2' });
+        expect(secondPrompt).toBe(
+          '- rooivalk: First message\n- User: Second message\n- User: Third message'
+        );
+      });
     });
   });
 });
