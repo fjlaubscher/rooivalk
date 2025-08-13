@@ -33,6 +33,7 @@ class DiscordService {
   private _allowedEmojis: string[];
   private _config: InMemoryConfig;
   private _threadMessageCache: Record<string, string> = {};
+  private _threadInitialContext: Record<string, string> = {};
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
     this._config = config;
@@ -401,6 +402,9 @@ class DiscordService {
         return this._threadMessageCache[threadId];
       }
 
+      // Get initial context that led to thread creation
+      const initialContext = this.getThreadInitialContext(threadId);
+
       // Fetch and process messages
       const threadMessages = await thread.messages.fetch();
       const messageArray = Array.from(threadMessages.values())
@@ -424,13 +428,18 @@ class DiscordService {
               : entry.content,
         }));
 
-        const formattedChain = chainWithCleanContent
+        const threadChain = chainWithCleanContent
           .map((entry) => `- ${entry.author}: ${entry.content}`)
           .join('\n');
 
+        // Combine initial context with thread messages
+        const fullChain = initialContext 
+          ? `${initialContext}\n${threadChain}`
+          : threadChain;
+
         // Cache the result
-        this._threadMessageCache[threadId] = formattedChain;
-        return formattedChain;
+        this._threadMessageCache[threadId] = fullChain;
+        return fullChain;
       }
     }
 
@@ -440,9 +449,19 @@ class DiscordService {
   public clearThreadMessageCache(threadId?: string): void {
     if (threadId) {
       delete this._threadMessageCache[threadId];
+      delete this._threadInitialContext[threadId];
     } else {
       this._threadMessageCache = {};
+      this._threadInitialContext = {};
     }
+  }
+
+  public setThreadInitialContext(threadId: string, context: string): void {
+    this._threadInitialContext[threadId] = context;
+  }
+
+  public getThreadInitialContext(threadId: string): string | null {
+    return this._threadInitialContext[threadId] || null;
   }
 
   public setupMentionRegex(): void {

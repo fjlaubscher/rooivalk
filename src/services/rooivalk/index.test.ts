@@ -53,6 +53,9 @@ const mockDiscordService = vi.mocked({
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
   cacheGuildEmojis: vi.fn(), // Add mock for cacheGuildEmojis
+  setThreadInitialContext: vi.fn(),
+  getThreadInitialContext: vi.fn(),
+  clearThreadMessageCache: vi.fn(),
   on: vi.fn(),
   once: vi.fn(),
   login: vi.fn(),
@@ -567,6 +570,116 @@ describe('Rooivalk', () => {
         );
         expect(replyMessage.reply).not.toHaveBeenCalled();
         expect(replyMessage.channel.send).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('when creating a thread from a reply', () => {
+      it('should store initial context when history is available', async () => {
+        const mockHistory = '- user: Original question\n- rooivalk: Previous response';
+        const mockThread = {
+          id: 'new-thread-123',
+          members: { add: vi.fn() },
+        } as any as ThreadChannel;
+
+        const replyMessage = createMockMessage({
+          content: 'Follow-up question',
+          author: { id: 'user-123' },
+          startThread: vi.fn().mockResolvedValue(mockThread),
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
+          mockHistory
+        );
+        mockOpenAIClient.generateThreadName.mockResolvedValue(
+          'Discussion Thread'
+        );
+
+        const result = await rooivalk.createRooivalkThread(replyMessage);
+
+        expect(result).toBe(mockThread);
+        expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
+          mockHistory
+        );
+        expect(replyMessage.startThread).toHaveBeenCalledWith({
+          name: 'Discussion Thread',
+          autoArchiveDuration: 60,
+        });
+        expect(mockThread.members.add).toHaveBeenCalledWith('user-123');
+        expect(mockDiscordService.setThreadInitialContext).toHaveBeenCalledWith(
+          'new-thread-123',
+          mockHistory
+        );
+      });
+
+      it('should not store initial context when no history is available', async () => {
+        const mockThread = {
+          id: 'new-thread-456',
+          members: { add: vi.fn() },
+        } as any as ThreadChannel;
+
+        const replyMessage = createMockMessage({
+          content: 'First message',
+          author: { id: 'user-456' },
+          startThread: vi.fn().mockResolvedValue(mockThread),
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
+        mockOpenAIClient.generateThreadName.mockResolvedValue(
+          'New Discussion'
+        );
+
+        const result = await rooivalk.createRooivalkThread(replyMessage);
+
+        expect(result).toBe(mockThread);
+        expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
+          'First message'
+        );
+        expect(mockDiscordService.setThreadInitialContext).not.toHaveBeenCalled();
+      });
+
+      it('should handle thread creation failure gracefully', async () => {
+        const replyMessage = createMockMessage({
+          content: 'Message',
+          author: { id: 'user-789' },
+          startThread: vi.fn().mockRejectedValue(new Error('Thread creation failed')),
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
+          'some history'
+        );
+        mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Name');
+
+        await expect(
+          rooivalk.createRooivalkThread(replyMessage)
+        ).rejects.toThrow('Thread creation failed');
+
+        // Should not try to store context if thread creation failed
+        expect(mockDiscordService.setThreadInitialContext).not.toHaveBeenCalled();
+      });
+
+      it('should use message content for thread name when history is null', async () => {
+        const mockThread = {
+          id: 'new-thread-789',
+          members: { add: vi.fn() },
+        } as any as ThreadChannel;
+
+        const replyMessage = createMockMessage({
+          content: 'Question about something',
+          author: { id: 'user-789' },
+          startThread: vi.fn().mockResolvedValue(mockThread),
+        } as Partial<DiscordMessage>);
+
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
+        mockOpenAIClient.generateThreadName.mockResolvedValue(
+          'Generated Thread Name'
+        );
+
+        const result = await rooivalk.createRooivalkThread(replyMessage);
+
+        expect(result).toBe(mockThread);
+        expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
+          'Question about something'
+        );
       });
     });
   });

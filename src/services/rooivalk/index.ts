@@ -495,6 +495,11 @@ class Rooivalk {
     });
     await thread.members.add(message.author.id);
 
+    // Store the initial conversation context that led to this thread
+    if (history) {
+      this._discord.setThreadInitialContext(thread.id, history);
+    }
+
     return thread;
   }
 

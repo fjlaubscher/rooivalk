@@ -386,6 +386,156 @@ describe('DiscordService', () => {
           service.buildMessageChainFromThreadMessage(msg)
         ).rejects.toThrow('Fetch failed');
       });
+
+      it('should include initial context when building thread message chain', async () => {
+        const threadId = 'thread-123';
+        const initialContext = '- user: Initial message\n- rooivalk: Initial response';
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Thread message',
+            },
+          ],
+        ]);
+
+        // Set initial context
+        service.setThreadInitialContext(threadId, initialContext);
+
+        const mockThread = {
+          id: threadId,
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        const result = await service.buildMessageChainFromThreadMessage(msg);
+
+        expect(result).toBe(
+          '- user: Initial message\n- rooivalk: Initial response\n- User: Thread message'
+        );
+        expect(mockThread.messages.fetch).toHaveBeenCalled();
+      });
+
+      it('should work without initial context when none is stored', async () => {
+        const threadId = 'thread-456';
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Thread message only',
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          id: threadId,
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        const result = await service.buildMessageChainFromThreadMessage(msg);
+
+        expect(result).toBe('- User: Thread message only');
+        expect(mockThread.messages.fetch).toHaveBeenCalled();
+      });
+
+      it('should cache combined initial context and thread messages', async () => {
+        const threadId = 'thread-789';
+        const initialContext = '- user: Cached initial\n- rooivalk: Cached response';
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Cached thread message',
+            },
+          ],
+        ]);
+
+        service.setThreadInitialContext(threadId, initialContext);
+
+        const mockThread = {
+          id: threadId,
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        // First call should fetch and cache
+        const result1 = await service.buildMessageChainFromThreadMessage(msg);
+        expect(mockThread.messages.fetch).toHaveBeenCalledTimes(1);
+
+        // Second call should use cache
+        const result2 = await service.buildMessageChainFromThreadMessage(msg);
+        expect(mockThread.messages.fetch).toHaveBeenCalledTimes(1); // Not called again
+        expect(result1).toBe(result2);
+        expect(result1).toBe(
+          '- user: Cached initial\n- rooivalk: Cached response\n- User: Cached thread message'
+        );
+      });
+    });
+
+    describe('thread initial context management', () => {
+      it('should store and retrieve thread initial context', () => {
+        const threadId = 'thread-123';
+        const initialContext = '- user: Hello\n- rooivalk: Hi there!';
+
+        service.setThreadInitialContext(threadId, initialContext);
+        expect(service.getThreadInitialContext(threadId)).toBe(initialContext);
+      });
+
+      it('should return null for non-existent thread context', () => {
+        expect(service.getThreadInitialContext('non-existent')).toBeNull();
+      });
+
+      it('should clear specific thread initial context when clearing cache', () => {
+        const threadId = 'thread-123';
+        const initialContext = '- user: Hello\n- rooivalk: Hi there!';
+
+        service.setThreadInitialContext(threadId, initialContext);
+        expect(service.getThreadInitialContext(threadId)).toBe(initialContext);
+
+        service.clearThreadMessageCache(threadId);
+        expect(service.getThreadInitialContext(threadId)).toBeNull();
+      });
+
+      it('should clear all thread initial contexts when clearing all caches', () => {
+        service.setThreadInitialContext('thread-1', 'context-1');
+        service.setThreadInitialContext('thread-2', 'context-2');
+
+        expect(service.getThreadInitialContext('thread-1')).toBe('context-1');
+        expect(service.getThreadInitialContext('thread-2')).toBe('context-2');
+
+        service.clearThreadMessageCache();
+
+        expect(service.getThreadInitialContext('thread-1')).toBeNull();
+        expect(service.getThreadInitialContext('thread-2')).toBeNull();
+      });
     });
 
     describe('thread message caching', () => {
