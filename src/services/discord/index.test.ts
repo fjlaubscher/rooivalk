@@ -387,5 +387,204 @@ describe('DiscordService', () => {
         ).rejects.toThrow('Fetch failed');
       });
     });
+
+    describe('thread message caching', () => {
+      it('should cache thread messages on first call', async () => {
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Hello in thread',
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          id: 'thread-123',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        // First call should fetch from API
+        const result1 = await service.buildMessageChainFromThreadMessage(msg);
+        expect(mockThread.messages.fetch).toHaveBeenCalledTimes(1);
+        expect(result1).toBe('- User: Hello in thread');
+
+        // Second call should use cache
+        const result2 = await service.buildMessageChainFromThreadMessage(msg);
+        expect(mockThread.messages.fetch).toHaveBeenCalledTimes(1); // Not called again
+        expect(result2).toBe('- User: Hello in thread');
+      });
+
+      it('should cache different threads separately', async () => {
+        const mockThreadMessages1 = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Thread 1 message',
+            },
+          ],
+        ]);
+
+        const mockThreadMessages2 = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Thread 2 message',
+            },
+          ],
+        ]);
+
+        const mockThread1 = {
+          id: 'thread-123',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages1),
+          },
+        };
+
+        const mockThread2 = {
+          id: 'thread-456',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages2),
+          },
+        };
+
+        const msg1 = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread1,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        const msg2 = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread2,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        // Cache both threads
+        const result1 = await service.buildMessageChainFromThreadMessage(msg1);
+        const result2 = await service.buildMessageChainFromThreadMessage(msg2);
+
+        expect(result1).toBe('- User: Thread 1 message');
+        expect(result2).toBe('- User: Thread 2 message');
+        expect(mockThread1.messages.fetch).toHaveBeenCalledTimes(1);
+        expect(mockThread2.messages.fetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('should clear cache for specific thread', async () => {
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Hello in thread',
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          id: 'thread-123',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        // First call caches the result
+        await service.buildMessageChainFromThreadMessage(msg);
+        expect(mockThread.messages.fetch).toHaveBeenCalledTimes(1);
+
+        // Clear cache for this thread
+        service.clearThreadMessageCache('thread-123');
+
+        // Next call should fetch from API again
+        await service.buildMessageChainFromThreadMessage(msg);
+        expect(mockThread.messages.fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it('should clear all caches when no threadId provided', async () => {
+        const mockThreadMessages1 = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Thread 1 message',
+            },
+          ],
+        ]);
+
+        const mockThreadMessages2 = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'Thread 2 message',
+            },
+          ],
+        ]);
+
+        const mockThread1 = {
+          id: 'thread-123',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages1),
+          },
+        };
+
+        const mockThread2 = {
+          id: 'thread-456',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages2),
+          },
+        };
+
+        const msg1 = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread1,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        const msg2 = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread2,
+          } as any,
+        } as Partial<DiscordMessage>);
+
+        // Cache both threads
+        await service.buildMessageChainFromThreadMessage(msg1);
+        await service.buildMessageChainFromThreadMessage(msg2);
+        expect(mockThread1.messages.fetch).toHaveBeenCalledTimes(1);
+        expect(mockThread2.messages.fetch).toHaveBeenCalledTimes(1);
+
+        // Clear all caches
+        service.clearThreadMessageCache();
+
+        // Both threads should fetch from API again
+        await service.buildMessageChainFromThreadMessage(msg1);
+        await service.buildMessageChainFromThreadMessage(msg2);
+        expect(mockThread1.messages.fetch).toHaveBeenCalledTimes(2);
+        expect(mockThread2.messages.fetch).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 });

@@ -32,6 +32,7 @@ class DiscordService {
   private _motdChannelId: string | undefined;
   private _allowedEmojis: string[];
   private _config: InMemoryConfig;
+  private _threadMessageCache: Record<string, string> = {};
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
     this._config = config;
@@ -393,6 +394,14 @@ class DiscordService {
   ): Promise<string | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
+      const threadId = thread.id;
+
+      // Return cached content if available
+      if (this._threadMessageCache[threadId]) {
+        return this._threadMessageCache[threadId];
+      }
+
+      // Fetch and process messages
       const threadMessages = await thread.messages.fetch();
       const messageArray = Array.from(threadMessages.values())
         .reverse() // Discord returns messages in descending order, so reverse for chronological order
@@ -415,13 +424,25 @@ class DiscordService {
               : entry.content,
         }));
 
-        return chainWithCleanContent
+        const formattedChain = chainWithCleanContent
           .map((entry) => `- ${entry.author}: ${entry.content}`)
           .join('\n');
+
+        // Cache the result
+        this._threadMessageCache[threadId] = formattedChain;
+        return formattedChain;
       }
     }
 
     return null;
+  }
+
+  public clearThreadMessageCache(threadId?: string): void {
+    if (threadId) {
+      delete this._threadMessageCache[threadId];
+    } else {
+      this._threadMessageCache = {};
+    }
   }
 
   public setupMentionRegex(): void {
