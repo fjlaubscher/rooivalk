@@ -433,7 +433,7 @@ class DiscordService {
           .join('\n');
 
         // Combine initial context with thread messages
-        const fullChain = initialContext 
+        const fullChain = initialContext
           ? `${initialContext}\n${threadChain}`
           : threadChain;
 

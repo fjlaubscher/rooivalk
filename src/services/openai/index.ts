@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
 
 import type { InMemoryConfig, Persona } from '@/types';
-import { ReasoningEffort } from 'openai/resources/shared';
 
 class OpenAIService {
   private _config: InMemoryConfig;

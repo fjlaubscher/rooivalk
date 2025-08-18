@@ -1,13 +1,18 @@
-name: Deploy Rooivalk Bot
+name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
     branches:
-      - main # or your preferred branch
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -18,14 +23,14 @@ jobs:
       - name: Set up Node.js v22
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '22.18.0'
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build project
-        run: pnpm run build
+      - name: Prettier Check
+        run: pnpm run prettier:check
 
       - name: Set up SSH
         run: |
@@ -39,7 +44,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.env' \
-            ./dist ./config ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc ./ts-paths-loader.mjs ./index.mjs \
+            ./src ./config ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc ./ts-paths-loader.ts ./index.ts \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
       - name: Install and restart on server
@@ -51,5 +56,5 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
             pnpm install
             pm2 delete rooivalk || true
-            pm2 start index.mjs --name rooivalk
+            pm2 start index.ts --name rooivalk
           EOF

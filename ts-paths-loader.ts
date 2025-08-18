@@ -1,32 +1,30 @@
 import { readFileSync, existsSync, statSync } from 'fs';
-import { pathToFileURL } from 'url';
+import { pathToFileURL, fileURLToPath } from 'url';
 import path from 'path';
 
-const tsconfigPath = path.resolve('./tsconfig.json');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const tsconfigPath = path.resolve(__dirname, 'tsconfig.json');
 const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8'));
 const paths = tsconfig.compilerOptions?.paths || {};
-const outDir = tsconfig.compilerOptions?.outDir || 'dist';
-const rootDir = tsconfig.compilerOptions?.rootDir || 'src';
-
-const aliasMap = [];
+const aliasMap: { aliasPrefix: string; targetPrefix: string }[] = [];
 for (const [aliasPattern, targets] of Object.entries(paths)) {
-  if (aliasPattern.endsWith('/*') && targets[0].endsWith('/*')) {
+  const targetArr = targets as string[];
+  if (aliasPattern.endsWith('/*') && targetArr[0].endsWith('/*')) {
     const aliasPrefix = aliasPattern.slice(0, -2);
-    const targetPrefix = targets[0].slice(0, -2);
+    const targetPrefix = targetArr[0].slice(0, -2);
     aliasMap.push({ aliasPrefix, targetPrefix });
   }
 }
 
 export async function resolve(specifier, context, nextResolve) {
   for (const { aliasPrefix, targetPrefix } of aliasMap) {
-    if (specifier.startsWith(aliasPrefix)) {
+    if (specifier.startsWith(aliasPrefix + '/')) {
       const subPath = specifier.slice(aliasPrefix.length).replace(/^\/+/, '');
-      const distTarget = targetPrefix.replace(rootDir, outDir);
-      let resolvedFile = path.resolve(distTarget, subPath);
+      let resolvedFile = path.resolve(__dirname, targetPrefix, subPath);
       if (existsSync(resolvedFile) && statSync(resolvedFile).isDirectory()) {
-        resolvedFile = path.join(resolvedFile, 'index.js');
+        resolvedFile = path.join(resolvedFile, 'index.ts');
       } else if (!path.extname(resolvedFile)) {
-        resolvedFile += '.js';
+        resolvedFile += '.ts';
       }
       return nextResolve(pathToFileURL(resolvedFile).href, context);
     }

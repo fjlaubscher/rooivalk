@@ -389,7 +389,8 @@ describe('DiscordService', () => {
 
       it('should include initial context when building thread message chain', async () => {
         const threadId = 'thread-123';
-        const initialContext = '- user: Initial message\n- rooivalk: Initial response';
+        const initialContext =
+          '- user: Initial message\n- rooivalk: Initial response';
         const mockThreadMessages = new Map([
           [
             '1',
@@ -459,7 +460,8 @@ describe('DiscordService', () => {
 
       it('should cache combined initial context and thread messages', async () => {
         const threadId = 'thread-789';
-        const initialContext = '- user: Cached initial\n- rooivalk: Cached response';
+        const initialContext =
+          '- user: Cached initial\n- rooivalk: Cached response';
         const mockThreadMessages = new Map([
           [
             '1',
