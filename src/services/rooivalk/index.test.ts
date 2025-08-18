@@ -575,7 +575,8 @@ describe('Rooivalk', () => {
 
     describe('when creating a thread from a reply', () => {
       it('should store initial context when history is available', async () => {
-        const mockHistory = '- user: Original question\n- rooivalk: Previous response';
+        const mockHistory =
+          '- user: Original question\n- rooivalk: Previous response';
         const mockThread = {
           id: 'new-thread-123',
           members: { add: vi.fn() },
@@ -624,9 +625,7 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        mockOpenAIClient.generateThreadName.mockResolvedValue(
-          'New Discussion'
-        );
+        mockOpenAIClient.generateThreadName.mockResolvedValue('New Discussion');
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
 
@@ -634,14 +633,18 @@ describe('Rooivalk', () => {
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
           'First message'
         );
-        expect(mockDiscordService.setThreadInitialContext).not.toHaveBeenCalled();
+        expect(
+          mockDiscordService.setThreadInitialContext
+        ).not.toHaveBeenCalled();
       });
 
       it('should handle thread creation failure gracefully', async () => {
         const replyMessage = createMockMessage({
           content: 'Message',
           author: { id: 'user-789' },
-          startThread: vi.fn().mockRejectedValue(new Error('Thread creation failed')),
+          startThread: vi
+            .fn()
+            .mockRejectedValue(new Error('Thread creation failed')),
         } as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
@@ -654,7 +657,9 @@ describe('Rooivalk', () => {
         ).rejects.toThrow('Thread creation failed');
 
         // Should not try to store context if thread creation failed
-        expect(mockDiscordService.setThreadInitialContext).not.toHaveBeenCalled();
+        expect(
+          mockDiscordService.setThreadInitialContext
+        ).not.toHaveBeenCalled();
       });
 
       it('should use message content for thread name when history is null', async () => {

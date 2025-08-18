@@ -51,7 +51,6 @@ export type WeatherForecast = {
   totalPrecipitation: number;
 };
 
-
 export type YrResponse = {
   type: string;
   geometry: {
