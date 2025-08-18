@@ -6,21 +6,20 @@ This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The b
 
 - Listen for mentions and replies
 - Generate responses via OpenAI's API
-- Generate images via OpenAI image API
+- Generate images via OpenAI gpt-image-1 model
 - Create and manage Discord threads for conversations
 - Post responses back to Discord
 - Maintain some internal state via class-based services with private fields
 
 The codebase uses a modular, service-based architecture. All services are TypeScript classes using private properties with an underscore prefix (e.g., `private _propertyName`).
 
-## Project Structure (Key Parts)
+## Project Structure
 
-- `src/services/discord/` – DiscordService (Discord integration)
-- `src/services/openai/` – OpenAIService (OpenAI API integration)
-  - `src/services/openai/index.test.ts` – unit tests for OpenAIService
-- `src/services/rooivalk/` – RooivalkService (core business logic)
-- `src/services/yr/` – YrService (weather integration)
-- `src/services/cron/` – CronService (scheduled jobs)
+- `src/services/discord/` – DiscordService (Discord integration) - [See AGENTS.md](src/services/discord/AGENTS.md)
+- `src/services/openai/` – OpenAIService (OpenAI API integration) - [See AGENTS.md](src/services/openai/AGENTS.md)
+- `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
+- `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
+- `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
 - `src/test-utils/` – Shared test utilities
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
@@ -28,42 +27,11 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 
-## Architectural Notes
-
-### Entry Point
+## Entry Point
 
 - `src/index.ts` bootstraps the application, loads environment variables, instantiates services, and starts the Discord client.
 
-### Services
-
-#### DiscordService
-- Discord API integration, event listening, message routing, and reply handling.
-- `buildMessageChainFromMessage` returns formatted conversation history from reply chains.
-- `buildMessageChainFromThreadMessage` returns formatted conversation history from Discord threads, including initial context that led to thread creation.
-- Thread management: creates threads when users reply to bot, handles thread ownership verification.
-- Thread context storage: maintains initial conversation context via `setThreadInitialContext()` and `getThreadInitialContext()` to preserve full conversational continuity.
-
-#### OpenAIService
-- OpenAI API integration (chat, image generation), prompt injection, error and rate limit handling.
-
-#### YrService
-- Fetches and summarizes weather data from Yr.no for predefined locations; used by RooivalkService for MOTD and enhanced responses.
-
-#### RooivalkService
-- Core business logic: processes messages, prepares prompts, integrates weather/events, shapes responses, manages context.
-- Thread handling: automatically responds to all messages in bot-created threads without requiring mentions.
-- Message filtering: determines when to process messages based on mentions, replies to bot, or thread ownership.
-
-### Utilities & Constants
-
-- Test utilities: `src/test-utils/` (e.g., `createMockMessage.ts`,
-  `consoleMocks.ts`)
-- Global constants: `src/constants.ts`
-- Shared types: `src/types.ts`
-- Service-specific constants: `services/<service>/constants.ts`
-- Config directory resolver: `src/config/constants.ts`
-
-### Environment
+## Environment
 
 - Environment variables loaded via `.env` (see `.env.example`).
 - Key vars: `DISCORD_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `LOG_LEVEL`

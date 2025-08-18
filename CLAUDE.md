@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 - **Build**: `pnpm build` - Compiles TypeScript to JavaScript
-- **Start**: `pnpm start` - Runs the bot using the compiled index.ts
+- **Start**: `pnpm start` - Runs the bot using native TypeScript execution
 - **Test**: `pnpm test` - Runs all unit tests with Vitest
 - **Format Check**: `pnpm prettier:check` - Checks code formatting
 - **Format Fix**: `pnpm prettier:format` - Auto-formats code
@@ -16,6 +16,11 @@ For detailed project structure, architecture, and coding conventions, use these 
 
 - `mcp__agent-rules__load_agents` - Load comprehensive project guidelines from AGENTS.md
 - `mcp__agent-rules__get_agents` - Get current project architecture and conventions
+
+## Environment Setup
+
+- Copy `.env.example` to `.env` and configure required Discord/OpenAI credentials
+- Key variables: `DISCORD_TOKEN`, `OPENAI_API_KEY`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`
 
 ## Key Development Notes
 

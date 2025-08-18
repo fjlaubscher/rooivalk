@@ -6,14 +6,13 @@ Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when
 It is written in TypeScript and designed for easy customization and extension.
 
 ## Features
-- Integrates with OpenAI for AI-generated replies and images.
-- Responds to messages where the bot is mentioned and when replying to a message from the bot.
-- Generate images with `/image`
-- Generate informative responses with `/learn`
-- Retry responses by reacting to a bot message with a specific emoji.
-- Custom error messages for failed completions
-- Fully configurable (with runtime "hot-reloading") system instructions and fallback messages via `config/*.md` files
-- Conversation history is passed as context rather than part of the prompt
+- **AI-powered responses**: Integrates with OpenAI for chat completions and image generation using gpt-image-1
+- **Smart conversation handling**: Responds to mentions, replies to bot messages, and automatically creates threads
+- **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity
+- **Weather integration**: Fetches weather data from Yr.no for enhanced contextual responses and daily MOTD
+- **Scheduled tasks**: Configurable MOTD (Message of the Day) and QOTD (Question of the Day) via cron jobs
+- **Hot-reloadable configuration**: Runtime configuration updates via `config/*.md` files
+- **Conversation context**: Full conversation history passed as context, including thread initial context preservation
 
 ### Rooivalk in action
 
@@ -44,16 +43,14 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    DISCORD_TOKEN=discord_app_token
    DISCORD_GUILD_ID=discord_server_id
    DISCORD_APP_ID=discord_app_id
+   DISCORD_ALLOWED_APPS=comma,separated,app,ids
    OPENAI_API_KEY=openai_key
-   OPENAI_MODEL=gpt-4.1-nano
+   OPENAI_MODEL=gpt-4.1-mini-2025-04-14
    OPENAI_IMAGE_MODEL=gpt-image-1
    ROOIVALK_MOTD_CRON="0 8 * * *"
+   ROOIVALK_QOTD_CRON="0 12 * * 3"
    ```
-4. Build the project:
-   ```sh
-   pnpm build
-   ```
-5. Start the bot:
+4. Start the bot (uses native TypeScript execution):
    ```sh
    pnpm start
    ```
@@ -63,10 +60,16 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 For a detailed breakdown of the project structure, please refer to [AGENTS.md](./AGENTS.md).
 
 ### Customization
-- Edit `src/services/openai/index.ts` to change how prompts are sent to OpenAI.
-- Edit `src/services/rooivalk/index.ts` to customize the bot's core logic and behavior.
-- Update constants in the respective `constants.ts` files for configuration.
-- Test utilities are available in `src/test-utils/` for mocking Discord messages in tests.
+
+The bot uses a modular service-based architecture. Each service has its own AGENTS.md file with specific guidance:
+
+- **DiscordService** (`src/services/discord/`): Discord API integration and thread management
+- **OpenAIService** (`src/services/openai/`): OpenAI API integration for chat and image generation
+- **RooivalkService** (`src/services/rooivalk/`): Core business logic and message processing
+- **YrService** (`src/services/yr/`): Weather data integration from Yr.no
+- **CronService** (`src/services/cron/`): Scheduled tasks and background jobs
+
+See [AGENTS.md](./AGENTS.md) for comprehensive architecture and development guidelines.
 
 ### Continuous Integration
 
