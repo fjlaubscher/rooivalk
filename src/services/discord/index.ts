@@ -17,11 +17,15 @@ import type {
 
 import {
   DISCORD_MESSAGE_LIMIT,
-  DISCORD_MAX_MESSAGE_CHAIN_LENGTH,
   DISCORD_COMMAND_DEFINITIONS,
 } from '@/constants';
-
-import type { InMemoryConfig, ResponseType } from '@/types';
+import type {
+  InMemoryConfig,
+  ResponseType,
+  MessageInChain,
+  OpenAIResponse,
+} from '@/types';
+import { formatMessageInChain } from './helpers';
 
 export type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
 
@@ -116,11 +120,20 @@ class DiscordService {
     }
   }
 
-  public buildMessageReply(content: string, allowedMentions: string[] = []) {
-    if (content.length > DISCORD_MESSAGE_LIMIT) {
-      const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), {
-        name: 'rooivalk.md',
-      });
+  public buildMessageReply(
+    response: OpenAIResponse,
+    allowedMentions: string[] = []
+  ) {
+    const exceedsDiscordLimit = response.content.length > DISCORD_MESSAGE_LIMIT;
+
+    if (response.type === 'text' && exceedsDiscordLimit) {
+      // create a markdown file attachment and send that instead
+      const attachment = new AttachmentBuilder(
+        Buffer.from(response.content, 'utf-8'),
+        {
+          name: 'rooivalk.md',
+        }
+      );
 
       return {
         content: this.getRooivalkResponse('discordLimit'),
@@ -129,36 +142,42 @@ class DiscordService {
           users: allowedMentions,
         },
       };
+    } else if (response.type === 'text' && !exceedsDiscordLimit) {
+      return {
+        content: response.content,
+        allowedMentions: {
+          users: allowedMentions,
+        },
+      };
+    } else if (
+      response.type === 'image_generation_call' &&
+      response.base64Images.length > 0
+    ) {
+      // there are images to return from this response
+      return {
+        content: response.content,
+        allowedMentions: {
+          users: allowedMentions,
+        },
+        files: response.base64Images.map(
+          (base64Image, index) =>
+            new AttachmentBuilder(Buffer.from(base64Image, 'base64'), {
+              name: `rooivalk_${index}.jpeg`,
+            })
+        ),
+        embeds: response.base64Images.map((_, index) =>
+          new EmbedBuilder({
+            image: {
+              url: `attachment://rooivalk_${index}.jpeg`,
+            },
+          })
+        ),
+      };
     }
 
     return {
-      content: content,
-      allowedMentions: {
-        users: allowedMentions,
-      },
+      content: this.getRooivalkResponse('error'),
     };
-  }
-
-  /**
-   * Splits content into chunks that respect the Discord message limit.
-   */
-  public chunkContent(
-    content: string,
-    limit: number = DISCORD_MESSAGE_LIMIT
-  ): string[] {
-    const chunks: string[] = [];
-    let remaining = content;
-
-    while (remaining.length > limit) {
-      chunks.push(remaining.slice(0, limit));
-      remaining = remaining.slice(limit);
-    }
-
-    if (remaining.length > 0) {
-      chunks.push(remaining);
-    }
-
-    return chunks;
   }
 
   public buildImageReply(prompt: string, base64Image: string) {
@@ -217,31 +236,45 @@ class DiscordService {
 
   public async getMessageChain(
     currentMessage: DiscordMessage
-  ): Promise<{ author: string | 'rooivalk'; content: string }[]> {
-    const messageChain: { author: string | 'rooivalk'; content: string }[] = [];
+  ): Promise<MessageInChain[]> {
+    const messageChain: MessageInChain[] = [];
+
     try {
+      // if the current message is a reply
       if (currentMessage.reference && currentMessage.reference.messageId) {
+        // fetch the referenced message
         let referencedMessage = await currentMessage.channel.messages.fetch(
           currentMessage.reference.messageId
         );
-        const tempChain: { author: string | 'rooivalk'; content: string }[] =
-          [];
-        while (
-          referencedMessage &&
-          tempChain.length < DISCORD_MAX_MESSAGE_CHAIN_LENGTH
-        ) {
-          tempChain.push({
-            author:
-              referencedMessage.author.id === this._discordClient.user?.id
+        const tempChain: MessageInChain[] = [];
+
+        // while there are replies in the chain with content / attachments
+        while (referencedMessage) {
+          const hasAttachments = referencedMessage.attachments.size > 0;
+          const hasContent = referencedMessage.content.length > 0;
+          const isRooivalkMessage =
+            referencedMessage.author.id === this._discordClient.user?.id;
+
+          if (hasAttachments || hasContent) {
+            // add the referenced message to the chain with attachments
+            tempChain.push({
+              author: isRooivalkMessage
                 ? 'rooivalk'
                 : referencedMessage.author.displayName,
-            content: referencedMessage.content,
-          });
+              content: hasContent ? referencedMessage.content.trim() : '',
+              attachmentUrls: hasAttachments
+                ? referencedMessage.attachments.map((att) => att.url)
+                : [],
+            });
+          }
+
+          // if the current referenced message has a reference
           if (
             referencedMessage.reference &&
             referencedMessage.reference.messageId
           ) {
             try {
+              // fetch the next referenced message
               referencedMessage =
                 await referencedMessage.channel.messages.fetch(
                   referencedMessage.reference.messageId
@@ -251,9 +284,12 @@ class DiscordService {
               break;
             }
           } else {
+            // no more references, end of chain.
             break;
           }
         }
+
+        // reverse the temp chain in chronological order and add it to the message chain
         messageChain.push(...tempChain.reverse());
       }
     } catch (error) {
@@ -262,53 +298,6 @@ class DiscordService {
 
     // deliberately omit the current message from the chain
     return messageChain;
-  }
-
-  /**
-   * Fetches the message being replied to.
-   */
-  public async getReferencedMessage(message: DiscordMessage) {
-    try {
-      const reference = message.reference;
-      if (!reference?.messageId) {
-        return null;
-      }
-      return await message.channel.messages.fetch(reference.messageId);
-    } catch (error) {
-      console.error('Error fetching referenced message:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Walks up the reply chain to find the first message in the conversation.
-   */
-  public async getOriginalMessage(message: DiscordMessage) {
-    try {
-      if (!message.reference?.messageId) {
-        return null;
-      }
-
-      let current = await message.channel.messages.fetch(
-        message.reference.messageId
-      );
-      let depth = 0;
-
-      while (
-        current.reference?.messageId &&
-        depth < DISCORD_MAX_MESSAGE_CHAIN_LENGTH
-      ) {
-        current = await current.channel.messages.fetch(
-          current.reference.messageId
-        );
-        depth += 1;
-      }
-
-      return current;
-    } catch (error) {
-      console.error('Error fetching original message:', error);
-      return null;
-    }
   }
 
   public async registerSlashCommands(): Promise<void> {
@@ -361,33 +350,16 @@ class DiscordService {
   }
 
   public async buildMessageChainFromMessage(
-    message: DiscordMessage
+    currentMessage: DiscordMessage
   ): Promise<string | null> {
-    if (message.reference && message.reference.messageId) {
-      const repliedToMessage = await this.getReferencedMessage(message);
-      if (
-        repliedToMessage &&
-        repliedToMessage.author.id === this._discordClient.user?.id
-      ) {
-        const messageChain = await this.getMessageChain(message);
-        if (messageChain.length > 0) {
-          const chainWithCleanContent = messageChain.map((entry, index) => ({
-            ...entry,
-            content:
-              index === messageChain.length - 1 &&
-              entry.author !== 'rooivalk' &&
-              this._mentionRegex
-                ? entry.content.replace(this._mentionRegex, '').trim()
-                : entry.content,
-          }));
+    // get the message chain for the current message
+    const messageChain = await this.getMessageChain(currentMessage);
 
-          return chainWithCleanContent
-            .map((entry) => `- ${entry.author}: ${entry.content}`)
-            .join('\n');
-        }
-      }
+    if (messageChain.length === 0) {
+      return null;
     }
-    return null;
+
+    return messageChain.map(formatMessageInChain).join('\n');
   }
 
   public async buildMessageChainFromThreadMessage(

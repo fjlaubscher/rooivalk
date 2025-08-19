@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 
-import type { InMemoryConfig, Persona } from '@/types';
+import type { InMemoryConfig, OpenAIResponse } from '@/types';
 
 class OpenAIService {
   private _config: InMemoryConfig;
@@ -16,37 +16,30 @@ class OpenAIService {
     });
 
     this._model = model || process.env.OPENAI_MODEL!;
+    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
+
     this._tools = [
       {
         type: 'web_search_preview',
         search_context_size: 'low',
       },
+      {
+        type: 'image_generation',
+        model: this._imageModel as `gpt-image-1`,
+        output_format: 'jpeg',
+      },
     ];
-
-    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
-  }
-
-  private getInstructions(persona: Persona): string {
-    switch (persona) {
-      case 'rooivalk':
-        return this._config.instructionsRooivalk;
-      case 'learn':
-        return this._config.instructionsLearn;
-      default:
-        return this._config.instructionsRooivalk;
-    }
   }
 
   async createResponse(
-    persona: Persona,
     author: string | 'rooivalk',
     prompt: string,
     emojis: string[] = [],
     history: string | null = null,
     attachmentUrls: string[] | null = null
-  ) {
+  ): Promise<OpenAIResponse> {
     try {
-      let instructions = this.getInstructions(persona);
+      let instructions = this._config.instructions;
 
       // inject emojis if available
       if (emojis) {
@@ -96,7 +89,24 @@ class OpenAIService {
         input: responseInput,
       });
 
-      return response.output_text;
+      const generatedImages = response.output
+        .filter((output) => output.type === 'image_generation_call')
+        .map((output) => output.result ?? '')
+        .filter(Boolean);
+
+      if (generatedImages.length > 0) {
+        return {
+          type: 'image_generation_call',
+          content: response.output_text,
+          base64Images: generatedImages,
+        };
+      }
+
+      return {
+        type: 'text',
+        content: response.output_text,
+        base64Images: []
+      };
     } catch (error) {
       console.error('Error with OpenAI:', error);
       if (error instanceof OpenAI.OpenAIError) {

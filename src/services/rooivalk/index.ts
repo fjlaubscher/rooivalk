@@ -3,7 +3,6 @@ import type {
   ChatInputCommandInteraction,
   Client,
   Interaction,
-  TextChannel,
   ThreadChannel,
   MessageReaction,
   PartialMessageReaction,
@@ -19,7 +18,7 @@ import type { DiscordMessage } from '@/services/discord';
 import OpenAIService from '@/services/openai';
 import YrService from '@/services/yr';
 
-import type { InMemoryConfig } from '@/types';
+import type { InMemoryConfig, MessageInChain } from '@/types';
 
 class Rooivalk {
   protected _config: InMemoryConfig;
@@ -111,7 +110,6 @@ class Rooivalk {
 
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
-        'rooivalk',
         message.author.displayName,
         prompt,
         this._discord.allowedEmojis,
@@ -179,7 +177,7 @@ class Rooivalk {
     motd = motd.replace(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
     // finally send the message
-    await this.sendMessageToMotdChannel(motd);
+    await this.sendMessageToChannel(this._discord.motdChannelId, motd);
   }
 
   public async sendQotdToMotdChannel(): Promise<void> {
@@ -189,104 +187,38 @@ class Rooivalk {
     }
 
     const qotd = this._config.qotd;
-    await this.sendMessageToMotdChannel(qotd, 'rooivalk');
+    await this.sendMessageToChannel(this._discord.motdChannelId, qotd);
   }
 
-  public async sendMessageToStartupChannel(
-    prompt: string,
-    persona: 'rooivalk' | 'learn' = 'rooivalk',
-    suffix?: string
-  ) {
-    return this.sendMessageToChannel(
-      this._discord.startupChannelId,
-      'startup',
-      prompt,
-      persona,
-      suffix
-    );
-  }
-
-  public async sendMessageToMotdChannel(
-    prompt: string,
-    persona: 'rooivalk' | 'learn' = 'rooivalk',
-    suffix?: string
-  ) {
-    return this.sendMessageToChannel(
-      this._discord.motdChannelId,
-      'motd',
-      prompt,
-      persona,
-      suffix
-    );
-  }
-
-  private async sendMessageToChannel(
+  public async sendMessageToChannel(
     channelId: string | undefined,
-    label: string,
-    prompt: string,
-    persona: 'rooivalk' | 'learn' = 'rooivalk',
-    suffix?: string
+    prompt: string
   ) {
     if (!channelId) {
-      console.error(
-        `${label.charAt(0).toUpperCase() + label.slice(1)} channel ID not set`
-      );
+      console.error(`Channel ID not set`);
       return null;
     }
 
     try {
       const response = await this._openai.createResponse(
-        persona,
         'rooivalk',
         prompt,
         this._discord.allowedEmojis,
         undefined
       );
-      const content = suffix ? `${response}\n${suffix}` : response;
+
       const channel = await this._discord.client.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
-        const messageOptions = this._discord.buildMessageReply(content);
+        const messageOptions = this._discord.buildMessageReply(response);
         await (channel as any).send(messageOptions);
         return response;
       } else {
-        console.error(
-          `${label.charAt(0).toUpperCase() + label.slice(1)} channel is not text-based`
-        );
+        console.error(`Channel: ${channelId} is not text-based`);
         return null;
       }
     } catch (err) {
-      console.error(`Error sending message to ${label} channel:`, err);
+      console.error(`Error sending message to channel:`, err);
       return null;
-    }
-  }
-
-  private async handleLearnCommand(
-    interaction: ChatInputCommandInteraction
-  ): Promise<void> {
-    const prompt = interaction.options.getString('prompt', true);
-    await interaction.deferReply();
-
-    try {
-      const response = await this._openai.createResponse(
-        'learn',
-        interaction.user.displayName,
-        prompt,
-        [],
-        undefined
-      );
-      const messageOptions = this._discord.buildMessageReply(response);
-      // Convert MessageReplyOptions to InteractionEditReplyOptions
-      await interaction.editReply({
-        content: messageOptions.content,
-        files: messageOptions.files,
-      });
-    } catch (error) {
-      console.error('Error handling learn command:', error);
-
-      await interaction.editReply({
-        content: this._discord.getRooivalkResponse('error'),
-      });
-      return;
     }
   }
 
@@ -329,68 +261,6 @@ class Rooivalk {
     }
   }
 
-  private async handleThreadCommand(
-    interaction: ChatInputCommandInteraction
-  ): Promise<void> {
-    const prompt = interaction.options.getString('prompt', true);
-    await interaction.deferReply();
-
-    try {
-      const threadName =
-        (await this._openai.generateThreadName(prompt)) ||
-        'Conversation with rooivalk';
-
-      const thread = await (interaction.channel as TextChannel)?.threads.create(
-        {
-          name: threadName,
-          autoArchiveDuration: 60,
-        }
-      );
-
-      if (!thread) {
-        await interaction.editReply({
-          content: this._discord.getRooivalkResponse('error'),
-        });
-        return;
-      }
-
-      // echo the prompt in the new thread
-      await thread.send(`>>> ${prompt}`);
-
-      const response = await this._openai.createResponse(
-        'rooivalk',
-        interaction.user.displayName,
-        prompt,
-        this._discord.allowedEmojis,
-        undefined
-      );
-
-      if (response) {
-        const chunks = this._discord.chunkContent(response);
-        for (const chunk of chunks) {
-          try {
-            await thread.send(chunk);
-          } catch (error) {
-            console.error('Error sending chunk to thread:', error);
-          }
-        }
-
-        await interaction.editReply({
-          content: `${interaction.user} created a thread.\n>>> ${prompt}`,
-        });
-      } else {
-        await interaction.editReply({
-          content: this._discord.getRooivalkResponse('error'),
-        });
-      }
-    } catch (error) {
-      console.error('Error handling thread command:', error);
-      await interaction.editReply({
-        content: this._discord.getRooivalkResponse('error'),
-      });
-    }
-  }
-
   public async handleWeatherCommand(
     interaction: ChatInputCommandInteraction
   ): Promise<void> {
@@ -421,13 +291,12 @@ class Rooivalk {
         `;
 
         const response = await this._openai.createResponse(
-          'rooivalk',
           interaction.user.displayName,
           prompt,
           this._discord.allowedEmojis
         );
         await interaction.editReply({
-          content: response,
+          content: response.content,
         });
       } else {
         await interaction.editReply({
@@ -449,8 +318,11 @@ class Rooivalk {
         const starterMessage = await thread.fetchStarterMessage();
         if (starterMessage) {
           // If the starter message is a reply to the bot, then the bot created this thread
-          const repliedToMessage =
-            await this._discord.getReferencedMessage(starterMessage);
+          const repliedToMessage = starterMessage.reference?.messageId
+            ? await message.channel.messages.fetch(
+                starterMessage.reference.messageId
+              )
+            : null;
           if (
             repliedToMessage &&
             repliedToMessage.author.id === this._discord.client.user?.id
@@ -468,13 +340,13 @@ class Rooivalk {
 
   public async isReplyToRooivalk(message: DiscordMessage): Promise<boolean> {
     if (message.reference?.messageId) {
-      const repliedToMessage = await this._discord.getReferencedMessage(
-        message as DiscordMessage
+      const referencedMessage = await message.channel.messages.fetch(
+        message.reference.messageId
       );
 
       if (
-        repliedToMessage &&
-        repliedToMessage.author.id === this._discord.client.user?.id
+        referencedMessage &&
+        referencedMessage.author.id === this._discord.client.user?.id
       ) {
         return true;
       }
@@ -511,29 +383,6 @@ class Rooivalk {
     // 2. Messages not from the specified guild (server)
     if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
       return;
-    }
-
-    const isRooivalkMessage =
-      reaction.message?.author?.id === this._discord.client.user?.id;
-
-    if (reaction.emoji.name === DISCORD_EMOJI) {
-      const message = reaction.message as DiscordMessage;
-      if (isRooivalkMessage) {
-        const originalPrompt = await this._discord.getOriginalMessage(message);
-        if (originalPrompt) {
-          await reaction.message.delete();
-          await this.processMessage(originalPrompt as DiscordMessage);
-        } else {
-          console.error(
-            'Original message not found or not a reply to a message'
-          );
-        }
-      } else {
-        // if the message is not from Rooivalk, we need to reformat it to be a prompt
-        const messageAsPrompt = `The following message is given as context, explain it: ${message.content}`;
-        message.content = messageAsPrompt;
-        await this.processMessage(message);
-      }
     }
   }
 
@@ -584,14 +433,8 @@ class Rooivalk {
         if (!interaction.isChatInputCommand()) return;
 
         switch (interaction.commandName) {
-          case DISCORD_COMMANDS.LEARN:
-            await this.handleLearnCommand(interaction);
-            break;
           case DISCORD_COMMANDS.IMAGE:
             await this.handleImageCommand(interaction);
-            break;
-          case DISCORD_COMMANDS.THREAD:
-            await this.handleThreadCommand(interaction);
             break;
           case DISCORD_COMMANDS.WEATHER:
             await this.handleWeatherCommand(interaction);

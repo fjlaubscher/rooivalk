@@ -6,8 +6,7 @@ import {
   CONFIG_FILE_ERRORS,
   CONFIG_FILE_GREETINGS,
   CONFIG_FILE_DISCORD_LIMIT,
-  CONFIG_FILE_INSTRUCTIONS_ROOIVALK,
-  CONFIG_FILE_INSTRUCTIONS_LEARN,
+  CONFIG_FILE_INSTRUCTIONS,
   CONFIG_FILE_MOTD,
   CONFIG_FILE_QOTD,
 } from '@/constants';
@@ -59,16 +58,14 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     errorMessages,
     greetingMessages,
     discordLimitMessages,
-    instructionsRooivalk,
-    instructionsLearn,
+    instructions,
     motd,
     qotd,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
     loadMessageList(CONFIG_FILE_GREETINGS),
     loadMessageList(CONFIG_FILE_DISCORD_LIMIT),
-    loadInstructions(CONFIG_FILE_INSTRUCTIONS_ROOIVALK),
-    loadInstructions(CONFIG_FILE_INSTRUCTIONS_LEARN),
+    loadInstructions(CONFIG_FILE_INSTRUCTIONS),
     loadInstructions(CONFIG_FILE_MOTD),
     loadInstructions(CONFIG_FILE_QOTD),
   ]);
@@ -77,8 +74,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     errorMessages,
     greetingMessages,
     discordLimitMessages,
-    instructionsRooivalk,
-    instructionsLearn,
+    instructions,
     motd,
     qotd,
   };

@@ -42,6 +42,8 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  responsesCreateMock.mockReset();
+  imagesGenerateMock.mockReset();
   vi.stubGlobal('process', {
     env: {
       OPENAI_API_KEY: 'key',
@@ -59,10 +61,16 @@ afterEach(() => {
 describe('OpenAIService', () => {
   describe('createResponse', () => {
     it('returns output text on success', async () => {
-      responsesCreateMock.mockResolvedValueOnce({ output_text: 'ok' });
-      await expect(
-        service.createResponse('rooivalk', 'test user', 'hi')
-      ).resolves.toBe('ok');
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'test response',
+        output: []
+      });
+      const result = await service.createResponse('test user', 'hi');
+      expect(result).toEqual({
+        type: 'text',
+        content: 'test response',
+        base64Images: []
+      });
     });
 
     it('throws OpenAI error message', async () => {
@@ -70,7 +78,7 @@ describe('OpenAIService', () => {
         new (OpenAI as any).OpenAIError('bad')
       );
       await expect(
-        service.createResponse('rooivalk', 'test user', 'hi')
+        service.createResponse('test user', 'hi')
       ).rejects.toThrow('bad');
       expect(errorSpy).toHaveBeenCalled();
     });
@@ -78,7 +86,7 @@ describe('OpenAIService', () => {
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
       await expect(
-        service.createResponse('rooivalk', 'test user', 'hi')
+        service.createResponse('test user', 'hi')
       ).rejects.toThrow('Error creating chat completion');
     });
   });
@@ -106,8 +114,12 @@ describe('OpenAIService', () => {
 
   describe('generateThreadName', () => {
     it('returns thread name on success', async () => {
-      responsesCreateMock.mockResolvedValueOnce({ output_text: 'Topic' });
-      await expect(service.generateThreadName('prompt')).resolves.toBe('Topic');
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'Test Topic',
+        output: []
+      });
+      const result = await service.generateThreadName('prompt');
+      expect(result).toBe('Test Topic');
     });
 
     it('throws OpenAI error message', async () => {

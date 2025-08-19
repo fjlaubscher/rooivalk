@@ -39,8 +39,6 @@ const mockDiscordService = vi.mocked({
   },
   allowedEmojis: [],
   startupChannelId: 'test-startup-channel-id',
-  getReferencedMessage: vi.fn(),
-  getOriginalMessage: vi.fn(),
   getMessageChain: vi.fn(),
   buildMessageReply: vi.fn().mockResolvedValue({}),
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
@@ -111,7 +109,6 @@ describe('Rooivalk', () => {
         ).toHaveBeenCalledWith(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'rooivalk',
           'TestUser',
           'Hi!',
           [],
@@ -194,7 +191,6 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'rooivalk',
           'TestUser',
           'Hello bot!',
           [],
@@ -250,7 +246,7 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageReply.mockResolvedValue({
           content: 'test',
         });
-        await rooivalk.sendMessageToStartupChannel('Hello startup!');
+        await rooivalk.sendMessageToChannel('startup-channel-id', 'Hello startup!');
         expect(mockChannel.send).toHaveBeenCalled();
       });
     });
@@ -262,7 +258,7 @@ describe('Rooivalk', () => {
           configurable: true,
         });
         const result =
-          await rooivalk.sendMessageToStartupChannel('Hello startup!');
+          await rooivalk.sendMessageToChannel('startup-channel-id','Hello startup!');
         expect(result).toBeNull();
       });
     });
@@ -279,7 +275,7 @@ describe('Rooivalk', () => {
           configurable: true,
         });
         const result =
-          await rooivalk.sendMessageToStartupChannel('Hello startup!');
+          await rooivalk.sendMessageToChannel('startup-channel-id','Hello startup!');
         expect(result).toBeNull();
       });
     });
@@ -335,44 +331,6 @@ describe('Rooivalk', () => {
     });
   });
 
-  describe('when handling a thread command', () => {
-    it('should chunk long responses', async () => {
-      const interaction = {
-        options: { getString: vi.fn().mockReturnValue('prompt') },
-        deferReply: vi.fn(),
-        editReply: vi.fn(),
-        channel: {
-          threads: { create: vi.fn() },
-        },
-        user: {
-          username: 'alice',
-          toString: () => '<@123>',
-        },
-      } as unknown as ChatInputCommandInteraction;
-
-      const mockThread = { send: vi.fn(), url: 'thread-url' } as any;
-      (interaction.channel as any).threads.create.mockResolvedValue(mockThread);
-
-      const longResponse = 'a'.repeat(4500);
-      mockOpenAIClient.createResponse.mockResolvedValue(longResponse);
-      mockDiscordService.chunkContent.mockReturnValue([
-        'a'.repeat(2000),
-        'a'.repeat(2000),
-        'a'.repeat(500),
-      ]);
-
-      await (rooivalk as any).handleThreadCommand(interaction);
-
-      expect(mockThread.send).toHaveBeenCalledTimes(4);
-      expect(mockThread.send).toHaveBeenNthCalledWith(1, '>>> prompt');
-      expect(interaction.deferReply).toHaveBeenCalled();
-
-      expect(interaction.editReply).toHaveBeenCalledWith({
-        content: '<@123> created a thread.\n>>> prompt',
-      });
-    });
-  });
-
   describe('when initialized', () => {
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
@@ -421,7 +379,6 @@ describe('Rooivalk', () => {
           mockDiscordService.buildMessageChainFromMessage
         ).not.toHaveBeenCalled();
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'rooivalk',
           'TestUser',
           'Hello in thread',
           [],
@@ -478,7 +435,6 @@ describe('Rooivalk', () => {
           mockDiscordService.buildMessageChainFromThreadMessage
         ).not.toHaveBeenCalled();
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'rooivalk',
           'TestUser',
           'Hello outside thread',
           [],

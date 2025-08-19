@@ -10,8 +10,7 @@ import {
 import type { MockInstance } from 'vitest';
 import {
   Client as DiscordClient,
-  TextChannel,
-  type MessageReference,
+  TextChannel
 } from 'discord.js';
 
 import { createMockMessage } from '@/test-utils/createMockMessage';
@@ -122,17 +121,12 @@ describe('DiscordService', () => {
     describe('buildMessageReply', () => {
       it('should build a message reply with attachments', () => {
         const longContent = 'a'.repeat(2100);
-        const reply = service.buildMessageReply(longContent);
+        const reply = service.buildMessageReply({
+          type: 'text',
+          content: longContent,
+          base64Images: []
+        });
         expect(reply.files).toBeTruthy();
-      });
-    });
-
-    describe('chunkContent', () => {
-      it('splits content based on the discord limit', () => {
-        const longContent = 'a'.repeat(4500);
-        const chunks = service.chunkContent(longContent, 2000);
-        expect(chunks.length).toBe(3);
-        expect(chunks[0]!.length).toBe(2000);
       });
     });
 
@@ -144,59 +138,6 @@ describe('DiscordService', () => {
         ).mockResolvedValueOnce(undefined);
         const chain = await service.getMessageChain(msg);
         expect(Array.isArray(chain)).toBe(true);
-      });
-    });
-
-    describe('getReferencedMessage', () => {
-      it('should get the referenced message', async () => {
-        const msg = createMockMessage({
-          reference: { messageId: '123' },
-        } as Partial<DiscordMessage>);
-        (
-          msg.channel.messages.fetch as unknown as MockInstance
-        ).mockResolvedValueOnce('parent');
-        expect(await service.getReferencedMessage(msg)).toBe('parent');
-      });
-
-      it('should return null on error', async () => {
-        const msg = createMockMessage({
-          reference: { messageId: '123' },
-        } as Partial<DiscordMessage>);
-        (
-          msg.channel.messages.fetch as unknown as MockInstance
-        ).mockRejectedValueOnce(new Error('fail'));
-
-        expect(await service.getReferencedMessage(msg)).toBeNull();
-      });
-    });
-
-    describe('getOriginalMessage', () => {
-      it('walks the reply chain to find the first message', async () => {
-        const root = createMockMessage();
-        const mid = createMockMessage({
-          reference: { messageId: 'root' } as MessageReference,
-          channel: {
-            messages: { fetch: vi.fn().mockResolvedValue(root) },
-          } as any,
-        } as Partial<DiscordMessage>);
-        const msg = createMockMessage({
-          reference: { messageId: 'mid' } as MessageReference,
-          channel: {
-            messages: { fetch: vi.fn().mockResolvedValue(mid) },
-          } as any,
-        } as Partial<DiscordMessage>);
-        const result = await service.getOriginalMessage(msg);
-        expect(result).toBe(root);
-      });
-
-      it('returns null on fetch error', async () => {
-        const msg = createMockMessage({
-          reference: { messageId: '123' },
-        } as Partial<DiscordMessage>);
-        (
-          msg.channel.messages.fetch as unknown as MockInstance
-        ).mockRejectedValueOnce(new Error('fail'));
-        expect(await service.getOriginalMessage(msg)).toBeNull();
       });
     });
 
@@ -222,13 +163,16 @@ describe('DiscordService', () => {
         const msg = createMockMessage({
           reference: { messageId: '123' },
         } as Partial<DiscordMessage>);
-        vi.spyOn(service, 'getReferencedMessage').mockResolvedValue({
+
+        vi.spyOn(msg.channel.messages, 'fetch').mockResolvedValue({
           author: { id: BOT_ID },
         } as any);
+
         vi.spyOn(service, 'getMessageChain').mockResolvedValue([
-          { author: 'user', content: 'hi' },
-          { author: 'rooivalk', content: 'yo' },
+          { author: 'user', content: 'hi', attachmentUrls: [] },
+          { author: 'rooivalk', content: 'yo', attachmentUrls: [] },
         ]);
+
         service.mentionRegex = /<@test-bot-id>/g;
         const prompt = await service.buildMessageChainFromMessage(msg);
         expect(typeof prompt).toBe('string');
