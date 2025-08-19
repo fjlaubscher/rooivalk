@@ -15,11 +15,13 @@ The YrService fetches and summarizes weather data from Yr.no for predefined loca
 ## Core Functionality
 
 ### Weather Data Fetching
+
 - Integrates with Yr.no weather API
 - Handles multiple predefined locations
 - Manages API requests and response processing
 
 ### Data Processing
+
 - Summarizes weather data into readable formats
 - Formats weather information for bot responses
 - Handles weather data caching and updates
@@ -39,12 +41,12 @@ The YrService fetches and summarizes weather data from Yr.no for predefined loca
 
 ## Common Tasks
 
-| Task | Action | Notes |
-|------|--------|-------|
-| Add new location | Extend location configuration | Update predefined locations list |
-| Modify weather formatting | Update data summarization logic | Consider readability and context |
-| Update API integration | Modify Yr.no API handling | Handle API changes and new endpoints |
-| Add weather features | Extend weather data processing | Consider forecasts, alerts, etc. |
+| Task                      | Action                          | Notes                                |
+| ------------------------- | ------------------------------- | ------------------------------------ |
+| Add new location          | Extend location configuration   | Update predefined locations list     |
+| Modify weather formatting | Update data summarization logic | Consider readability and context     |
+| Update API integration    | Modify Yr.no API handling       | Handle API changes and new endpoints |
+| Add weather features      | Extend weather data processing  | Consider forecasts, alerts, etc.     |
 
 ## Testing
 

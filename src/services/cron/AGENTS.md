@@ -15,11 +15,13 @@ The CronService handles scheduled jobs and background tasks for the bot. It mana
 ## Core Functionality
 
 ### Job Scheduling
+
 - Manages cron-like scheduled tasks
 - Handles recurring operations and timers
 - Coordinates background processes
 
 ### Task Management
+
 - Executes scheduled maintenance tasks
 - Handles periodic data updates
 - Manages cleanup and housekeeping operations
@@ -40,12 +42,12 @@ The CronService handles scheduled jobs and background tasks for the bot. It mana
 
 ## Common Tasks
 
-| Task | Action | Notes |
-|------|--------|-------|
-| Add scheduled task | Extend job scheduling logic | Update cron configuration and handlers |
-| Modify task timing | Update scheduling parameters | Consider system load and API limits |
-| Add maintenance jobs | Extend cleanup and housekeeping | Consider data retention and performance |
-| Update task coordination | Modify service integration | Handle dependencies between scheduled tasks |
+| Task                     | Action                          | Notes                                       |
+| ------------------------ | ------------------------------- | ------------------------------------------- |
+| Add scheduled task       | Extend job scheduling logic     | Update cron configuration and handlers      |
+| Modify task timing       | Update scheduling parameters    | Consider system load and API limits         |
+| Add maintenance jobs     | Extend cleanup and housekeeping | Consider data retention and performance     |
+| Update task coordination | Modify service integration      | Handle dependencies between scheduled tasks |
 
 ## Testing
 

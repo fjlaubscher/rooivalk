@@ -16,16 +16,19 @@ The RooivalkService contains the core business logic for the bot. It processes m
 ## Core Functionality
 
 ### Message Processing
+
 - Determines when to process messages based on mentions, replies to bot, or thread ownership
 - Processes message content and prepares appropriate responses
 - Integrates contextual information (weather, events, etc.)
 
 ### Thread Handling
+
 - Automatically responds to ALL messages in bot-created threads (no mentions needed)
 - Manages thread context and conversation continuity
 - Handles thread-specific logic and state management
 
 ### Context Integration
+
 - Integrates weather data from YrService for MOTD and enhanced responses
 - Manages conversation context and history
 - Handles system prompts and instructions
@@ -33,6 +36,7 @@ The RooivalkService contains the core business logic for the bot. It processes m
 ## Bot Behavior Logic
 
 ### Message Processing Rules
+
 1. **Direct mentions**: Bot responds when mentioned anywhere (`@rooivalk message`)
 2. **Replies to bot**: When users reply to bot messages, creates a thread automatically
 3. **Thread conversations**: Bot responds to ALL messages in threads it created (no mentions needed)
@@ -48,12 +52,12 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 ## Common Tasks
 
-| Task | Action | Notes |
-|------|--------|-------|
-| Enhance business logic | Extend message/state handling | Update core processing logic in index.ts |
-| Modify thread behavior | Update thread detection/creation logic | Consider automatic response rules |
-| Add context integration | Extend weather/event integration | Coordinate with YrService and other data sources |
-| Update message filtering | Modify when bot should respond | Update mention/reply/thread logic |
+| Task                     | Action                                 | Notes                                            |
+| ------------------------ | -------------------------------------- | ------------------------------------------------ |
+| Enhance business logic   | Extend message/state handling          | Update core processing logic in index.ts         |
+| Modify thread behavior   | Update thread detection/creation logic | Consider automatic response rules                |
+| Add context integration  | Extend weather/event integration       | Coordinate with YrService and other data sources |
+| Update message filtering | Modify when bot should respond         | Update mention/reply/thread logic                |
 
 ## Testing
 

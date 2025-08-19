@@ -15,11 +15,13 @@ The OpenAIService handles OpenAI API integration for chat completion and image g
 ## Core Functionality
 
 ### Chat Completion
+
 - Text generation using OpenAI's chat models
 - System prompt injection and conversation context management
 - Streaming and non-streaming response handling
 
 ### Image Generation
+
 - OpenAI gpt-image-1 model for image generation
 - Image prompt processing and parameter configuration
 - Image URL handling and response formatting
@@ -39,12 +41,12 @@ The OpenAIService handles OpenAI API integration for chat completion and image g
 
 ## Common Tasks
 
-| Task | Action | Notes |
-|------|--------|-------|
-| Add OpenAI model support | Add model ID, update API payload/env vars | Update model configuration and validation |
-| Modify prompt injection | Update system prompt handling | Consider conversation context preservation |
-| Handle new OpenAI features | Extend API integration | Follow OpenAI SDK patterns |
-| Update error handling | Modify error catching and logging | Handle rate limits and API errors gracefully |
+| Task                       | Action                                    | Notes                                        |
+| -------------------------- | ----------------------------------------- | -------------------------------------------- |
+| Add OpenAI model support   | Add model ID, update API payload/env vars | Update model configuration and validation    |
+| Modify prompt injection    | Update system prompt handling             | Consider conversation context preservation   |
+| Handle new OpenAI features | Extend API integration                    | Follow OpenAI SDK patterns                   |
+| Update error handling      | Modify error catching and logging         | Handle rate limits and API errors gracefully |
 
 ## Testing
 
