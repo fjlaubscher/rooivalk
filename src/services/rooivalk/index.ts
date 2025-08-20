@@ -4,6 +4,7 @@ import type {
   Client,
   Interaction,
   ThreadChannel,
+  Message,
   MessageReaction,
   PartialMessageReaction,
 } from 'discord.js';
@@ -11,14 +12,14 @@ import type {
 import {
   ALLOWED_ATTACHMENT_CONTENT_TYPES,
   DISCORD_COMMANDS,
-  DISCORD_EMOJI,
 } from '@/constants';
 import DiscordService from '@/services/discord';
-import type { DiscordMessage } from '@/services/discord';
 import OpenAIService from '@/services/openai';
 import YrService from '@/services/yr';
 
-import type { InMemoryConfig, MessageInChain } from '@/types';
+import type { InMemoryConfig } from '@/types';
+
+import { isReplyToRooivalk, isRooivalkThread } from './helpers';
 
 class Rooivalk {
   protected _config: InMemoryConfig;
@@ -54,7 +55,7 @@ class Rooivalk {
    * @param guildId The guild/server ID to match.
    */
   private shouldProcessMessage(
-    message: DiscordMessage,
+    message: Message<boolean>,
     guildId: string,
   ): boolean {
     if (
@@ -76,8 +77,8 @@ class Rooivalk {
     this._openai.reloadConfig(newConfig);
   }
 
-  private async processMessage(
-    message: DiscordMessage,
+  public async processMessage(
+    message: Message<boolean>,
     targetChannel?: ThreadChannel,
   ) {
     try {
@@ -310,52 +311,8 @@ class Rooivalk {
     }
   }
 
-  public async isRooivalkThread(message: DiscordMessage): Promise<boolean> {
-    if (message.channel.isThread()) {
-      const thread = message.channel;
-      // Check if this thread was created by the bot by examining the starter message
-      try {
-        const starterMessage = await thread.fetchStarterMessage();
-        if (starterMessage) {
-          // If the starter message is a reply to the bot, then the bot created this thread
-          const repliedToMessage = starterMessage.reference?.messageId
-            ? await message.channel.messages.fetch(
-                starterMessage.reference.messageId,
-              )
-            : null;
-          if (
-            repliedToMessage &&
-            repliedToMessage.author.id === this._discord.client.user?.id
-          ) {
-            return true;
-          }
-        }
-      } catch (error) {
-        console.error('Error checking thread ownership:', error);
-      }
-    }
-
-    return false;
-  }
-
-  public async isReplyToRooivalk(message: DiscordMessage): Promise<boolean> {
-    if (message.reference?.messageId) {
-      const referencedMessage = await message.channel.messages.fetch(
-        message.reference.messageId,
-      );
-
-      if (
-        referencedMessage &&
-        referencedMessage.author.id === this._discord.client.user?.id
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   public async createRooivalkThread(
-    message: DiscordMessage,
+    message: Message<boolean>,
   ): Promise<ThreadChannel | null> {
     const history = await this._discord.buildMessageChainFromMessage(message);
     const threadName = await this._openai.generateThreadName(
@@ -401,15 +358,21 @@ class Rooivalk {
       const isMentioned = this._discord.mentionRegex
         ? this._discord.mentionRegex.test(message.content)
         : false;
-      const isInRooivalkThread = await this.isRooivalkThread(message);
-      const isReplyToRooivalk = await this.isReplyToRooivalk(message);
+      const isInRooivalkThread = await isRooivalkThread(
+        message,
+        this._discord.client.user?.id,
+      );
+      const isReply = await isReplyToRooivalk(
+        message,
+        this._discord.client.user?.id,
+      );
 
-      if (!isInRooivalkThread && isReplyToRooivalk) {
+      if (!isInRooivalkThread && isReply) {
         // If the message is a reply to Rooivalk, create a thread to continue the discussion
         const thread = await this.createRooivalkThread(message);
         if (thread) {
           // Process the message in the newly created thread
-          await this.processMessage(message as DiscordMessage, thread);
+          await this.processMessage(message, thread);
         }
         return;
       }
@@ -420,7 +383,7 @@ class Rooivalk {
       }
 
       // Process the message (thread messages, replies, and mentions are all processed)
-      await this.processMessage(message as DiscordMessage);
+      await this.processMessage(message);
     });
 
     this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction) =>

@@ -8,12 +8,7 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
 } from 'discord.js';
-import type {
-  Message,
-  OmitPartialGroupDMChannel,
-  TextChannel,
-  ClientEvents,
-} from 'discord.js';
+import type { Message, TextChannel, ClientEvents } from 'discord.js';
 
 import {
   DISCORD_MESSAGE_LIMIT,
@@ -25,9 +20,7 @@ import type {
   MessageInChain,
   OpenAIResponse,
 } from '@/types';
-import { formatMessageInChain } from './helpers';
-
-export type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
+import { formatMessageInChain, parseMessageInChain } from './helpers';
 
 class DiscordService {
   private _discordClient: DiscordClient;
@@ -236,7 +229,7 @@ class DiscordService {
   }
 
   public async getMessageChain(
-    currentMessage: DiscordMessage,
+    currentMessage: Message<boolean>,
   ): Promise<MessageInChain[]> {
     const messageChain: MessageInChain[] = [];
 
@@ -251,23 +244,11 @@ class DiscordService {
 
         // while there are replies in the chain with content / attachments
         while (referencedMessage) {
-          const hasAttachments = referencedMessage.attachments.size > 0;
-          const hasContent = referencedMessage.content.length > 0;
-          const isRooivalkMessage =
-            referencedMessage.author.id === this._discordClient.user?.id;
-
-          if (hasAttachments || hasContent) {
-            // add the referenced message to the chain with attachments
-            tempChain.push({
-              author: isRooivalkMessage
-                ? 'rooivalk'
-                : referencedMessage.author.displayName,
-              content: hasContent ? referencedMessage.content.trim() : '',
-              attachmentUrls: hasAttachments
-                ? referencedMessage.attachments.map((att) => att.url)
-                : [],
-            });
-          }
+          const parsedMessage = parseMessageInChain(
+            referencedMessage,
+            this._discordClient.user?.id,
+          );
+          tempChain.push(parsedMessage);
 
           // if the current referenced message has a reference
           if (
@@ -351,7 +332,7 @@ class DiscordService {
   }
 
   public async buildMessageChainFromMessage(
-    currentMessage: DiscordMessage,
+    currentMessage: Message<boolean>,
   ): Promise<string | null> {
     // get the message chain for the current message
     const messageChain = await this.getMessageChain(currentMessage);
@@ -364,56 +345,49 @@ class DiscordService {
   }
 
   public async buildMessageChainFromThreadMessage(
-    message: DiscordMessage,
+    message: Message<boolean>,
   ): Promise<string | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
       const threadId = thread.id;
 
-      // Return cached content if available
-      if (this._threadMessageCache[threadId]) {
-        return this._threadMessageCache[threadId];
-      }
-
-      // Get initial context that led to thread creation
-      const initialContext = this.getThreadInitialContext(threadId);
-
-      // Fetch and process messages
-      const threadMessages = await thread.messages.fetch();
-      const messageArray = Array.from(threadMessages.values())
-        .reverse() // Discord returns messages in descending order, so reverse for chronological order
-        .map((msg) => ({
-          author:
-            msg.author.id === this._discordClient.user?.id
-              ? 'rooivalk'
-              : msg.author.displayName,
-          content: msg.content,
-        }));
-
-      if (messageArray && messageArray.length) {
-        const chainWithCleanContent = messageArray.map((entry, index) => ({
-          ...entry,
-          content:
-            index === messageArray.length - 1 &&
-            entry.author !== 'rooivalk' &&
-            this._mentionRegex
-              ? entry.content.replace(this._mentionRegex, '').trim()
-              : entry.content,
-        }));
-
-        const threadChain = chainWithCleanContent
-          .map((entry) => `- ${entry.author}: ${entry.content}`)
+      const cachedThreadChain = this._threadMessageCache[threadId];
+      if (!cachedThreadChain) {
+        // Get initial context that led to thread creation
+        const initialContext = this.getThreadInitialContext(threadId);
+        // fetch and format thread messages
+        const threadMessages = await thread.messages.fetch();
+        const messages = Array.from(threadMessages.values());
+        // reverse the order to maintain chronological context
+        const formattedThreadChain = messages
+          .reverse()
+          .map((msg) => {
+            const msgInChain = parseMessageInChain(
+              msg,
+              this._discordClient.user?.id,
+            );
+            return formatMessageInChain(msgInChain);
+          })
           .join('\n');
 
-        // Combine initial context with thread messages
-        const fullChain = initialContext
-          ? `${initialContext}\n${threadChain}`
-          : threadChain;
-
-        // Cache the result
-        this._threadMessageCache[threadId] = fullChain;
-        return fullChain;
+        // set the cache
+        const messageChain = initialContext
+          ? `${initialContext}\n${formattedThreadChain}`
+          : formattedThreadChain;
+        this._threadMessageCache[threadId] = messageChain;
+      } else {
+        // Append current message transformed to cache
+        const currentMessageInChain = parseMessageInChain(
+          message,
+          this._discordClient.user?.id,
+        );
+        const currentMessageFormatted = formatMessageInChain(
+          currentMessageInChain,
+        );
+        this._threadMessageCache[threadId] += `\n${currentMessageFormatted}`;
       }
+
+      return this._threadMessageCache[threadId];
     }
 
     return null;

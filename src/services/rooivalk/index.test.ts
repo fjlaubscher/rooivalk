@@ -8,6 +8,7 @@ import {
   beforeAll,
   afterAll,
 } from 'vitest';
+import type { Message } from 'discord.js';
 import { silenceConsole } from '@/test-utils/consoleMocks';
 
 let restoreConsole: () => void;
@@ -23,7 +24,6 @@ afterAll(() => {
   restoreConsole();
 });
 
-import type { DiscordMessage } from '@/services/discord';
 import type { ChatInputCommandInteraction, ThreadChannel } from 'discord.js';
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
@@ -99,7 +99,7 @@ describe('Rooivalk', () => {
       it('should pass history to OpenAI if available', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           '- User: Hi!\n- Rooivalk: Hello!',
         );
@@ -186,7 +186,7 @@ describe('Rooivalk', () => {
       it('should use message content if no history is available', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hello bot!`,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
 
@@ -204,7 +204,7 @@ describe('Rooivalk', () => {
       it('should reply with error message if OpenAI response is null', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
@@ -216,7 +216,7 @@ describe('Rooivalk', () => {
       it('should reply with error message and error details if OpenAI throws', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockRejectedValue(
           new Error('OpenAI error!'),
@@ -370,7 +370,7 @@ describe('Rooivalk', () => {
             isThread: vi.fn().mockReturnValue(true),
             send: vi.fn(),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
           'thread conversation history',
@@ -403,7 +403,7 @@ describe('Rooivalk', () => {
             isThread: vi.fn().mockReturnValue(true),
             send: vi.fn(),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
           null,
@@ -412,9 +412,9 @@ describe('Rooivalk', () => {
           content: 'Response',
         });
 
-        await (rooivalk as any).processMessage(threadMessage);
+        await rooivalk.processMessage(threadMessage);
 
-        expect(threadMessage.channel.send).toHaveBeenCalled();
+        expect((threadMessage.channel as any).send).toHaveBeenCalled();
         expect(threadMessage.reply).not.toHaveBeenCalled();
       });
     });
@@ -426,7 +426,7 @@ describe('Rooivalk', () => {
           channel: {
             isThread: vi.fn().mockReturnValue(false),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           'message chain history',
@@ -435,7 +435,7 @@ describe('Rooivalk', () => {
           content: 'Response',
         });
 
-        await (rooivalk as any).processMessage(regularMessage);
+        await rooivalk.processMessage(regularMessage);
 
         expect(
           mockDiscordService.buildMessageChainFromMessage,
@@ -459,7 +459,7 @@ describe('Rooivalk', () => {
             isThread: vi.fn().mockReturnValue(false),
             send: vi.fn(),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockDiscordService.buildMessageReply.mockReturnValue({
@@ -469,7 +469,7 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(regularMessage);
 
         expect(regularMessage.reply).toHaveBeenCalled();
-        expect(regularMessage.channel.send).not.toHaveBeenCalled();
+        expect((regularMessage.channel as any).send).not.toHaveBeenCalled();
       });
     });
 
@@ -486,7 +486,7 @@ describe('Rooivalk', () => {
             isThread: vi.fn().mockReturnValue(false),
             send: vi.fn(),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           'conversation history',
@@ -503,7 +503,7 @@ describe('Rooivalk', () => {
           content: 'Thread response',
         });
         expect(replyMessage.reply).not.toHaveBeenCalled();
-        expect(replyMessage.channel.send).not.toHaveBeenCalled();
+        expect((replyMessage.channel as any).send).not.toHaveBeenCalled();
       });
 
       it('should handle errors and send to thread when targetChannel is provided', async () => {
@@ -518,7 +518,7 @@ describe('Rooivalk', () => {
             isThread: vi.fn().mockReturnValue(false),
             send: vi.fn(),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         mockOpenAIClient.createResponse.mockRejectedValue(
           new Error('OpenAI API error'),
@@ -534,7 +534,7 @@ describe('Rooivalk', () => {
           'Error occurred\n```OpenAI API error```',
         );
         expect(replyMessage.reply).not.toHaveBeenCalled();
-        expect(replyMessage.channel.send).not.toHaveBeenCalled();
+        expect((replyMessage.channel as any).send).not.toHaveBeenCalled();
       });
     });
 
@@ -551,7 +551,7 @@ describe('Rooivalk', () => {
           content: 'Follow-up question',
           author: { id: 'user-123' },
           startThread: vi.fn().mockResolvedValue(mockThread),
-        } as unknown as Partial<DiscordMessage>);
+        } as unknown as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           mockHistory,
@@ -587,7 +587,7 @@ describe('Rooivalk', () => {
           content: 'First message',
           author: { id: 'user-456' },
           startThread: vi.fn().mockResolvedValue(mockThread),
-        } as unknown as Partial<DiscordMessage>);
+        } as unknown as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.generateThreadName.mockResolvedValue('New Discussion');
@@ -610,7 +610,7 @@ describe('Rooivalk', () => {
           startThread: vi
             .fn()
             .mockRejectedValue(new Error('Thread creation failed')),
-        } as unknown as Partial<DiscordMessage>);
+        } as unknown as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           'some history',
@@ -637,7 +637,7 @@ describe('Rooivalk', () => {
           content: 'Question about something',
           author: { id: 'user-789' },
           startThread: vi.fn().mockResolvedValue(mockThread),
-        } as unknown as Partial<DiscordMessage>);
+        } as unknown as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.generateThreadName.mockResolvedValue(

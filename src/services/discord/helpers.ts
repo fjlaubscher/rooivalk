@@ -1,4 +1,23 @@
+import type { Message } from 'discord.js';
 import type { MessageInChain } from '@/types';
+
+export const parseMessageInChain = (
+  message: Message<boolean>,
+  discordClientId: string | undefined,
+): MessageInChain => {
+  const hasAttachments = message.attachments.size > 0;
+  const trimmedContent = message.content.trim();
+  const hasContent = trimmedContent.length > 0;
+  const isRooivalkMessage = message.author.id === discordClientId;
+
+  return {
+    author: isRooivalkMessage ? 'rooivalk' : message.author.displayName,
+    content: hasContent ? trimmedContent : '',
+    attachmentUrls: hasAttachments
+      ? message.attachments.map((attachment) => attachment.url)
+      : [],
+  };
+};
 
 export const formatMessageInChain = (message: MessageInChain): string => {
   let entry = `- ${message.author}: ${message.content}`;

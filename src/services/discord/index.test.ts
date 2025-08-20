@@ -8,7 +8,8 @@ import {
   afterAll,
 } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { Client as DiscordClient, TextChannel } from 'discord.js';
+import { Collection, Client as DiscordClient, TextChannel } from 'discord.js';
+import type { Message } from 'discord.js';
 
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG } from '@/test-utils/mock';
@@ -16,7 +17,6 @@ import type { ResponseType } from '@/types';
 import { silenceConsole } from '@/test-utils/consoleMocks';
 
 import DiscordService from '.';
-import type { DiscordMessage } from '.';
 
 vi.mock('discord.js', async (importOriginal) => {
   const actual = await importOriginal();
@@ -159,7 +159,7 @@ describe('DiscordService', () => {
       it('should build prompt from message chain', async () => {
         const msg = createMockMessage({
           reference: { messageId: '123' },
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         vi.spyOn(msg.channel.messages, 'fetch').mockResolvedValue({
           author: { id: BOT_ID },
@@ -202,6 +202,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Third message',
+              attachments: new Collection<string, string>(),
             },
           ],
           [
@@ -209,6 +210,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Second message',
+              attachments: new Collection<string, string>(),
             },
           ],
           [
@@ -216,6 +218,7 @@ describe('DiscordService', () => {
             {
               author: { id: BOT_ID, displayName: 'Bot' },
               content: 'First message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -231,7 +234,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         service.mentionRegex = /<@test-bot-id>/g;
         const prompt = await service.buildMessageChainFromThreadMessage(msg);
@@ -242,49 +245,12 @@ describe('DiscordService', () => {
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
 
-      it('should clean mention from last user message', async () => {
-        const mockThreadMessages = new Map([
-          [
-            '2',
-            {
-              author: { id: 'user-id', displayName: 'User' },
-              content: '<@test-bot-id> Hello bot!',
-            },
-          ],
-          [
-            '1',
-            {
-              author: { id: BOT_ID, displayName: 'Bot' },
-              content: 'Bot message',
-            },
-          ],
-        ]);
-
-        const mockThread = {
-          messages: {
-            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
-          },
-        };
-
-        const msg = createMockMessage({
-          channel: {
-            isThread: vi.fn().mockReturnValue(true),
-            ...mockThread,
-          } as any,
-        } as Partial<DiscordMessage>);
-
-        service.mentionRegex = /<@test-bot-id>/g;
-        const prompt = await service.buildMessageChainFromThreadMessage(msg);
-
-        expect(prompt).toBe('- rooivalk: Bot message\n- User: Hello bot!');
-      });
-
       it('should return null when not in a thread', async () => {
         const msg = createMockMessage({
           channel: {
             isThread: vi.fn().mockReturnValue(false),
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         const prompt = await service.buildMessageChainFromThreadMessage(msg);
         expect(prompt).toBeNull();
@@ -302,7 +268,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         const prompt = await service.buildMessageChainFromThreadMessage(msg);
         expect(prompt).toBeNull();
@@ -320,7 +286,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         // Should not throw, but will likely return null or handle gracefully
         await expect(
@@ -338,6 +304,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Thread message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -357,7 +324,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
@@ -375,6 +342,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Thread message only',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -391,7 +359,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
@@ -409,6 +377,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Cached thread message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -427,7 +396,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         // First call should fetch and cache
         const result1 = await service.buildMessageChainFromThreadMessage(msg);
@@ -489,6 +458,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Hello in thread',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -505,7 +475,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         // First call should fetch from API
         const result1 = await service.buildMessageChainFromThreadMessage(msg);
@@ -525,6 +495,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Thread 1 message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -535,6 +506,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Thread 2 message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -558,14 +530,14 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread1,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         const msg2 = createMockMessage({
           channel: {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread2,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         // Cache both threads
         const result1 = await service.buildMessageChainFromThreadMessage(msg1);
@@ -584,6 +556,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Hello in thread',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -600,7 +573,7 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         // First call caches the result
         await service.buildMessageChainFromThreadMessage(msg);
@@ -621,6 +594,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Thread 1 message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -631,6 +605,7 @@ describe('DiscordService', () => {
             {
               author: { id: 'user-id', displayName: 'User' },
               content: 'Thread 2 message',
+              attachments: new Collection<string, string>(),
             },
           ],
         ]);
@@ -654,14 +629,14 @@ describe('DiscordService', () => {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread1,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         const msg2 = createMockMessage({
           channel: {
             isThread: vi.fn().mockReturnValue(true),
             ...mockThread2,
           } as any,
-        } as Partial<DiscordMessage>);
+        } as Partial<Message<boolean>>);
 
         // Cache both threads
         await service.buildMessageChainFromThreadMessage(msg1);
