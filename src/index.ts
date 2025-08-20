@@ -11,7 +11,7 @@ async function main() {
   const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
   if (missingEnv.length) {
     console.error(
-      `Missing required environment variables: ${missingEnv.join(', ')}`
+      `Missing required environment variables: ${missingEnv.join(', ')}`,
     );
     process.exit(1);
   }
@@ -30,7 +30,7 @@ async function main() {
     }
   });
 
-  await rooivalk.init(); // Await the init method
+  await rooivalk.init();
 
   const cron = new Cron(rooivalk);
   const motdExpr = process.env.ROOIVALK_MOTD_CRON || DEFAULT_CRON;

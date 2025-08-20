@@ -7,6 +7,7 @@ const tsconfigPath = path.resolve(__dirname, 'tsconfig.json');
 const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8'));
 const paths = tsconfig.compilerOptions?.paths || {};
 const aliasMap: { aliasPrefix: string; targetPrefix: string }[] = [];
+
 for (const [aliasPattern, targets] of Object.entries(paths)) {
   const targetArr = targets as string[];
   if (aliasPattern.endsWith('/*') && targetArr[0].endsWith('/*')) {

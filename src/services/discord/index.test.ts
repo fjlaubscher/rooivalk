@@ -81,10 +81,10 @@ describe('DiscordService', () => {
         expect(typeof service.getRooivalkResponse('greeting')).toBe('string');
         expect(typeof service.getRooivalkResponse('error')).toBe('string');
         expect(typeof service.getRooivalkResponse('discordLimit')).toBe(
-          'string'
+          'string',
         );
         expect(() =>
-          service.getRooivalkResponse('not-a-type' as ResponseType)
+          service.getRooivalkResponse('not-a-type' as ResponseType),
         ).toThrow();
       });
     });
@@ -237,7 +237,7 @@ describe('DiscordService', () => {
         const prompt = await service.buildMessageChainFromThreadMessage(msg);
 
         expect(prompt).toBe(
-          '- rooivalk: First message\n- User: Second message\n- User: Third message'
+          '- rooivalk: First message\n- User: Second message\n- User: Third message',
         );
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
@@ -324,7 +324,7 @@ describe('DiscordService', () => {
 
         // Should not throw, but will likely return null or handle gracefully
         await expect(
-          service.buildMessageChainFromThreadMessage(msg)
+          service.buildMessageChainFromThreadMessage(msg),
         ).rejects.toThrow('Fetch failed');
       });
 
@@ -362,7 +362,7 @@ describe('DiscordService', () => {
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
         expect(result).toBe(
-          '- user: Initial message\n- rooivalk: Initial response\n- User: Thread message'
+          '- user: Initial message\n- rooivalk: Initial response\n- User: Thread message',
         );
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
@@ -438,7 +438,7 @@ describe('DiscordService', () => {
         expect(mockThread.messages.fetch).toHaveBeenCalledTimes(1); // Not called again
         expect(result1).toBe(result2);
         expect(result1).toBe(
-          '- user: Cached initial\n- rooivalk: Cached response\n- User: Cached thread message'
+          '- user: Cached initial\n- rooivalk: Cached response\n- User: Cached thread message',
         );
       });
     });

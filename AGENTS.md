@@ -20,7 +20,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
-- `src/test-utils/` – Shared test utilities
+- `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
 - `config/` – Hot-swappable markdown configs (instructions, greetings, errors, etc.)
@@ -74,7 +74,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Modify thread behavior       | `services/rooivalk/index.ts`             | Update thread detection/creation logic      |
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
 | Update message history       | `services/discord/index.ts`              | Modify `buildMessageChainFrom*` methods; use `setThreadInitialContext()` for thread context preservation |
-| Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts`       |
+| Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts` and `test-utils/mock.ts` |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 
 ---

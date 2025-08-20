@@ -31,7 +31,7 @@ class Rooivalk {
     config: InMemoryConfig,
     discordService?: DiscordService,
     openaiService?: OpenAIService,
-    yrService?: YrService
+    yrService?: YrService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -55,7 +55,7 @@ class Rooivalk {
    */
   private shouldProcessMessage(
     message: DiscordMessage,
-    guildId: string
+    guildId: string,
   ): boolean {
     if (
       (message.author.bot &&
@@ -78,7 +78,7 @@ class Rooivalk {
 
   private async processMessage(
     message: DiscordMessage,
-    targetChannel?: ThreadChannel
+    targetChannel?: ThreadChannel,
   ) {
     try {
       let prompt = message.content
@@ -96,7 +96,7 @@ class Rooivalk {
       }
 
       const usersToMention = message.mentions.users.filter(
-        (user) => user.id !== this._discord.client.user?.id
+        (user) => user.id !== this._discord.client.user?.id,
       );
 
       // filter attachments to only those with allowed content types
@@ -104,7 +104,7 @@ class Rooivalk {
         .filter((attachment) =>
           attachment.contentType
             ? ALLOWED_ATTACHMENT_CONTENT_TYPES.includes(attachment.contentType)
-            : false
+            : false,
         )
         .map((attachment) => attachment.url);
 
@@ -114,13 +114,13 @@ class Rooivalk {
         prompt,
         this._discord.allowedEmojis,
         conversationHistory,
-        attachmentUrls.length > 0 ? attachmentUrls : null
+        attachmentUrls.length > 0 ? attachmentUrls : null,
       );
 
       if (response) {
         const reply = this._discord.buildMessageReply(
           response,
-          usersToMention.map((user) => user.id)
+          usersToMention.map((user) => user.id),
         );
         if (targetChannel) {
           await targetChannel.send(reply);
@@ -172,7 +172,7 @@ class Rooivalk {
     // replace placeholders with JSON for the prompt
     motd = motd.replace(
       /{{WEATHER_FORECASTS_JSON}}/,
-      JSON.stringify(forecasts || [])
+      JSON.stringify(forecasts || []),
     );
     motd = motd.replace(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
@@ -192,7 +192,7 @@ class Rooivalk {
 
   public async sendMessageToChannel(
     channelId: string | undefined,
-    prompt: string
+    prompt: string,
   ) {
     if (!channelId) {
       console.error(`Channel ID not set`);
@@ -204,7 +204,7 @@ class Rooivalk {
         'rooivalk',
         prompt,
         this._discord.allowedEmojis,
-        undefined
+        undefined,
       );
 
       const channel = await this._discord.client.channels.fetch(channelId);
@@ -223,7 +223,7 @@ class Rooivalk {
   }
 
   private async handleImageCommand(
-    interaction: ChatInputCommandInteraction
+    interaction: ChatInputCommandInteraction,
   ): Promise<void> {
     const prompt = interaction.options.getString('prompt', true);
     await interaction.deferReply();
@@ -262,7 +262,7 @@ class Rooivalk {
   }
 
   public async handleWeatherCommand(
-    interaction: ChatInputCommandInteraction
+    interaction: ChatInputCommandInteraction,
   ): Promise<void> {
     const city = interaction.options.getString('city', true);
     await interaction.deferReply();
@@ -293,7 +293,7 @@ class Rooivalk {
         const response = await this._openai.createResponse(
           interaction.user.displayName,
           prompt,
-          this._discord.allowedEmojis
+          this._discord.allowedEmojis,
         );
         await interaction.editReply({
           content: response.content,
@@ -320,7 +320,7 @@ class Rooivalk {
           // If the starter message is a reply to the bot, then the bot created this thread
           const repliedToMessage = starterMessage.reference?.messageId
             ? await message.channel.messages.fetch(
-                starterMessage.reference.messageId
+                starterMessage.reference.messageId,
               )
             : null;
           if (
@@ -341,7 +341,7 @@ class Rooivalk {
   public async isReplyToRooivalk(message: DiscordMessage): Promise<boolean> {
     if (message.reference?.messageId) {
       const referencedMessage = await message.channel.messages.fetch(
-        message.reference.messageId
+        message.reference.messageId,
       );
 
       if (
@@ -355,11 +355,11 @@ class Rooivalk {
   }
 
   public async createRooivalkThread(
-    message: DiscordMessage
+    message: DiscordMessage,
   ): Promise<ThreadChannel | null> {
     const history = await this._discord.buildMessageChainFromMessage(message);
     const threadName = await this._openai.generateThreadName(
-      history ?? message.content.trim()
+      history ?? message.content.trim(),
     );
     const thread = await message.startThread({
       name: threadName,
@@ -376,7 +376,7 @@ class Rooivalk {
   }
 
   public async processMessageReaction(
-    reaction: MessageReaction | PartialMessageReaction
+    reaction: MessageReaction | PartialMessageReaction,
   ) {
     // Ignore reactions from:
     // 1. Other bots
@@ -388,7 +388,7 @@ class Rooivalk {
 
   public async init(): Promise<void> {
     const ready = new Promise<Client<boolean>>((res) =>
-      this._discord.once(DiscordEvents.ClientReady, (client) => res(client))
+      this._discord.once(DiscordEvents.ClientReady, (client) => res(client)),
     );
 
     await this._discord.registerSlashCommands();
@@ -424,7 +424,7 @@ class Rooivalk {
     });
 
     this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction) =>
-      this.processMessageReaction(reaction)
+      this.processMessageReaction(reaction),
     );
 
     this._discord.on(
@@ -441,7 +441,7 @@ class Rooivalk {
             break;
           default:
             console.error(
-              `Invalid command received: ${interaction.commandName}`
+              `Invalid command received: ${interaction.commandName}`,
             );
             await interaction.reply({
               content: `❌ Invalid command: \`${interaction.commandName}\`. Please use a valid command.`,
@@ -449,7 +449,7 @@ class Rooivalk {
             });
             return;
         }
-      }
+      },
     );
 
     // finally log in after all event handlers have been set up

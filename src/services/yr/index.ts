@@ -29,12 +29,12 @@ class YrService {
 
   private parseYrResponse(
     location: ValidLocation,
-    response: YrResponse
+    response: YrResponse,
   ): WeatherForecast {
     const todayIso = new Date().toISOString().split('T')[0];
 
     const today = response.properties.timeseries.filter((entry) =>
-      entry.time.startsWith(todayIso!)
+      entry.time.startsWith(todayIso!),
     );
 
     if (today.length === 0) {
@@ -44,15 +44,15 @@ class YrService {
     const temps = today.map((r) => r.data.instant.details.air_temperature);
     const windSpeeds = today.map((r) => r.data.instant.details.wind_speed);
     const humidities = today.map(
-      (r) => r.data.instant.details.relative_humidity
+      (r) => r.data.instant.details.relative_humidity,
     );
     const windDirs = today.map(
-      (r) => r.data.instant.details.wind_from_direction
+      (r) => r.data.instant.details.wind_from_direction,
     );
     const totalPrecipitation = today.reduce(
       (acc, curr) =>
         acc + (curr.data.next_1_hours?.details?.precipitation_amount ?? 0),
-      0
+      0,
     );
 
     const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -70,7 +70,7 @@ class YrService {
   }
 
   public async getForecastByLocation(
-    location: ValidLocation
+    location: ValidLocation,
   ): Promise<WeatherForecast | null> {
     const coordinates = YR_COORDINATES[location];
     if (!coordinates) {
@@ -95,8 +95,8 @@ class YrService {
   public async getAllForecasts() {
     const forecasts = await Promise.all(
       Object.keys(YR_COORDINATES).map((key) =>
-        this.getForecastByLocation(key as keyof typeof YR_COORDINATES)
-      )
+        this.getForecastByLocation(key as keyof typeof YR_COORDINATES),
+      ),
     );
 
     return forecasts.filter((forecast) => forecast !== null);

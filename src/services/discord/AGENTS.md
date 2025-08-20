@@ -46,7 +46,12 @@ The DiscordService handles Discord API integration, event listening, message rou
 
 - Unit tests in `index.test.ts`
 - Use `test-utils/createMockMessage.ts` for Discord message mocking
+- Use `test-utils/mock.ts` for common environment and config mocks
 - Mock Discord.js Client and related objects as needed
+
+## Helper Functions
+
+- `formatMessageInChain` (in `helpers.ts`) - Formats messages with attachments for conversation chains
 
 ## Dependencies
 

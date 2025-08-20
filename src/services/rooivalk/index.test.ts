@@ -101,11 +101,11 @@ describe('Rooivalk', () => {
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<DiscordMessage>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          '- User: Hi!\n- Rooivalk: Hello!'
+          '- User: Hi!\n- Rooivalk: Hello!',
         );
         await (rooivalk as any).processMessage(userMessage);
         expect(
-          mockDiscordService.buildMessageChainFromMessage
+          mockDiscordService.buildMessageChainFromMessage,
         ).toHaveBeenCalledWith(userMessage);
 
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
@@ -113,7 +113,7 @@ describe('Rooivalk', () => {
           'Hi!',
           [],
           '- User: Hi!\n- Rooivalk: Hello!',
-          null
+          null,
         );
       });
     });
@@ -130,7 +130,7 @@ describe('Rooivalk', () => {
         const testRooivalk = new Rooivalk(
           MOCK_CONFIG,
           mockDiscordService,
-          mockOpenAIClient
+          mockOpenAIClient,
         );
 
         const msg = Object.assign(createMockMessage(), {
@@ -161,7 +161,7 @@ describe('Rooivalk', () => {
         const testRooivalk = new Rooivalk(
           MOCK_CONFIG,
           mockDiscordService,
-          mockOpenAIClient
+          mockOpenAIClient,
         );
 
         const msg = Object.assign(createMockMessage(), {
@@ -195,7 +195,7 @@ describe('Rooivalk', () => {
           'Hello bot!',
           [],
           null,
-          null
+          null,
         );
       });
     });
@@ -219,11 +219,11 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.createResponse.mockRejectedValue(
-          new Error('OpenAI error!')
+          new Error('OpenAI error!'),
         );
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith(
-          expect.stringContaining('OpenAI error!')
+          expect.stringContaining('OpenAI error!'),
         );
       });
     });
@@ -248,7 +248,7 @@ describe('Rooivalk', () => {
         });
         await rooivalk.sendMessageToChannel(
           'startup-channel-id',
-          'Hello startup!'
+          'Hello startup!',
         );
         expect(mockChannel.send).toHaveBeenCalled();
       });
@@ -262,7 +262,7 @@ describe('Rooivalk', () => {
         });
         const result = await rooivalk.sendMessageToChannel(
           'startup-channel-id',
-          'Hello startup!'
+          'Hello startup!',
         );
         expect(result).toBeNull();
       });
@@ -281,7 +281,7 @@ describe('Rooivalk', () => {
         });
         const result = await rooivalk.sendMessageToChannel(
           'startup-channel-id',
-          'Hello startup!'
+          'Hello startup!',
         );
         expect(result).toBeNull();
       });
@@ -320,7 +320,9 @@ describe('Rooivalk', () => {
 
       await (rooivalk as any).handleImageCommand(interaction);
       expect(interaction.editReply).toHaveBeenCalledWith(
-        expect.objectContaining({ content: expect.stringContaining('blocked') })
+        expect.objectContaining({
+          content: expect.stringContaining('blocked'),
+        }),
       );
     });
 
@@ -345,7 +347,7 @@ describe('Rooivalk', () => {
         (event: string, cb: () => void) => {
           if (event === 'ready') cb();
           return mockDiscordService;
-        }
+        },
       );
 
       await rooivalk.init();
@@ -371,7 +373,7 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
-          'thread conversation history'
+          'thread conversation history',
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
@@ -380,17 +382,17 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(threadMessage);
 
         expect(
-          mockDiscordService.buildMessageChainFromThreadMessage
+          mockDiscordService.buildMessageChainFromThreadMessage,
         ).toHaveBeenCalledWith(threadMessage);
         expect(
-          mockDiscordService.buildMessageChainFromMessage
+          mockDiscordService.buildMessageChainFromMessage,
         ).not.toHaveBeenCalled();
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'TestUser',
           'Hello in thread',
           [],
           'thread conversation history',
-          null
+          null,
         );
       });
 
@@ -404,7 +406,7 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
-          null
+          null,
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
@@ -427,7 +429,7 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          'message chain history'
+          'message chain history',
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
@@ -436,17 +438,17 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(regularMessage);
 
         expect(
-          mockDiscordService.buildMessageChainFromMessage
+          mockDiscordService.buildMessageChainFromMessage,
         ).toHaveBeenCalledWith(regularMessage);
         expect(
-          mockDiscordService.buildMessageChainFromThreadMessage
+          mockDiscordService.buildMessageChainFromThreadMessage,
         ).not.toHaveBeenCalled();
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
           'TestUser',
           'Hello outside thread',
           [],
           'message chain history',
-          null
+          null,
         );
       });
 
@@ -487,7 +489,7 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          'conversation history'
+          'conversation history',
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Thread response',
@@ -519,17 +521,17 @@ describe('Rooivalk', () => {
         } as Partial<DiscordMessage>);
 
         mockOpenAIClient.createResponse.mockRejectedValue(
-          new Error('OpenAI API error')
+          new Error('OpenAI API error'),
         );
         mockDiscordService.getRooivalkResponse.mockReturnValue(
-          'Error occurred'
+          'Error occurred',
         );
 
         await (rooivalk as any).processMessage(replyMessage, mockThread);
 
         // Should send error to the thread, not reply to original message
         expect(mockThread.send).toHaveBeenCalledWith(
-          'Error occurred\n```OpenAI API error```'
+          'Error occurred\n```OpenAI API error```',
         );
         expect(replyMessage.reply).not.toHaveBeenCalled();
         expect(replyMessage.channel.send).not.toHaveBeenCalled();
@@ -549,20 +551,20 @@ describe('Rooivalk', () => {
           content: 'Follow-up question',
           author: { id: 'user-123' },
           startThread: vi.fn().mockResolvedValue(mockThread),
-        } as Partial<DiscordMessage>);
+        } as unknown as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          mockHistory
+          mockHistory,
         );
         mockOpenAIClient.generateThreadName.mockResolvedValue(
-          'Discussion Thread'
+          'Discussion Thread',
         );
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
 
         expect(result).toBe(mockThread);
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
-          mockHistory
+          mockHistory,
         );
         expect(replyMessage.startThread).toHaveBeenCalledWith({
           name: 'Discussion Thread',
@@ -571,7 +573,7 @@ describe('Rooivalk', () => {
         expect(mockThread.members.add).toHaveBeenCalledWith('user-123');
         expect(mockDiscordService.setThreadInitialContext).toHaveBeenCalledWith(
           'new-thread-123',
-          mockHistory
+          mockHistory,
         );
       });
 
@@ -585,7 +587,7 @@ describe('Rooivalk', () => {
           content: 'First message',
           author: { id: 'user-456' },
           startThread: vi.fn().mockResolvedValue(mockThread),
-        } as Partial<DiscordMessage>);
+        } as unknown as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.generateThreadName.mockResolvedValue('New Discussion');
@@ -594,10 +596,10 @@ describe('Rooivalk', () => {
 
         expect(result).toBe(mockThread);
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
-          'First message'
+          'First message',
         );
         expect(
-          mockDiscordService.setThreadInitialContext
+          mockDiscordService.setThreadInitialContext,
         ).not.toHaveBeenCalled();
       });
 
@@ -608,20 +610,20 @@ describe('Rooivalk', () => {
           startThread: vi
             .fn()
             .mockRejectedValue(new Error('Thread creation failed')),
-        } as Partial<DiscordMessage>);
+        } as unknown as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          'some history'
+          'some history',
         );
         mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Name');
 
         await expect(
-          rooivalk.createRooivalkThread(replyMessage)
+          rooivalk.createRooivalkThread(replyMessage),
         ).rejects.toThrow('Thread creation failed');
 
         // Should not try to store context if thread creation failed
         expect(
-          mockDiscordService.setThreadInitialContext
+          mockDiscordService.setThreadInitialContext,
         ).not.toHaveBeenCalled();
       });
 
@@ -635,18 +637,18 @@ describe('Rooivalk', () => {
           content: 'Question about something',
           author: { id: 'user-789' },
           startThread: vi.fn().mockResolvedValue(mockThread),
-        } as Partial<DiscordMessage>);
+        } as unknown as Partial<DiscordMessage>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockOpenAIClient.generateThreadName.mockResolvedValue(
-          'Generated Thread Name'
+          'Generated Thread Name',
         );
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
 
         expect(result).toBe(mockThread);
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
-          'Question about something'
+          'Question about something',
         );
       });
     });

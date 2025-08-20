@@ -31,7 +31,7 @@ export const loadMessageList = async (filename: string): Promise<string[]> => {
       .filter(Boolean);
   } catch (err) {
     throw new Error(
-      `[config/loader] Failed to load message list from ${filename}: ${(err as Error).message}`
+      `[config/loader] Failed to load message list from ${filename}: ${(err as Error).message}`,
     );
   }
 };
@@ -48,7 +48,7 @@ export const loadInstructions = async (filename: string): Promise<string> => {
     return content.replace(/^#.*\n/, '').trim();
   } catch (err) {
     throw new Error(
-      `[config/loader] Failed to load instructions from ${filename}: ${(err as Error).message}`
+      `[config/loader] Failed to load instructions from ${filename}: ${(err as Error).message}`,
     );
   }
 };

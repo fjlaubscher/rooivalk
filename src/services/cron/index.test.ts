@@ -16,12 +16,12 @@ describe('Cron', () => {
     const cronService = new Cron(rooivalk);
 
     cronService.schedule(process.env.ROOIVALK_MOTD_CRON, () =>
-      rooivalk.sendMotdToStartupChannel()
+      rooivalk.sendMotdToStartupChannel(),
     );
 
     expect(cron.schedule).toHaveBeenCalledWith(
       '*/5 * * * *',
-      expect.any(Function)
+      expect.any(Function),
     );
   });
 
@@ -31,12 +31,12 @@ describe('Cron', () => {
     const cronService = new Cron(rooivalk);
 
     cronService.schedule(DEFAULT_CRON, () =>
-      rooivalk.sendMotdToStartupChannel()
+      rooivalk.sendMotdToStartupChannel(),
     );
 
     expect(cron.schedule).toHaveBeenCalledWith(
       '0 8 * * *',
-      expect.any(Function)
+      expect.any(Function),
     );
   });
 });

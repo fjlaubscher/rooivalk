@@ -75,10 +75,10 @@ describe('OpenAIService', () => {
 
     it('throws OpenAI error message', async () => {
       responsesCreateMock.mockRejectedValueOnce(
-        new (OpenAI as any).OpenAIError('bad')
+        new (OpenAI as any).OpenAIError('bad'),
       );
       await expect(service.createResponse('test user', 'hi')).rejects.toThrow(
-        'bad'
+        'bad',
       );
       expect(errorSpy).toHaveBeenCalled();
     });
@@ -86,7 +86,7 @@ describe('OpenAIService', () => {
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
       await expect(service.createResponse('test user', 'hi')).rejects.toThrow(
-        'Error creating chat completion'
+        'Error creating chat completion',
       );
     });
   });
@@ -99,7 +99,7 @@ describe('OpenAIService', () => {
 
     it('throws OpenAI error message', async () => {
       imagesGenerateMock.mockRejectedValueOnce(
-        new (OpenAI as any).OpenAIError('img fail')
+        new (OpenAI as any).OpenAIError('img fail'),
       );
       await expect(service.createImage('cat')).rejects.toThrow('img fail');
     });
@@ -107,7 +107,7 @@ describe('OpenAIService', () => {
     it('throws generic error', async () => {
       imagesGenerateMock.mockRejectedValueOnce(new Error('fail'));
       await expect(service.createImage('cat')).rejects.toThrow(
-        'Error creating image'
+        'Error creating image',
       );
     });
   });
@@ -124,7 +124,7 @@ describe('OpenAIService', () => {
 
     it('throws OpenAI error message', async () => {
       responsesCreateMock.mockRejectedValueOnce(
-        new (OpenAI as any).OpenAIError('bad')
+        new (OpenAI as any).OpenAIError('bad'),
       );
       await expect(service.generateThreadName('prompt')).rejects.toThrow('bad');
     });
@@ -132,7 +132,7 @@ describe('OpenAIService', () => {
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
       await expect(service.generateThreadName('prompt')).rejects.toThrow(
-        'Error creating thread name'
+        'Error creating thread name',
       );
     });
   });

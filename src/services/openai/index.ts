@@ -36,7 +36,7 @@ class OpenAIService {
     prompt: string,
     emojis: string[] = [],
     history: string | null = null,
-    attachmentUrls: string[] | null = null
+    attachmentUrls: string[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
       let instructions = this._config.instructions;

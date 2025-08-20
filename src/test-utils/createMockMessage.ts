@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import type { DiscordMessage } from '@/services/discord';
 
 export function createMockMessage(
-  overrides: Partial<DiscordMessage> = {}
+  overrides: Partial<DiscordMessage> = {},
 ): DiscordMessage {
   const users = {
     filter: (fn: any) => [],

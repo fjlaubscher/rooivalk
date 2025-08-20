@@ -107,11 +107,11 @@ class DiscordService {
     if (this._startupChannelId) {
       try {
         const channel = await this._discordClient.channels.fetch(
-          this._startupChannelId
+          this._startupChannelId,
         );
         if (channel && channel.isTextBased()) {
           await (channel as TextChannel).send(
-            this.getRooivalkResponse('greeting')
+            this.getRooivalkResponse('greeting'),
           );
         }
       } catch (err) {
@@ -122,7 +122,7 @@ class DiscordService {
 
   public buildMessageReply(
     response: OpenAIResponse,
-    allowedMentions: string[] = []
+    allowedMentions: string[] = [],
   ) {
     const exceedsDiscordLimit = response.content.length > DISCORD_MESSAGE_LIMIT;
 
@@ -132,7 +132,7 @@ class DiscordService {
         Buffer.from(response.content, 'utf-8'),
         {
           name: 'rooivalk.md',
-        }
+        },
       );
 
       return {
@@ -163,7 +163,7 @@ class DiscordService {
           (base64Image, index) =>
             new AttachmentBuilder(Buffer.from(base64Image, 'base64'), {
               name: `rooivalk_${index}.jpeg`,
-            })
+            }),
         ),
         embeds: response.base64Images.map(
           (_, index) =>
@@ -171,7 +171,7 @@ class DiscordService {
               image: {
                 url: `attachment://rooivalk_${index}.jpeg`,
               },
-            })
+            }),
         ),
       };
     }
@@ -202,11 +202,11 @@ class DiscordService {
 
   public async getGuildEventsBetween(
     start: Date,
-    end: Date
+    end: Date,
   ): Promise<{ name: string; date: Date }[]> {
     try {
       const guild = await this._discordClient.guilds.fetch(
-        process.env.DISCORD_GUILD_ID!
+        process.env.DISCORD_GUILD_ID!,
       );
       const events = await guild.scheduledEvents.fetch();
       return Array.from(events.values())
@@ -224,11 +224,11 @@ class DiscordService {
   public async cacheGuildEmojis() {
     try {
       const guild = await this._discordClient.guilds.fetch(
-        process.env.DISCORD_GUILD_ID!
+        process.env.DISCORD_GUILD_ID!,
       );
       const emojis = await guild.emojis.fetch();
       this._allowedEmojis = emojis.map(
-        (emoji) => `:${emoji.name}: → ${emoji.toString()}`
+        (emoji) => `:${emoji.name}: → ${emoji.toString()}`,
       );
     } catch (error) {
       console.error('Error caching guild emojis:', error);
@@ -236,7 +236,7 @@ class DiscordService {
   }
 
   public async getMessageChain(
-    currentMessage: DiscordMessage
+    currentMessage: DiscordMessage,
   ): Promise<MessageInChain[]> {
     const messageChain: MessageInChain[] = [];
 
@@ -245,7 +245,7 @@ class DiscordService {
       if (currentMessage.reference && currentMessage.reference.messageId) {
         // fetch the referenced message
         let referencedMessage = await currentMessage.channel.messages.fetch(
-          currentMessage.reference.messageId
+          currentMessage.reference.messageId,
         );
         const tempChain: MessageInChain[] = [];
 
@@ -278,7 +278,7 @@ class DiscordService {
               // fetch the next referenced message
               referencedMessage =
                 await referencedMessage.channel.messages.fetch(
-                  referencedMessage.reference.messageId
+                  referencedMessage.reference.messageId,
                 );
             } catch (error) {
               console.error('Error fetching message chain:', error);
@@ -303,7 +303,7 @@ class DiscordService {
 
   public async registerSlashCommands(): Promise<void> {
     const rest = new REST({ version: '10' }).setToken(
-      process.env.DISCORD_TOKEN!
+      process.env.DISCORD_TOKEN!,
     );
 
     try {
@@ -340,9 +340,9 @@ class DiscordService {
       await rest.put(
         Routes.applicationGuildCommands(
           process.env.DISCORD_APP_ID!,
-          process.env.DISCORD_GUILD_ID!
+          process.env.DISCORD_GUILD_ID!,
         ),
-        { body: commands }
+        { body: commands },
       );
       console.log('Successfully registered slash commands.');
     } catch (error) {
@@ -351,7 +351,7 @@ class DiscordService {
   }
 
   public async buildMessageChainFromMessage(
-    currentMessage: DiscordMessage
+    currentMessage: DiscordMessage,
   ): Promise<string | null> {
     // get the message chain for the current message
     const messageChain = await this.getMessageChain(currentMessage);
@@ -364,7 +364,7 @@ class DiscordService {
   }
 
   public async buildMessageChainFromThreadMessage(
-    message: DiscordMessage
+    message: DiscordMessage,
   ): Promise<string | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
@@ -441,21 +441,21 @@ class DiscordService {
     if (this._discordClient.user?.id) {
       this._mentionRegex = new RegExp(
         userMention(this._discordClient.user.id),
-        'g'
+        'g',
       );
     }
   }
 
   public on<K extends keyof ClientEvents>(
     event: K,
-    listener: (...args: ClientEvents[K]) => void
+    listener: (...args: ClientEvents[K]) => void,
   ): void {
     this._discordClient.on(event, listener);
   }
 
   public once<K extends keyof ClientEvents>(
     event: K,
-    listener: (...args: ClientEvents[K]) => void
+    listener: (...args: ClientEvents[K]) => void,
   ): void {
     this._discordClient.once(event, listener);
   }

@@ -52,6 +52,7 @@ The OpenAIService handles OpenAI API integration for chat completion and image g
 
 - Unit tests in `index.test.ts`
 - Mock OpenAI SDK responses for reliable testing
+- Use `test-utils/mock.ts` for common environment and config mocks
 - Test both success and error scenarios
 - Validate prompt formatting and response processing
 
