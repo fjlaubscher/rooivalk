@@ -246,7 +246,10 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageReply.mockResolvedValue({
           content: 'test',
         });
-        await rooivalk.sendMessageToChannel('startup-channel-id', 'Hello startup!');
+        await rooivalk.sendMessageToChannel(
+          'startup-channel-id',
+          'Hello startup!'
+        );
         expect(mockChannel.send).toHaveBeenCalled();
       });
     });
@@ -257,8 +260,10 @@ describe('Rooivalk', () => {
           get: () => undefined,
           configurable: true,
         });
-        const result =
-          await rooivalk.sendMessageToChannel('startup-channel-id','Hello startup!');
+        const result = await rooivalk.sendMessageToChannel(
+          'startup-channel-id',
+          'Hello startup!'
+        );
         expect(result).toBeNull();
       });
     });
@@ -274,8 +279,10 @@ describe('Rooivalk', () => {
           }),
           configurable: true,
         });
-        const result =
-          await rooivalk.sendMessageToChannel('startup-channel-id','Hello startup!');
+        const result = await rooivalk.sendMessageToChannel(
+          'startup-channel-id',
+          'Hello startup!'
+        );
         expect(result).toBeNull();
       });
     });

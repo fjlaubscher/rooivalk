@@ -105,7 +105,7 @@ class OpenAIService {
       return {
         type: 'text',
         content: response.output_text,
-        base64Images: []
+        base64Images: [],
       };
     } catch (error) {
       console.error('Error with OpenAI:', error);

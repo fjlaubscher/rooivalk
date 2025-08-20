@@ -8,10 +8,7 @@ import {
   afterAll,
 } from 'vitest';
 import type { MockInstance } from 'vitest';
-import {
-  Client as DiscordClient,
-  TextChannel
-} from 'discord.js';
+import { Client as DiscordClient, TextChannel } from 'discord.js';
 
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG } from '@/test-utils/mock';
@@ -124,7 +121,7 @@ describe('DiscordService', () => {
         const reply = service.buildMessageReply({
           type: 'text',
           content: longContent,
-          base64Images: []
+          base64Images: [],
         });
         expect(reply.files).toBeTruthy();
       });

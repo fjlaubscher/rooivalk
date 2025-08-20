@@ -63,13 +63,13 @@ describe('OpenAIService', () => {
     it('returns output text on success', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'test response',
-        output: []
+        output: [],
       });
       const result = await service.createResponse('test user', 'hi');
       expect(result).toEqual({
         type: 'text',
         content: 'test response',
-        base64Images: []
+        base64Images: [],
       });
     });
 
@@ -77,17 +77,17 @@ describe('OpenAIService', () => {
       responsesCreateMock.mockRejectedValueOnce(
         new (OpenAI as any).OpenAIError('bad')
       );
-      await expect(
-        service.createResponse('test user', 'hi')
-      ).rejects.toThrow('bad');
+      await expect(service.createResponse('test user', 'hi')).rejects.toThrow(
+        'bad'
+      );
       expect(errorSpy).toHaveBeenCalled();
     });
 
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
-      await expect(
-        service.createResponse('test user', 'hi')
-      ).rejects.toThrow('Error creating chat completion');
+      await expect(service.createResponse('test user', 'hi')).rejects.toThrow(
+        'Error creating chat completion'
+      );
     });
   });
 
@@ -116,7 +116,7 @@ describe('OpenAIService', () => {
     it('returns thread name on success', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'Test Topic',
-        output: []
+        output: [],
       });
       const result = await service.generateThreadName('prompt');
       expect(result).toBe('Test Topic');

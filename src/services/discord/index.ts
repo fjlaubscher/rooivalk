@@ -165,12 +165,13 @@ class DiscordService {
               name: `rooivalk_${index}.jpeg`,
             })
         ),
-        embeds: response.base64Images.map((_, index) =>
-          new EmbedBuilder({
-            image: {
-              url: `attachment://rooivalk_${index}.jpeg`,
-            },
-          })
+        embeds: response.base64Images.map(
+          (_, index) =>
+            new EmbedBuilder({
+              image: {
+                url: `attachment://rooivalk_${index}.jpeg`,
+              },
+            })
         ),
       };
     }

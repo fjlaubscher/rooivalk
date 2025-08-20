@@ -25,13 +25,13 @@ export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';
   content: string;
   base64Images: string[];
-}
+};
 
 export type MessageInChain = {
   author: string | 'rooivalk';
   content: string;
   attachmentUrls: string[];
-}
+};
 
 export type DiscordCommandParams = {
   description: string;
