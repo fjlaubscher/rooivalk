@@ -8,22 +8,24 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
 } from 'discord.js';
-import type {
-  Message,
-  OmitPartialGroupDMChannel,
-  TextChannel,
-  ClientEvents,
-} from 'discord.js';
+import type { Message, TextChannel, ClientEvents } from 'discord.js';
 
 import {
   DISCORD_MESSAGE_LIMIT,
-  DISCORD_MAX_MESSAGE_CHAIN_LENGTH,
   DISCORD_COMMAND_DEFINITIONS,
 } from '@/constants';
+import type {
+  InMemoryConfig,
+  ResponseType,
+  MessageInChain,
+  OpenAIResponse,
+} from '@/types';
 
-import type { InMemoryConfig, ResponseType } from '@/types';
-
-export type DiscordMessage = OmitPartialGroupDMChannel<Message<boolean>>;
+interface ThreadMessageCache {
+  initialContext?: string;
+  messages: Array<{ id: string; content: string }>;
+}
+import { formatMessageInChain, parseMessageInChain } from './helpers';
 
 class DiscordService {
   private _discordClient: DiscordClient;
@@ -32,8 +34,7 @@ class DiscordService {
   private _motdChannelId: string | undefined;
   private _allowedEmojis: string[];
   private _config: InMemoryConfig;
-  private _threadMessageCache: Record<string, string> = {};
-  private _threadInitialContext: Record<string, string> = {};
+  private _threadMessageCache: Record<string, ThreadMessageCache> = {};
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
     this._config = config;
@@ -103,11 +104,11 @@ class DiscordService {
     if (this._startupChannelId) {
       try {
         const channel = await this._discordClient.channels.fetch(
-          this._startupChannelId
+          this._startupChannelId,
         );
         if (channel && channel.isTextBased()) {
           await (channel as TextChannel).send(
-            this.getRooivalkResponse('greeting')
+            this.getRooivalkResponse('greeting'),
           );
         }
       } catch (err) {
@@ -116,11 +117,20 @@ class DiscordService {
     }
   }
 
-  public buildMessageReply(content: string, allowedMentions: string[] = []) {
-    if (content.length > DISCORD_MESSAGE_LIMIT) {
-      const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), {
-        name: 'rooivalk.md',
-      });
+  public buildMessageReply(
+    response: OpenAIResponse,
+    allowedMentions: string[] = [],
+  ) {
+    const exceedsDiscordLimit = response.content.length > DISCORD_MESSAGE_LIMIT;
+
+    if (response.type === 'text' && exceedsDiscordLimit) {
+      // create a markdown file attachment and send that instead
+      const attachment = new AttachmentBuilder(
+        Buffer.from(response.content, 'utf-8'),
+        {
+          name: 'rooivalk.md',
+        },
+      );
 
       return {
         content: this.getRooivalkResponse('discordLimit'),
@@ -129,36 +139,43 @@ class DiscordService {
           users: allowedMentions,
         },
       };
+    } else if (response.type === 'text' && !exceedsDiscordLimit) {
+      return {
+        content: response.content,
+        allowedMentions: {
+          users: allowedMentions,
+        },
+      };
+    } else if (
+      response.type === 'image_generation_call' &&
+      response.base64Images.length > 0
+    ) {
+      // there are images to return from this response
+      return {
+        content: response.content,
+        allowedMentions: {
+          users: allowedMentions,
+        },
+        files: response.base64Images.map(
+          (base64Image, index) =>
+            new AttachmentBuilder(Buffer.from(base64Image, 'base64'), {
+              name: `rooivalk_${index}.jpeg`,
+            }),
+        ),
+        embeds: response.base64Images.map(
+          (_, index) =>
+            new EmbedBuilder({
+              image: {
+                url: `attachment://rooivalk_${index}.jpeg`,
+              },
+            }),
+        ),
+      };
     }
 
     return {
-      content: content,
-      allowedMentions: {
-        users: allowedMentions,
-      },
+      content: this.getRooivalkResponse('error'),
     };
-  }
-
-  /**
-   * Splits content into chunks that respect the Discord message limit.
-   */
-  public chunkContent(
-    content: string,
-    limit: number = DISCORD_MESSAGE_LIMIT
-  ): string[] {
-    const chunks: string[] = [];
-    let remaining = content;
-
-    while (remaining.length > limit) {
-      chunks.push(remaining.slice(0, limit));
-      remaining = remaining.slice(limit);
-    }
-
-    if (remaining.length > 0) {
-      chunks.push(remaining);
-    }
-
-    return chunks;
   }
 
   public buildImageReply(prompt: string, base64Image: string) {
@@ -182,11 +199,11 @@ class DiscordService {
 
   public async getGuildEventsBetween(
     start: Date,
-    end: Date
+    end: Date,
   ): Promise<{ name: string; date: Date }[]> {
     try {
       const guild = await this._discordClient.guilds.fetch(
-        process.env.DISCORD_GUILD_ID!
+        process.env.DISCORD_GUILD_ID!,
       );
       const events = await guild.scheduledEvents.fetch();
       return Array.from(events.values())
@@ -204,11 +221,11 @@ class DiscordService {
   public async cacheGuildEmojis() {
     try {
       const guild = await this._discordClient.guilds.fetch(
-        process.env.DISCORD_GUILD_ID!
+        process.env.DISCORD_GUILD_ID!,
       );
       const emojis = await guild.emojis.fetch();
       this._allowedEmojis = emojis.map(
-        (emoji) => `:${emoji.name}: → ${emoji.toString()}`
+        (emoji) => `:${emoji.name}: → ${emoji.toString()}`,
       );
     } catch (error) {
       console.error('Error caching guild emojis:', error);
@@ -216,44 +233,49 @@ class DiscordService {
   }
 
   public async getMessageChain(
-    currentMessage: DiscordMessage
-  ): Promise<{ author: string | 'rooivalk'; content: string }[]> {
-    const messageChain: { author: string | 'rooivalk'; content: string }[] = [];
+    currentMessage: Message<boolean>,
+  ): Promise<MessageInChain[]> {
+    const messageChain: MessageInChain[] = [];
+
     try {
+      // if the current message is a reply
       if (currentMessage.reference && currentMessage.reference.messageId) {
+        // fetch the referenced message
         let referencedMessage = await currentMessage.channel.messages.fetch(
-          currentMessage.reference.messageId
+          currentMessage.reference.messageId,
         );
-        const tempChain: { author: string | 'rooivalk'; content: string }[] =
-          [];
-        while (
-          referencedMessage &&
-          tempChain.length < DISCORD_MAX_MESSAGE_CHAIN_LENGTH
-        ) {
-          tempChain.push({
-            author:
-              referencedMessage.author.id === this._discordClient.user?.id
-                ? 'rooivalk'
-                : referencedMessage.author.displayName,
-            content: referencedMessage.content,
-          });
+        const tempChain: MessageInChain[] = [];
+
+        // while there are replies in the chain with content / attachments
+        while (referencedMessage) {
+          const parsedMessage = parseMessageInChain(
+            referencedMessage,
+            this._discordClient.user?.id,
+          );
+          tempChain.push(parsedMessage);
+
+          // if the current referenced message has a reference
           if (
             referencedMessage.reference &&
             referencedMessage.reference.messageId
           ) {
             try {
+              // fetch the next referenced message
               referencedMessage =
                 await referencedMessage.channel.messages.fetch(
-                  referencedMessage.reference.messageId
+                  referencedMessage.reference.messageId,
                 );
             } catch (error) {
               console.error('Error fetching message chain:', error);
               break;
             }
           } else {
+            // no more references, end of chain.
             break;
           }
         }
+
+        // reverse the temp chain in chronological order and add it to the message chain
         messageChain.push(...tempChain.reverse());
       }
     } catch (error) {
@@ -264,56 +286,9 @@ class DiscordService {
     return messageChain;
   }
 
-  /**
-   * Fetches the message being replied to.
-   */
-  public async getReferencedMessage(message: DiscordMessage) {
-    try {
-      const reference = message.reference;
-      if (!reference?.messageId) {
-        return null;
-      }
-      return await message.channel.messages.fetch(reference.messageId);
-    } catch (error) {
-      console.error('Error fetching referenced message:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Walks up the reply chain to find the first message in the conversation.
-   */
-  public async getOriginalMessage(message: DiscordMessage) {
-    try {
-      if (!message.reference?.messageId) {
-        return null;
-      }
-
-      let current = await message.channel.messages.fetch(
-        message.reference.messageId
-      );
-      let depth = 0;
-
-      while (
-        current.reference?.messageId &&
-        depth < DISCORD_MAX_MESSAGE_CHAIN_LENGTH
-      ) {
-        current = await current.channel.messages.fetch(
-          current.reference.messageId
-        );
-        depth += 1;
-      }
-
-      return current;
-    } catch (error) {
-      console.error('Error fetching original message:', error);
-      return null;
-    }
-  }
-
   public async registerSlashCommands(): Promise<void> {
     const rest = new REST({ version: '10' }).setToken(
-      process.env.DISCORD_TOKEN!
+      process.env.DISCORD_TOKEN!,
     );
 
     try {
@@ -350,9 +325,9 @@ class DiscordService {
       await rest.put(
         Routes.applicationGuildCommands(
           process.env.DISCORD_APP_ID!,
-          process.env.DISCORD_GUILD_ID!
+          process.env.DISCORD_GUILD_ID!,
         ),
-        { body: commands }
+        { body: commands },
       );
       console.log('Successfully registered slash commands.');
     } catch (error) {
@@ -361,86 +336,78 @@ class DiscordService {
   }
 
   public async buildMessageChainFromMessage(
-    message: DiscordMessage
+    currentMessage: Message<boolean>,
   ): Promise<string | null> {
-    if (message.reference && message.reference.messageId) {
-      const repliedToMessage = await this.getReferencedMessage(message);
-      if (
-        repliedToMessage &&
-        repliedToMessage.author.id === this._discordClient.user?.id
-      ) {
-        const messageChain = await this.getMessageChain(message);
-        if (messageChain.length > 0) {
-          const chainWithCleanContent = messageChain.map((entry, index) => ({
-            ...entry,
-            content:
-              index === messageChain.length - 1 &&
-              entry.author !== 'rooivalk' &&
-              this._mentionRegex
-                ? entry.content.replace(this._mentionRegex, '').trim()
-                : entry.content,
-          }));
+    // get the message chain for the current message
+    const messageChain = await this.getMessageChain(currentMessage);
 
-          return chainWithCleanContent
-            .map((entry) => `- ${entry.author}: ${entry.content}`)
-            .join('\n');
-        }
-      }
+    if (messageChain.length === 0) {
+      return null;
     }
-    return null;
+
+    return messageChain.map(formatMessageInChain).join('\n');
   }
 
   public async buildMessageChainFromThreadMessage(
-    message: DiscordMessage
+    message: Message<boolean>,
   ): Promise<string | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
       const threadId = thread.id;
 
-      // Return cached content if available
-      if (this._threadMessageCache[threadId]) {
-        return this._threadMessageCache[threadId];
+      let cache = this._threadMessageCache[threadId];
+      if (!cache) {
+        // Initialize cache for this thread
+        cache = { messages: [] };
+        this._threadMessageCache[threadId] = cache;
       }
 
-      // Get initial context that led to thread creation
-      const initialContext = this.getThreadInitialContext(threadId);
+      // If we haven't fetched thread messages yet (empty messages array), fetch them
+      if (cache.messages.length === 0) {
+        // fetch and format thread messages
+        const threadMessages = await thread.messages.fetch();
+        const messages = Array.from(threadMessages.values());
 
-      // Fetch and process messages
-      const threadMessages = await thread.messages.fetch();
-      const messageArray = Array.from(threadMessages.values())
-        .reverse() // Discord returns messages in descending order, so reverse for chronological order
-        .map((msg) => ({
-          author:
-            msg.author.id === this._discordClient.user?.id
-              ? 'rooivalk'
-              : msg.author.displayName,
-          content: msg.content,
-        }));
+        // If no messages in thread and no initial context, return null
+        if (messages.length === 0 && !cache.initialContext) {
+          return null;
+        }
 
-      if (messageArray && messageArray.length) {
-        const chainWithCleanContent = messageArray.map((entry, index) => ({
-          ...entry,
-          content:
-            index === messageArray.length - 1 &&
-            entry.author !== 'rooivalk' &&
-            this._mentionRegex
-              ? entry.content.replace(this._mentionRegex, '').trim()
-              : entry.content,
-        }));
-
-        const threadChain = chainWithCleanContent
-          .map((entry) => `- ${entry.author}: ${entry.content}`)
-          .join('\n');
-
-        // Combine initial context with thread messages
-        const fullChain = initialContext
-          ? `${initialContext}\n${threadChain}`
-          : threadChain;
-
-        // Cache the result
-        this._threadMessageCache[threadId] = fullChain;
-        return fullChain;
+        // reverse the order to maintain chronological context and store in cache
+        messages.reverse().forEach((msg) => {
+          const msgInChain = parseMessageInChain(
+            msg,
+            this._discordClient.user?.id,
+          );
+          const formatted = formatMessageInChain(msgInChain);
+          cache!.messages.push({ id: msg.id, content: formatted });
+        });
+      } else {
+        // Check if current message is already cached
+        const messageExists = cache.messages.some((m) => m.id === message.id);
+        if (!messageExists) {
+          // Add current message to cache
+          const currentMessageInChain = parseMessageInChain(
+            message,
+            this._discordClient.user?.id,
+          );
+          const currentMessageFormatted = formatMessageInChain(
+            currentMessageInChain,
+          );
+          cache.messages.push({
+            id: message.id,
+            content: currentMessageFormatted,
+          });
+        }
       }
+
+      // Build the final string from cache
+      const messageContents = cache.messages.map((m) => m.content);
+      const messageChain = cache.initialContext
+        ? `${cache.initialContext}\n${messageContents.join('\n')}`
+        : messageContents.join('\n');
+
+      return messageChain;
     }
 
     return null;
@@ -449,40 +416,41 @@ class DiscordService {
   public clearThreadMessageCache(threadId?: string): void {
     if (threadId) {
       delete this._threadMessageCache[threadId];
-      delete this._threadInitialContext[threadId];
     } else {
       this._threadMessageCache = {};
-      this._threadInitialContext = {};
     }
   }
 
   public setThreadInitialContext(threadId: string, context: string): void {
-    this._threadInitialContext[threadId] = context;
+    if (!this._threadMessageCache[threadId]) {
+      this._threadMessageCache[threadId] = { messages: [] };
+    }
+    this._threadMessageCache[threadId].initialContext = context;
   }
 
   public getThreadInitialContext(threadId: string): string | null {
-    return this._threadInitialContext[threadId] || null;
+    return this._threadMessageCache[threadId]?.initialContext || null;
   }
 
   public setupMentionRegex(): void {
     if (this._discordClient.user?.id) {
       this._mentionRegex = new RegExp(
         userMention(this._discordClient.user.id),
-        'g'
+        'g',
       );
     }
   }
 
   public on<K extends keyof ClientEvents>(
     event: K,
-    listener: (...args: ClientEvents[K]) => void
+    listener: (...args: ClientEvents[K]) => void,
   ): void {
     this._discordClient.on(event, listener);
   }
 
   public once<K extends keyof ClientEvents>(
     event: K,
-    listener: (...args: ClientEvents[K]) => void
+    listener: (...args: ClientEvents[K]) => void,
   ): void {
     this._discordClient.once(event, listener);
   }

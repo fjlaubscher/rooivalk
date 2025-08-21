@@ -15,8 +15,8 @@ export function silenceConsole(options: ConsoleMockOptions = {}) {
         args.some(
           (arg) =>
             (typeof arg === 'string' && arg.includes(msg)) ||
-            (arg instanceof Error && arg.message.includes(msg))
-        )
+            (arg instanceof Error && arg.message.includes(msg)),
+        ),
       )
     ) {
       return;
@@ -28,7 +28,7 @@ export function silenceConsole(options: ConsoleMockOptions = {}) {
   const logSpy = vi.spyOn(console, 'log').mockImplementation((...args) => {
     if (
       options.ignoreLogs?.some((msg) =>
-        args.some((arg) => typeof arg === 'string' && arg.includes(msg))
+        args.some((arg) => typeof arg === 'string' && arg.includes(msg)),
       )
     ) {
       return;

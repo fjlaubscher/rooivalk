@@ -16,14 +16,17 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 ## Project Structure
 
 - `src/services/discord/` – DiscordService (Discord integration) - [See AGENTS.md](src/services/discord/AGENTS.md)
+  - `helpers.ts` – Message parsing and formatting utilities
 - `src/services/openai/` – OpenAIService (OpenAI API integration) - [See AGENTS.md](src/services/openai/AGENTS.md)
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
+  - `helpers.ts` – Thread detection and reply handling utilities
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
-- `src/test-utils/` – Shared test utilities
+- `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
+- `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
-- `config/` – Hot-swappable markdown configs (instructions, greetings, errors, etc.)
+- `config/` – Hot-swappable markdown configs (`instructions.md`, greetings, errors, etc.)
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 
@@ -71,10 +74,12 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Add Discord command          | `services/discord/index.ts`              | Extend message/interaction handlers         |
 | Add OpenAI model support     | `services/openai/index.ts`               | Add model ID, update API payload/env vars   |
 | Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
-| Modify thread behavior       | `services/rooivalk/index.ts`             | Update thread detection/creation logic      |
+| Modify thread behavior       | `services/rooivalk/helpers.ts`           | Update `isRooivalkThread`, `isReplyToRooivalk` functions |
+| Add Discord message parsing  | `services/discord/helpers.ts`            | Extend `parseMessageInChain`, `formatMessageInChain` utilities |
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
 | Update message history       | `services/discord/index.ts`              | Modify `buildMessageChainFrom*` methods; use `setThreadInitialContext()` for thread context preservation |
-| Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts`       |
+| Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts` and `test-utils/mock.ts` |
+| Update config system         | `src/config/loader.ts`, `config/*.md`    | Modify config loading/watching; update markdown configs |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 
 ---

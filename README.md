@@ -8,11 +8,11 @@ It is written in TypeScript and designed for easy customization and extension.
 ## Features
 - **AI-powered responses**: Integrates with OpenAI for chat completions and image generation using gpt-image-1
 - **Smart conversation handling**: Responds to mentions, replies to bot messages, and automatically creates threads
-- **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity
+- **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity and initial context preservation
 - **Weather integration**: Fetches weather data from Yr.no for enhanced contextual responses and daily MOTD
 - **Scheduled tasks**: Configurable MOTD (Message of the Day) and QOTD (Question of the Day) via cron jobs
 - **Hot-reloadable configuration**: Runtime configuration updates via `config/*.md` files
-- **Conversation context**: Full conversation history passed as context, including thread initial context preservation
+- **Robust testing**: Comprehensive test suite with dedicated utilities for mocking Discord interactions and service dependencies
 
 ### Rooivalk in action
 
@@ -61,13 +61,16 @@ For a detailed breakdown of the project structure, please refer to [AGENTS.md](.
 
 ### Customization
 
-The bot uses a modular service-based architecture. Each service has its own AGENTS.md file with specific guidance:
+The bot uses a modular service-based architecture with helper utilities. Each service has its own AGENTS.md file with specific guidance:
 
 - **DiscordService** (`src/services/discord/`): Discord API integration and thread management
+  - `helpers.ts`: Message parsing and formatting utilities
 - **OpenAIService** (`src/services/openai/`): OpenAI API integration for chat and image generation
 - **RooivalkService** (`src/services/rooivalk/`): Core business logic and message processing
+  - `helpers.ts`: Thread detection and reply handling utilities
 - **YrService** (`src/services/yr/`): Weather data integration from Yr.no
 - **CronService** (`src/services/cron/`): Scheduled tasks and background jobs
+- **Config System** (`src/config/`): Hot-reloadable configuration loading and watching
 
 See [AGENTS.md](./AGENTS.md) for comprehensive architecture and development guidelines.
 
@@ -84,7 +87,7 @@ No additional setup is required—tests and deployments will run automatically i
 ## Notes
 
 - The codebase is written in modern TypeScript, using strict mode and modular architecture.
-- All tests are written using [Vitest](https://vitest.dev/), and test utilities are provided for mocking Discord interactions.
+- All tests are written using [Vitest](https://vitest.dev/), with comprehensive test utilities in `src/test-utils/` for mocking Discord interactions, environment variables, and common configurations.
 
 ## License
 MIT

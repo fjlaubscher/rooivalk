@@ -1,9 +1,10 @@
 import { vi } from 'vitest';
-import type { DiscordMessage } from '@/services/discord';
+import { Collection } from 'discord.js';
+import type { Message } from 'discord.js';
 
 export function createMockMessage(
-  overrides: Partial<DiscordMessage> = {}
-): DiscordMessage {
+  overrides: Partial<Message<boolean>> = {},
+): Message<boolean> {
   const users = {
     filter: (fn: any) => [],
     ...((overrides.mentions?.users as any) || {}),
@@ -26,7 +27,7 @@ export function createMockMessage(
     thread: null,
     startThread: vi.fn(),
     delete: vi.fn(),
-    attachments: [],
+    attachments: new Collection<string, string>(),
     ...overrides,
-  } as unknown as DiscordMessage;
+  } as unknown as Message<boolean>;
 }

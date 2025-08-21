@@ -63,6 +63,7 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 - Unit tests in `index.test.ts`
 - Use mock threads with `createMockMessage` for thread testing
+- Use `test-utils/mock.ts` for common environment and config mocks
 - Test message filtering and routing logic
 - Validate context integration and response formatting
 
@@ -73,6 +74,11 @@ The RooivalkService contains the core business logic for the bot. It processes m
 - **YrService**: For weather data integration
 - **CronService**: For scheduled tasks and operations
 - **Config system**: For hot-swappable configuration
+
+## Helper Functions
+
+- `isRooivalkThread` (in `helpers.ts`) - Determines if a Discord thread was created by the bot
+- `isReplyToRooivalk` (in `helpers.ts`) - Checks if a message is a direct reply to the bot
 
 ## Dependencies
 

@@ -108,7 +108,7 @@ describe('YrService', () => {
 
   it('throws error for invalid location', async () => {
     await expect(yrService.getForecastByLocation('INVALID')).rejects.toThrow(
-      /Invalid location/
+      /Invalid location/,
     );
   });
 
@@ -120,7 +120,7 @@ describe('YrService', () => {
     } as Response);
 
     await expect(yrService.getForecastByLocation('CAPE_TOWN')).rejects.toThrow(
-      /Failed to fetch weather data/
+      /Failed to fetch weather data/,
     );
   });
 
@@ -137,7 +137,7 @@ describe('YrService', () => {
     } as Response);
 
     await expect(yrService.getForecastByLocation('CAPE_TOWN')).rejects.toThrow(
-      /No weather data available for today/
+      /No weather data available for today/,
     );
   });
 
@@ -146,7 +146,7 @@ describe('YrService', () => {
       Promise.resolve({
         ok: true,
         json: async () => mockYrResponse(),
-      } as Response)
+      } as Response),
     );
 
     const forecasts = await yrService.getAllForecasts();
@@ -169,7 +169,7 @@ describe('YrService', () => {
         Promise.resolve({
           ok: true,
           json: async () => mockYrResponse(),
-        } as Response)
+        } as Response),
       );
 
     const forecasts = await yrService.getAllForecasts();

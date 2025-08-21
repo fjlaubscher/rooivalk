@@ -42,6 +42,8 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  responsesCreateMock.mockReset();
+  imagesGenerateMock.mockReset();
   vi.stubGlobal('process', {
     env: {
       OPENAI_API_KEY: 'key',
@@ -59,27 +61,33 @@ afterEach(() => {
 describe('OpenAIService', () => {
   describe('createResponse', () => {
     it('returns output text on success', async () => {
-      responsesCreateMock.mockResolvedValueOnce({ output_text: 'ok' });
-      await expect(
-        service.createResponse('rooivalk', 'test user', 'hi')
-      ).resolves.toBe('ok');
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'test response',
+        output: [],
+      });
+      const result = await service.createResponse('test user', 'hi');
+      expect(result).toEqual({
+        type: 'text',
+        content: 'test response',
+        base64Images: [],
+      });
     });
 
     it('throws OpenAI error message', async () => {
       responsesCreateMock.mockRejectedValueOnce(
-        new (OpenAI as any).OpenAIError('bad')
+        new (OpenAI as any).OpenAIError('bad'),
       );
-      await expect(
-        service.createResponse('rooivalk', 'test user', 'hi')
-      ).rejects.toThrow('bad');
+      await expect(service.createResponse('test user', 'hi')).rejects.toThrow(
+        'bad',
+      );
       expect(errorSpy).toHaveBeenCalled();
     });
 
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
-      await expect(
-        service.createResponse('rooivalk', 'test user', 'hi')
-      ).rejects.toThrow('Error creating chat completion');
+      await expect(service.createResponse('test user', 'hi')).rejects.toThrow(
+        'Error creating chat completion',
+      );
     });
   });
 
@@ -91,7 +99,7 @@ describe('OpenAIService', () => {
 
     it('throws OpenAI error message', async () => {
       imagesGenerateMock.mockRejectedValueOnce(
-        new (OpenAI as any).OpenAIError('img fail')
+        new (OpenAI as any).OpenAIError('img fail'),
       );
       await expect(service.createImage('cat')).rejects.toThrow('img fail');
     });
@@ -99,20 +107,24 @@ describe('OpenAIService', () => {
     it('throws generic error', async () => {
       imagesGenerateMock.mockRejectedValueOnce(new Error('fail'));
       await expect(service.createImage('cat')).rejects.toThrow(
-        'Error creating image'
+        'Error creating image',
       );
     });
   });
 
   describe('generateThreadName', () => {
     it('returns thread name on success', async () => {
-      responsesCreateMock.mockResolvedValueOnce({ output_text: 'Topic' });
-      await expect(service.generateThreadName('prompt')).resolves.toBe('Topic');
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'Test Topic',
+        output: [],
+      });
+      const result = await service.generateThreadName('prompt');
+      expect(result).toBe('Test Topic');
     });
 
     it('throws OpenAI error message', async () => {
       responsesCreateMock.mockRejectedValueOnce(
-        new (OpenAI as any).OpenAIError('bad')
+        new (OpenAI as any).OpenAIError('bad'),
       );
       await expect(service.generateThreadName('prompt')).rejects.toThrow('bad');
     });
@@ -120,7 +132,7 @@ describe('OpenAIService', () => {
     it('throws generic error', async () => {
       responsesCreateMock.mockRejectedValueOnce(new Error('fail'));
       await expect(service.generateThreadName('prompt')).rejects.toThrow(
-        'Error creating thread name'
+        'Error creating thread name',
       );
     });
   });

@@ -25,7 +25,7 @@ export const watchConfigs = (onReload: ConfigReloadCallback): void => {
       debounceTimer = setTimeout(() => {
         onReload(lastChangedFile!);
         console.log(
-          `[watcher] Reloaded config due to change in ${lastChangedFile}`
+          `[watcher] Reloaded config due to change in ${lastChangedFile}`,
         );
         lastChangedFile = null;
       }, 200);

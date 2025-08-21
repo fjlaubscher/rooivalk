@@ -9,12 +9,9 @@ export const ALLOWED_ATTACHMENT_CONTENT_TYPES = [
 ];
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
-export const DISCORD_MAX_MESSAGE_CHAIN_LENGTH = 10;
 export const DISCORD_EMOJI = 'rooivalk';
 export const DISCORD_COMMANDS = {
-  LEARN: 'learn',
   IMAGE: 'image',
-  THREAD: 'thread',
   WEATHER: 'weather',
 };
 
@@ -22,8 +19,7 @@ export const DISCORD_COMMANDS = {
 export const CONFIG_FILE_ERRORS = 'errors.md';
 export const CONFIG_FILE_GREETINGS = 'greetings.md';
 export const CONFIG_FILE_DISCORD_LIMIT = 'discord_limit.md';
-export const CONFIG_FILE_INSTRUCTIONS_ROOIVALK = 'instructions_rooivalk.md';
-export const CONFIG_FILE_INSTRUCTIONS_LEARN = 'instructions_learn.md';
+export const CONFIG_FILE_INSTRUCTIONS = 'instructions.md';
 export const CONFIG_FILE_MOTD = 'motd.md';
 export const CONFIG_FILE_QOTD = 'qotd.md';
 const __filename = fileURLToPath(import.meta.url);
@@ -59,32 +55,12 @@ export const DISCORD_COMMAND_DEFINITIONS: Record<
   DiscordCommand,
   DiscordCommandParams
 > = {
-  [DISCORD_COMMANDS.LEARN]: {
-    description: 'Learn with @rooivalk!',
-    parameters: [
-      {
-        name: 'prompt',
-        description: 'Your question to @rooivalk',
-        required: true,
-      },
-    ],
-  },
   [DISCORD_COMMANDS.IMAGE]: {
     description: 'Generate an image with @rooivalk!',
     parameters: [
       {
         name: 'prompt',
         description: 'Your prompt for the image',
-        required: true,
-      },
-    ],
-  },
-  [DISCORD_COMMANDS.THREAD]: {
-    description: 'Start a thread with @rooivalk!',
-    parameters: [
-      {
-        name: 'prompt',
-        description: 'Your prompt for the thread',
         required: true,
       },
     ],
