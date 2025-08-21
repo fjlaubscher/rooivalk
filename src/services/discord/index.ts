@@ -252,7 +252,9 @@ class DiscordService {
             referencedMessage,
             this._discordClient.user?.id,
           );
-          tempChain.push(parsedMessage);
+          if (parsedMessage) {
+            tempChain.push(parsedMessage);
+          }
 
           // if the current referenced message has a reference
           if (
@@ -379,8 +381,10 @@ class DiscordService {
             msg,
             this._discordClient.user?.id,
           );
-          const formatted = formatMessageInChain(msgInChain);
-          cache!.messages.push({ id: msg.id, content: formatted });
+          if (msgInChain) {
+            const formatted = formatMessageInChain(msgInChain);
+            cache!.messages.push({ id: msg.id, content: formatted });
+          }
         });
       } else {
         // Check if current message is already cached
@@ -391,13 +395,15 @@ class DiscordService {
             message,
             this._discordClient.user?.id,
           );
-          const currentMessageFormatted = formatMessageInChain(
-            currentMessageInChain,
-          );
-          cache.messages.push({
-            id: message.id,
-            content: currentMessageFormatted,
-          });
+          if (currentMessageInChain) {
+            const currentMessageFormatted = formatMessageInChain(
+              currentMessageInChain,
+            );
+            cache.messages.push({
+              id: message.id,
+              content: currentMessageFormatted,
+            });
+          }
         }
       }
 

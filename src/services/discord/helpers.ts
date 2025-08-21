@@ -4,11 +4,16 @@ import type { MessageInChain } from '@/types';
 export const parseMessageInChain = (
   message: Message<boolean>,
   discordClientId: string | undefined,
-): MessageInChain => {
+): MessageInChain | null => {
   const hasAttachments = message.attachments.size > 0;
   const trimmedContent = message.content.trim();
   const hasContent = trimmedContent.length > 0;
   const isRooivalkMessage = message.author.id === discordClientId;
+
+  // Skip messages that have neither content nor attachments
+  if (!hasContent && !hasAttachments) {
+    return null;
+  }
 
   return {
     author: isRooivalkMessage ? 'rooivalk' : message.author.displayName,

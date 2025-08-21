@@ -91,10 +91,27 @@ describe('discord helpers', () => {
       });
     });
 
-    it('should handle empty message', () => {
+    it('should filter out messages with no content and no attachments', () => {
       const message = createMockMessage({
         author: { id: 'user-id', displayName: 'TestUser' },
         content: '',
+        attachments: new Collection(),
+      });
+
+      const result = parseMessageInChain(message, mockDiscordClientId);
+
+      expect(result).toBeNull();
+    });
+
+    it('should parse a message with empty content but with attachments', () => {
+      const mockAttachment = { url: 'https://example.com/image.png' };
+      const mockAttachments = new Collection();
+      mockAttachments.set('1', mockAttachment as any);
+
+      const message = createMockMessage({
+        author: { id: 'user-id', displayName: 'TestUser' },
+        content: '',
+        attachments: mockAttachments,
       });
 
       const result = parseMessageInChain(message, mockDiscordClientId);
@@ -102,7 +119,7 @@ describe('discord helpers', () => {
       expect(result).toEqual({
         author: 'TestUser',
         content: '',
-        attachmentUrls: [],
+        attachmentUrls: ['https://example.com/image.png'],
       });
     });
   });

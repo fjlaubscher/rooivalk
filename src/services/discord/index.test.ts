@@ -653,6 +653,114 @@ describe('DiscordService', () => {
         expect(mockThread1.messages.fetch).toHaveBeenCalledTimes(2);
         expect(mockThread2.messages.fetch).toHaveBeenCalledTimes(2);
       });
+
+      it('should include bot messages with attachments but no content', async () => {
+        const mockAttachment = {
+          url: 'https://example.com/image.png',
+        };
+        const mockAttachments = new Collection();
+        mockAttachments.set('1', mockAttachment as any);
+
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'generate a picture',
+              attachments: new Collection<string, string>(),
+            },
+          ],
+          [
+            '2',
+            {
+              author: { id: BOT_ID, displayName: 'Bot' },
+              content: '', // Bot message with no text content
+              attachments: mockAttachments,
+            },
+          ],
+          [
+            '3',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'great!',
+              attachments: new Collection<string, string>(),
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          id: 'thread-123',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<Message<boolean>>);
+
+        const result = await service.buildMessageChainFromThreadMessage(msg);
+
+        // The bot message with attachment should be included, but note order depends on Map iteration
+        expect(result).toContain(
+          '- rooivalk:  Attachments: [1](https://example.com/image.png)',
+        );
+        expect(mockThread.messages.fetch).toHaveBeenCalled();
+      });
+
+      it('should filter out empty messages with no content and no attachments', async () => {
+        const mockThreadMessages = new Map([
+          [
+            '1',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'hello',
+              attachments: new Collection<string, string>(),
+            },
+          ],
+          [
+            '2',
+            {
+              author: { id: BOT_ID, displayName: 'Bot' },
+              content: '', // Empty bot message with no attachments
+              attachments: new Collection<string, string>(),
+            },
+          ],
+          [
+            '3',
+            {
+              author: { id: 'user-id', displayName: 'User' },
+              content: 'are you there?',
+              attachments: new Collection<string, string>(),
+            },
+          ],
+        ]);
+
+        const mockThread = {
+          id: 'thread-123',
+          messages: {
+            fetch: vi.fn().mockResolvedValue(mockThreadMessages),
+          },
+        };
+
+        const msg = createMockMessage({
+          channel: {
+            isThread: vi.fn().mockReturnValue(true),
+            ...mockThread,
+          } as any,
+        } as Partial<Message<boolean>>);
+
+        const result = await service.buildMessageChainFromThreadMessage(msg);
+
+        // The empty bot message should be filtered out
+        expect(result).toContain('- User: hello');
+        expect(result).toContain('- User: are you there?');
+        expect(result).not.toContain('- rooivalk:');
+        expect(mockThread.messages.fetch).toHaveBeenCalled();
+      });
     });
   });
 });
