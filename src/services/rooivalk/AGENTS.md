@@ -75,6 +75,11 @@ The RooivalkService contains the core business logic for the bot. It processes m
 - **CronService**: For scheduled tasks and operations
 - **Config system**: For hot-swappable configuration
 
+## Helper Functions
+
+- `isRooivalkThread` (in `helpers.ts`) - Determines if a Discord thread was created by the bot
+- `isReplyToRooivalk` (in `helpers.ts`) - Checks if a message is a direct reply to the bot
+
 ## Dependencies
 
 - All other services via dependency injection

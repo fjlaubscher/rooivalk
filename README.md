@@ -61,13 +61,16 @@ For a detailed breakdown of the project structure, please refer to [AGENTS.md](.
 
 ### Customization
 
-The bot uses a modular service-based architecture. Each service has its own AGENTS.md file with specific guidance:
+The bot uses a modular service-based architecture with helper utilities. Each service has its own AGENTS.md file with specific guidance:
 
 - **DiscordService** (`src/services/discord/`): Discord API integration and thread management
+  - `helpers.ts`: Message parsing and formatting utilities
 - **OpenAIService** (`src/services/openai/`): OpenAI API integration for chat and image generation
 - **RooivalkService** (`src/services/rooivalk/`): Core business logic and message processing
+  - `helpers.ts`: Thread detection and reply handling utilities
 - **YrService** (`src/services/yr/`): Weather data integration from Yr.no
 - **CronService** (`src/services/cron/`): Scheduled tasks and background jobs
+- **Config System** (`src/config/`): Hot-reloadable configuration loading and watching
 
 See [AGENTS.md](./AGENTS.md) for comprehensive architecture and development guidelines.
 

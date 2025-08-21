@@ -51,6 +51,7 @@ The DiscordService handles Discord API integration, event listening, message rou
 
 ## Helper Functions
 
+- `parseMessageInChain` (in `helpers.ts`) - Parses Discord messages into standardized chain format
 - `formatMessageInChain` (in `helpers.ts`) - Formats messages with attachments for conversation chains
 
 ## Dependencies
