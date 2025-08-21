@@ -25,9 +25,19 @@ export async function resolve(specifier, context, nextResolve) {
       if (existsSync(resolvedFile) && statSync(resolvedFile).isDirectory()) {
         resolvedFile = path.join(resolvedFile, 'index.ts');
       } else if (!path.extname(resolvedFile)) {
-        resolvedFile += '.ts';
+        const tsFile = resolvedFile + '.ts';
+        if (existsSync(tsFile)) {
+          resolvedFile = tsFile;
+        } else {
+          // File doesn't exist, let Node.js handle the error
+          continue;
+        }
       }
-      return nextResolve(pathToFileURL(resolvedFile).href, context);
+      
+      // Verify the final resolved file exists before returning
+      if (existsSync(resolvedFile)) {
+        return nextResolve(pathToFileURL(resolvedFile).href, context);
+      }
     }
   }
   return nextResolve(specifier, context);
