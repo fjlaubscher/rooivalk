@@ -13,6 +13,10 @@ import {
   ALLOWED_ATTACHMENT_CONTENT_TYPES,
   DISCORD_COMMANDS,
 } from '@/constants';
+import {
+  parseMessageInChain,
+  formatMessageInChain,
+} from '@/services/discord/helpers';
 import DiscordService from '@/services/discord';
 import OpenAIService from '@/services/openai';
 import YrService from '@/services/yr';
@@ -325,7 +329,20 @@ class Rooivalk {
     await thread.members.add(message.author.id);
 
     // Store the initial conversation context that led to this thread
-    if (history) {
+    // Include the current message that started the thread in the context
+    const currentMessageParsed = parseMessageInChain(
+      message,
+      this._discord.client.user?.id,
+    );
+    if (currentMessageParsed) {
+      const currentMessageFormatted =
+        formatMessageInChain(currentMessageParsed);
+      const fullContext = history
+        ? `${history}\n${currentMessageFormatted}`
+        : currentMessageFormatted;
+
+      this._discord.setThreadInitialContext(thread.id, fullContext);
+    } else if (history) {
       this._discord.setThreadInitialContext(thread.id, history);
     }
 

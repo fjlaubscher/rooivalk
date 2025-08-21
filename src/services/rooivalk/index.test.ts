@@ -549,7 +549,7 @@ describe('Rooivalk', () => {
 
         const replyMessage = createMockMessage({
           content: 'Follow-up question',
-          author: { id: 'user-123' },
+          author: { id: 'user-123', displayName: 'TestUser' },
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
@@ -573,11 +573,11 @@ describe('Rooivalk', () => {
         expect(mockThread.members.add).toHaveBeenCalledWith('user-123');
         expect(mockDiscordService.setThreadInitialContext).toHaveBeenCalledWith(
           'new-thread-123',
-          mockHistory,
+          `${mockHistory}\n- TestUser: Follow-up question`,
         );
       });
 
-      it('should not store initial context when no history is available', async () => {
+      it('should store current message as initial context when no history is available', async () => {
         const mockThread = {
           id: 'new-thread-456',
           members: { add: vi.fn() },
@@ -585,7 +585,7 @@ describe('Rooivalk', () => {
 
         const replyMessage = createMockMessage({
           content: 'First message',
-          author: { id: 'user-456' },
+          author: { id: 'user-456', displayName: 'TestUser' },
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
@@ -598,9 +598,10 @@ describe('Rooivalk', () => {
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
           'First message',
         );
-        expect(
-          mockDiscordService.setThreadInitialContext,
-        ).not.toHaveBeenCalled();
+        expect(mockDiscordService.setThreadInitialContext).toHaveBeenCalledWith(
+          'new-thread-456',
+          '- TestUser: First message',
+        );
       });
 
       it('should handle thread creation failure gracefully', async () => {
