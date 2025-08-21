@@ -22,9 +22,14 @@ export async function resolve(specifier, context, nextResolve) {
     if (specifier.startsWith(aliasPrefix + '/')) {
       const subPath = specifier.slice(aliasPrefix.length).replace(/^\/+/, '');
       let resolvedFile = path.resolve(__dirname, targetPrefix, subPath);
-      if (existsSync(resolvedFile) && statSync(resolvedFile).isDirectory()) {
-        resolvedFile = path.join(resolvedFile, 'index.ts');
+      
+      // First check if the file exists as-is
+      if (existsSync(resolvedFile)) {
+        if (statSync(resolvedFile).isDirectory()) {
+          resolvedFile = path.join(resolvedFile, 'index.ts');
+        }
       } else if (!path.extname(resolvedFile)) {
+        // Try adding .ts extension if no extension is present
         const tsFile = resolvedFile + '.ts';
         if (existsSync(tsFile)) {
           resolvedFile = tsFile;
@@ -32,6 +37,9 @@ export async function resolve(specifier, context, nextResolve) {
           // File doesn't exist, let Node.js handle the error
           continue;
         }
+      } else {
+        // File doesn't exist, let Node.js handle the error
+        continue;
       }
       
       // Verify the final resolved file exists before returning
