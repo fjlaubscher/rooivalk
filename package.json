@@ -1,6 +1,6 @@
 {
   "name": "rooivalk",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "A Discord bot that integrates with OpenAI for AI-powered conversations, image generation, weather updates, and thread management",
   "main": "index.ts",
   "author": {
