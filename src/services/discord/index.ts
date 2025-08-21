@@ -21,10 +21,6 @@ import type {
   OpenAIResponse,
 } from '@/types';
 
-interface ThreadMessageCache {
-  initialContext?: string;
-  messages: Array<{ id: string; content: string }>;
-}
 import { formatMessageInChain, parseMessageInChain } from './helpers';
 
 class DiscordService {
@@ -34,7 +30,6 @@ class DiscordService {
   private _motdChannelId: string | undefined;
   private _allowedEmojis: string[];
   private _config: InMemoryConfig;
-  private _threadMessageCache: Record<string, ThreadMessageCache> = {};
 
   constructor(config: InMemoryConfig, discordClient?: DiscordClient) {
     this._config = config;
@@ -355,27 +350,33 @@ class DiscordService {
   ): Promise<string | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
-      const threadId = thread.id;
 
-      let cache = this._threadMessageCache[threadId];
-      if (!cache) {
-        // Initialize cache for this thread
-        cache = { messages: [] };
-        this._threadMessageCache[threadId] = cache;
-      }
-
-      // If we haven't fetched thread messages yet (empty messages array), fetch them
-      if (cache.messages.length === 0) {
-        // fetch and format thread messages
-        const threadMessages = await thread.messages.fetch();
-        const messages = Array.from(threadMessages.values());
-
-        // If no messages in thread and no initial context, return null
-        if (messages.length === 0 && !cache.initialContext) {
+      try {
+        // Get the thread starter message
+        const starterMessage = await thread.fetchStarterMessage();
+        if (!starterMessage) {
           return null;
         }
 
-        // reverse the order to maintain chronological context and store in cache
+        // Build the message chain from the starter message (gets context before thread)
+        const preThreadContext =
+          await this.buildMessageChainFromMessage(starterMessage);
+
+        // Parse the starter message itself
+        const starterParsed = parseMessageInChain(
+          starterMessage,
+          this._discordClient.user?.id,
+        );
+        const starterFormatted = starterParsed
+          ? formatMessageInChain(starterParsed)
+          : null;
+
+        // Fetch all thread messages
+        const threadMessages = await thread.messages.fetch();
+        const messages = Array.from(threadMessages.values());
+
+        // Process thread messages in chronological order
+        const threadContents: string[] = [];
         messages.reverse().forEach((msg) => {
           const msgInChain = parseMessageInChain(
             msg,
@@ -383,59 +384,25 @@ class DiscordService {
           );
           if (msgInChain) {
             const formatted = formatMessageInChain(msgInChain);
-            cache!.messages.push({ id: msg.id, content: formatted });
+            threadContents.push(formatted);
           }
         });
-      } else {
-        // Check if current message is already cached
-        const messageExists = cache.messages.some((m) => m.id === message.id);
-        if (!messageExists) {
-          // Add current message to cache
-          const currentMessageInChain = parseMessageInChain(
-            message,
-            this._discordClient.user?.id,
-          );
-          if (currentMessageInChain) {
-            const currentMessageFormatted = formatMessageInChain(
-              currentMessageInChain,
-            );
-            cache.messages.push({
-              id: message.id,
-              content: currentMessageFormatted,
-            });
-          }
-        }
+
+        // Combine all parts: pre-thread context + starter message + thread messages
+        const parts = [
+          preThreadContext,
+          starterFormatted,
+          threadContents.length > 0 ? threadContents.join('\n') : null,
+        ].filter(Boolean);
+
+        return parts.length > 0 ? parts.join('\n') : null;
+      } catch (error) {
+        console.error('Error building thread message chain:', error);
+        return null;
       }
-
-      // Build the final string from cache
-      const messageContents = cache.messages.map((m) => m.content);
-      const messageChain = cache.initialContext
-        ? `${cache.initialContext}\n${messageContents.join('\n')}`
-        : messageContents.join('\n');
-
-      return messageChain;
     }
 
     return null;
-  }
-
-  public clearThreadMessageCache(threadId?: string): void {
-    if (threadId) {
-      delete this._threadMessageCache[threadId];
-    } else {
-      this._threadMessageCache = {};
-    }
-  }
-
-  public setThreadInitialContext(threadId: string, context: string): void {
-    if (!this._threadMessageCache[threadId]) {
-      this._threadMessageCache[threadId] = { messages: [] };
-    }
-    this._threadMessageCache[threadId].initialContext = context;
-  }
-
-  public getThreadInitialContext(threadId: string): string | null {
-    return this._threadMessageCache[threadId]?.initialContext || null;
   }
 
   public setupMentionRegex(): void {

@@ -51,9 +51,6 @@ const mockDiscordService = vi.mocked({
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
   cacheGuildEmojis: vi.fn(), // Add mock for cacheGuildEmojis
-  setThreadInitialContext: vi.fn(),
-  getThreadInitialContext: vi.fn(),
-  clearThreadMessageCache: vi.fn(),
   on: vi.fn(),
   once: vi.fn(),
   login: vi.fn(),
@@ -571,10 +568,6 @@ describe('Rooivalk', () => {
           autoArchiveDuration: 60,
         });
         expect(mockThread.members.add).toHaveBeenCalledWith('user-123');
-        expect(mockDiscordService.setThreadInitialContext).toHaveBeenCalledWith(
-          'new-thread-123',
-          `${mockHistory}\n- TestUser: Follow-up question`,
-        );
       });
 
       it('should store current message as initial context when no history is available', async () => {
@@ -598,10 +591,6 @@ describe('Rooivalk', () => {
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
           'First message',
         );
-        expect(mockDiscordService.setThreadInitialContext).toHaveBeenCalledWith(
-          'new-thread-456',
-          '- TestUser: First message',
-        );
       });
 
       it('should handle thread creation failure gracefully', async () => {
@@ -621,11 +610,6 @@ describe('Rooivalk', () => {
         await expect(
           rooivalk.createRooivalkThread(replyMessage),
         ).rejects.toThrow('Thread creation failed');
-
-        // Should not try to store context if thread creation failed
-        expect(
-          mockDiscordService.setThreadInitialContext,
-        ).not.toHaveBeenCalled();
       });
 
       it('should use message content for thread name when history is null', async () => {
