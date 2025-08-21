@@ -18,6 +18,7 @@ for (const [aliasPattern, targets] of Object.entries(paths)) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  // Handle aliased paths
   for (const { aliasPrefix, targetPrefix } of aliasMap) {
     if (specifier.startsWith(aliasPrefix + '/')) {
       const subPath = specifier.slice(aliasPrefix.length).replace(/^\/+/, '');
@@ -41,5 +42,24 @@ export async function resolve(specifier, context, nextResolve) {
       }
     }
   }
+
+  // Handle relative imports that need .ts extension
+  if (specifier.startsWith('./') || specifier.startsWith('../')) {
+    const parentUrl = context.parentURL;
+    if (parentUrl && parentUrl.startsWith('file://')) {
+      const parentPath = fileURLToPath(parentUrl);
+      const parentDir = path.dirname(parentPath);
+      let resolvedFile = path.resolve(parentDir, specifier);
+      
+      // If no extension and file doesn't exist, try .ts
+      if (!path.extname(resolvedFile) && !existsSync(resolvedFile)) {
+        const tsFile = resolvedFile + '.ts';
+        if (existsSync(tsFile)) {
+          return nextResolve(pathToFileURL(tsFile).href, context);
+        }
+      }
+    }
+  }
+  
   return nextResolve(specifier, context);
 }
