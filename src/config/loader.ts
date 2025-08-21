@@ -16,6 +16,22 @@ export const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
 
 /**
+ * Reads the version from package.json
+ */
+const getPackageVersion = async (): Promise<string> => {
+  const packagePath = join(CONFIG_DIR, '..', 'package.json');
+  try {
+    const content = await readFile(packagePath, 'utf8');
+    const packageJson = JSON.parse(content);
+    return packageJson.version;
+  } catch (err) {
+    throw new Error(
+      `[config/loader] Failed to read package version: ${(err as Error).message}`,
+    );
+  }
+};
+
+/**
  * Loads a list of messages from a markdown file.
  * Expects each message to be on its own line, prefixed with '- '.
  */
@@ -39,13 +55,24 @@ export const loadMessageList = async (filename: string): Promise<string[]> => {
 /**
  * Loads instructions from a markdown file.
  * Returns the content as a single string, removing the first heading if present.
+ * Replaces {{VERSION}} template with the version from package.json.
  */
 export const loadInstructions = async (filename: string): Promise<string> => {
   const filePath = getConfigFilePath(filename);
   try {
-    const content = await readFile(filePath, 'utf8');
-    // Remove the first heading (e.g., "# Instructions") if present
-    return content.replace(/^#.*\n/, '').trim();
+    const [content, version] = await Promise.all([
+      readFile(filePath, 'utf8'),
+      getPackageVersion(),
+    ]);
+
+    let processed = content
+      // Remove the first heading (e.g., "# Instructions") if present
+      .replace(/^#.*\n/, '')
+      // Replace version template
+      .replace(/{{VERSION}}/g, `v${version}`)
+      .trim();
+
+    return processed;
   } catch (err) {
     throw new Error(
       `[config/loader] Failed to load instructions from ${filename}: ${(err as Error).message}`,

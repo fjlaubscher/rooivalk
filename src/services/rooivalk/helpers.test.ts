@@ -16,7 +16,12 @@ describe('rooivalk helpers', () => {
 
       const mockStarterMessage = createMockMessage({
         id: 'starter-message-id',
-        reference: { messageId: 'bot-message-id' },
+        reference: {
+          messageId: 'bot-message-id',
+          channelId: 'channel-id',
+          guildId: 'guild-id',
+          type: 0,
+        },
       });
 
       const mockParentChannel = {
@@ -29,19 +34,20 @@ describe('rooivalk helpers', () => {
         fetchStarterMessage: vi.fn().mockResolvedValue(mockStarterMessage),
         parent: mockParentChannel,
         isThread: () => true,
+        createdTimestamp: Date.now(),
       } as unknown as ThreadChannel;
 
       const mockMessage = createMockMessage({
-        channel: mockThread,
+        channel: mockThread as any,
       });
-
-      mockMessage.channel.isThread = vi.fn().mockReturnValue(true);
 
       const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
 
       expect(result).toBe(true);
       expect(mockThread.fetchStarterMessage).toHaveBeenCalled();
-      expect(mockParentChannel.messages.fetch).toHaveBeenCalledWith('bot-message-id');
+      expect(mockParentChannel.messages.fetch).toHaveBeenCalledWith(
+        'bot-message-id',
+      );
     });
 
     it('should return false when thread starter message is not a reply to the bot', async () => {
@@ -52,7 +58,12 @@ describe('rooivalk helpers', () => {
 
       const mockStarterMessage = createMockMessage({
         id: 'starter-message-id',
-        reference: { messageId: 'other-message-id' },
+        reference: {
+          messageId: 'other-message-id',
+          channelId: 'channel-id',
+          guildId: 'guild-id',
+          type: 0,
+        },
       });
 
       const mockParentChannel = {
@@ -65,13 +76,12 @@ describe('rooivalk helpers', () => {
         fetchStarterMessage: vi.fn().mockResolvedValue(mockStarterMessage),
         parent: mockParentChannel,
         isThread: () => true,
+        createdTimestamp: Date.now(),
       } as unknown as ThreadChannel;
 
       const mockMessage = createMockMessage({
-        channel: mockThread,
+        channel: mockThread as any,
       });
-
-      mockMessage.channel.isThread = vi.fn().mockReturnValue(true);
 
       const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
 
@@ -81,7 +91,7 @@ describe('rooivalk helpers', () => {
     it('should return false when not in a thread', async () => {
       const mockMessage = createMockMessage({
         channel: {
-          isThread: vi.fn().mockReturnValue(false),
+          isThread: (() => false) as any,
         },
       });
 
@@ -92,22 +102,28 @@ describe('rooivalk helpers', () => {
 
     it('should handle errors gracefully', async () => {
       const mockThread = {
-        fetchStarterMessage: vi.fn().mockRejectedValue(new Error('Fetch failed')),
+        fetchStarterMessage: vi
+          .fn()
+          .mockRejectedValue(new Error('Fetch failed')),
         isThread: () => true,
+        createdTimestamp: Date.now(),
       } as unknown as ThreadChannel;
 
       const mockMessage = createMockMessage({
-        channel: mockThread,
+        channel: mockThread as any,
       });
 
-      mockMessage.channel.isThread = vi.fn().mockReturnValue(true);
-
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
 
       expect(result).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith('Error checking thread ownership:', expect.any(Error));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error checking thread ownership:',
+        expect.any(Error),
+      );
 
       consoleSpy.mockRestore();
     });
@@ -121,7 +137,12 @@ describe('rooivalk helpers', () => {
       });
 
       const mockMessage = createMockMessage({
-        reference: { messageId: 'bot-message-id' },
+        reference: {
+          messageId: 'bot-message-id',
+          channelId: 'channel-id',
+          guildId: 'guild-id',
+          type: 0,
+        },
         channel: {
           messages: {
             fetch: vi.fn().mockResolvedValue(mockBotMessage),
@@ -132,7 +153,9 @@ describe('rooivalk helpers', () => {
       const result = await isReplyToRooivalk(mockMessage, mockDiscordClientId);
 
       expect(result).toBe(true);
-      expect(mockMessage.channel.messages.fetch).toHaveBeenCalledWith('bot-message-id');
+      expect(mockMessage.channel.messages.fetch).toHaveBeenCalledWith(
+        'bot-message-id',
+      );
     });
 
     it('should return false when message is not a reply', async () => {
@@ -152,7 +175,12 @@ describe('rooivalk helpers', () => {
       });
 
       const mockMessage = createMockMessage({
-        reference: { messageId: 'other-message-id' },
+        reference: {
+          messageId: 'other-message-id',
+          channelId: 'channel-id',
+          guildId: 'guild-id',
+          type: 0,
+        },
         channel: {
           messages: {
             fetch: vi.fn().mockResolvedValue(mockOtherMessage),

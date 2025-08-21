@@ -40,9 +40,13 @@ describe('discord helpers', () => {
     });
 
     it('should parse message with attachments', () => {
-      const mockAttachment1 = { url: 'https://example.com/image1.png' } as Attachment;
-      const mockAttachment2 = { url: 'https://example.com/image2.jpg' } as Attachment;
-      
+      const mockAttachment1 = {
+        url: 'https://example.com/image1.png',
+      } as Attachment;
+      const mockAttachment2 = {
+        url: 'https://example.com/image2.jpg',
+      } as Attachment;
+
       const mockAttachments = new Collection([
         ['1', mockAttachment1],
         ['2', mockAttachment2],
@@ -59,12 +63,17 @@ describe('discord helpers', () => {
       expect(result).toEqual({
         author: 'TestUser',
         content: 'Check these images',
-        attachmentUrls: ['https://example.com/image1.png', 'https://example.com/image2.jpg'],
+        attachmentUrls: [
+          'https://example.com/image1.png',
+          'https://example.com/image2.jpg',
+        ],
       });
     });
 
     it('should handle message with only attachments and no content', () => {
-      const mockAttachment = { url: 'https://example.com/file.pdf' } as Attachment;
+      const mockAttachment = {
+        url: 'https://example.com/file.pdf',
+      } as Attachment;
       const mockAttachments = new Collection([['1', mockAttachment]]);
 
       const message = createMockMessage({
@@ -132,7 +141,9 @@ describe('discord helpers', () => {
 
       const result = formatMessageInChain(message);
 
-      expect(result).toBe('- TestUser: Check this image Attachments: [1](https://example.com/image.png)');
+      expect(result).toBe(
+        '- TestUser: Check this image Attachments: [1](https://example.com/image.png)',
+      );
     });
 
     it('should format message with multiple attachments', () => {
@@ -149,7 +160,7 @@ describe('discord helpers', () => {
       const result = formatMessageInChain(message);
 
       expect(result).toBe(
-        '- TestUser: Multiple files Attachments: [1](https://example.com/file1.pdf), [2](https://example.com/image.jpg), [3](https://example.com/document.docx)'
+        '- TestUser: Multiple files Attachments: [1](https://example.com/file1.pdf), [2](https://example.com/image.jpg), [3](https://example.com/document.docx)',
       );
     });
 
@@ -162,7 +173,9 @@ describe('discord helpers', () => {
 
       const result = formatMessageInChain(message);
 
-      expect(result).toBe('- TestUser:  Attachments: [1](https://example.com/file.pdf)');
+      expect(result).toBe(
+        '- TestUser:  Attachments: [1](https://example.com/file.pdf)',
+      );
     });
 
     it('should handle empty message', () => {

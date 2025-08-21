@@ -11,11 +11,14 @@ export const isRooivalkThread = async (
       const starterMessage = await thread.fetchStarterMessage();
       if (starterMessage) {
         // If the starter message is a reply to the bot, then the bot created this thread
-        const repliedToMessage = starterMessage.reference?.messageId
-          ? await thread.parent?.messages.fetch(
-              starterMessage.reference.messageId,
-            )
-          : null;
+        const repliedToMessage =
+          starterMessage.reference?.messageId &&
+          thread.parent &&
+          'messages' in thread.parent
+            ? await thread.parent.messages.fetch(
+                starterMessage.reference.messageId,
+              )
+            : null;
         if (
           repliedToMessage &&
           repliedToMessage.author.id === discordClientId
