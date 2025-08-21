@@ -23,7 +23,7 @@ import type {
 
 interface ThreadMessageCache {
   initialContext?: string;
-  messages: Array<{ id: string; content: string; }>;
+  messages: Array<{ id: string; content: string }>;
 }
 import { formatMessageInChain, parseMessageInChain } from './helpers';
 
@@ -367,12 +367,12 @@ class DiscordService {
         // fetch and format thread messages
         const threadMessages = await thread.messages.fetch();
         const messages = Array.from(threadMessages.values());
-        
+
         // If no messages in thread and no initial context, return null
         if (messages.length === 0 && !cache.initialContext) {
           return null;
         }
-        
+
         // reverse the order to maintain chronological context and store in cache
         messages.reverse().forEach((msg) => {
           const msgInChain = parseMessageInChain(
@@ -384,7 +384,7 @@ class DiscordService {
         });
       } else {
         // Check if current message is already cached
-        const messageExists = cache.messages.some(m => m.id === message.id);
+        const messageExists = cache.messages.some((m) => m.id === message.id);
         if (!messageExists) {
           // Add current message to cache
           const currentMessageInChain = parseMessageInChain(
@@ -394,12 +394,15 @@ class DiscordService {
           const currentMessageFormatted = formatMessageInChain(
             currentMessageInChain,
           );
-          cache.messages.push({ id: message.id, content: currentMessageFormatted });
+          cache.messages.push({
+            id: message.id,
+            content: currentMessageFormatted,
+          });
         }
       }
 
       // Build the final string from cache
-      const messageContents = cache.messages.map(m => m.content);
+      const messageContents = cache.messages.map((m) => m.content);
       const messageChain = cache.initialContext
         ? `${cache.initialContext}\n${messageContents.join('\n')}`
         : messageContents.join('\n');
