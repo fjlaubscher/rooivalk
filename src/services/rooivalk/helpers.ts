@@ -12,7 +12,7 @@ export const isRooivalkThread = async (
       if (starterMessage) {
         // If the starter message is a reply to the bot, then the bot created this thread
         const repliedToMessage = starterMessage.reference?.messageId
-          ? await message.channel.messages.fetch(
+          ? await thread.parent?.messages.fetch(
               starterMessage.reference.messageId,
             )
           : null;
