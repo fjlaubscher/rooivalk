@@ -19,7 +19,11 @@ import YrService from '@/services/yr';
 
 import type { InMemoryConfig } from '@/types';
 
-import { isReplyToRooivalk, isRooivalkThread } from './helpers';
+import {
+  isReplyToRooivalk,
+  isRooivalkThread,
+  buildPromptAuthor,
+} from './helpers';
 
 class Rooivalk {
   protected _config: InMemoryConfig;
@@ -111,7 +115,7 @@ class Rooivalk {
 
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
-        message.author.displayName,
+        buildPromptAuthor(message.author),
         prompt,
         this._discord.allowedEmojis,
         conversationHistory,

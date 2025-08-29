@@ -1,4 +1,5 @@
-import type { Message } from 'discord.js';
+import { userMention } from 'discord.js';
+import type { Message, User } from 'discord.js';
 
 export const isRooivalkThread = async (
   message: Message<boolean>,
@@ -15,9 +16,9 @@ export const isRooivalkThread = async (
           starterMessage.reference?.messageId &&
           thread.parent &&
           'messages' in thread.parent
-            ? await thread.parent.messages.fetch(
-                starterMessage.reference.messageId,
-              )
+            ? await thread.parent.messages
+                .fetch(starterMessage.reference.messageId)
+                .catch(() => null)
             : null;
         if (
           repliedToMessage &&
@@ -39,13 +40,24 @@ export const isReplyToRooivalk = async (
   discordClientId: string | undefined,
 ): Promise<boolean> => {
   if (message.reference?.messageId) {
-    const referencedMessage = await message.channel.messages.fetch(
-      message.reference.messageId,
-    );
+    try {
+      const referencedMessage = await message.channel.messages.fetch(
+        message.reference.messageId,
+      );
 
-    if (referencedMessage && referencedMessage.author.id === discordClientId) {
-      return true;
+      if (
+        referencedMessage &&
+        referencedMessage.author.id === discordClientId
+      ) {
+        return true;
+      }
+    } catch (error) {
+      // Referenced message doesn't exist (deleted, from another server, etc.)
+      return false;
     }
   }
   return false;
 };
+
+export const buildPromptAuthor = (author: User) =>
+  `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag)`;

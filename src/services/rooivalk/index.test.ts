@@ -8,8 +8,17 @@ import {
   beforeAll,
   afterAll,
 } from 'vitest';
-import type { Message } from 'discord.js';
+import type {
+  Message,
+  ChatInputCommandInteraction,
+  ThreadChannel,
+} from 'discord.js';
+
 import { silenceConsole } from '@/test-utils/consoleMocks';
+import { createMockMessage } from '@/test-utils/createMockMessage';
+import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
+
+import { buildPromptAuthor } from './helpers';
 
 let restoreConsole: () => void;
 
@@ -23,10 +32,6 @@ beforeAll(() => {
 afterAll(() => {
   restoreConsole();
 });
-
-import type { ChatInputCommandInteraction, ThreadChannel } from 'discord.js';
-import { createMockMessage } from '@/test-utils/createMockMessage';
-import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
 
 import Rooivalk from '.';
 
@@ -105,8 +110,9 @@ describe('Rooivalk', () => {
           mockDiscordService.buildMessageChainFromMessage,
         ).toHaveBeenCalledWith(userMessage);
 
+        const expectedAuthor = buildPromptAuthor(userMessage.author);
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'TestUser',
+          expectedAuthor,
           'Hi!',
           [],
           '- User: Hi!\n- Rooivalk: Hello!',
@@ -187,8 +193,9 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
 
+        const expectedAuthor = buildPromptAuthor(userMessage.author);
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'TestUser',
+          expectedAuthor,
           'Hello bot!',
           [],
           null,
@@ -384,8 +391,10 @@ describe('Rooivalk', () => {
         expect(
           mockDiscordService.buildMessageChainFromMessage,
         ).not.toHaveBeenCalled();
+
+        const expectedAuthor = buildPromptAuthor(threadMessage.author);
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'TestUser',
+          expectedAuthor,
           'Hello in thread',
           [],
           'thread conversation history',
@@ -440,8 +449,10 @@ describe('Rooivalk', () => {
         expect(
           mockDiscordService.buildMessageChainFromThreadMessage,
         ).not.toHaveBeenCalled();
+
+        const expectedAuthor = buildPromptAuthor(regularMessage.author);
         expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
-          'TestUser',
+          expectedAuthor,
           'Hello outside thread',
           [],
           'message chain history',
