@@ -1,5 +1,6 @@
 import { Events as DiscordEvents } from 'discord.js';
 import type {
+  Attachment,
   ChatInputCommandInteraction,
   Client,
   Interaction,
@@ -11,19 +12,22 @@ import type {
 
 import {
   ALLOWED_ATTACHMENT_CONTENT_TYPES,
+  ALLOWED_ATTACHMENT_EXTENSIONS,
   DISCORD_COMMANDS,
 } from '@/constants';
 import DiscordService from '@/services/discord';
 import OpenAIService from '@/services/openai';
 import YrService from '@/services/yr';
 
-import type { InMemoryConfig } from '@/types';
+import type { AttachmentForPrompt, InMemoryConfig } from '@/types';
 
 import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
 } from './helpers';
+
+const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 
 class Rooivalk {
   protected _config: InMemoryConfig;
@@ -72,6 +76,77 @@ class Rooivalk {
     return true;
   }
 
+  private isAttachmentAllowed(attachment: Attachment): boolean {
+    const normalizedContentType = this.normalizeContentType(
+      attachment.contentType,
+    );
+
+    if (
+      normalizedContentType &&
+      ALLOWED_ATTACHMENT_CONTENT_TYPES.includes(normalizedContentType)
+    ) {
+      return true;
+    }
+
+    if (attachment.name) {
+      const lowerCaseName = attachment.name.toLowerCase();
+      return ALLOWED_ATTACHMENT_EXTENSIONS.some((extension) =>
+        lowerCaseName.endsWith(extension),
+      );
+    }
+
+    return false;
+  }
+
+  private getAttachmentKind(
+    attachment: Attachment,
+  ): AttachmentForPrompt['kind'] {
+    const normalizedContentType = this.normalizeContentType(
+      attachment.contentType,
+    );
+
+    if (normalizedContentType?.startsWith('image/')) {
+      return 'image';
+    }
+
+    if (attachment.name) {
+      const lowerCaseName = attachment.name.toLowerCase();
+      if (
+        IMAGE_ATTACHMENT_EXTENSIONS.some((extension) =>
+          lowerCaseName.endsWith(extension),
+        )
+      ) {
+        return 'image';
+      }
+    }
+
+    return 'file';
+  }
+
+  private buildAttachmentForPrompt(
+    attachment: Attachment,
+  ): AttachmentForPrompt {
+    const normalizedContentType = this.normalizeContentType(
+      attachment.contentType,
+    );
+
+    return {
+      url: attachment.url,
+      name: attachment.name ?? null,
+      contentType: normalizedContentType,
+      kind: this.getAttachmentKind(attachment),
+    };
+  }
+
+  private normalizeContentType(contentType?: string | null): string | null {
+    if (!contentType) {
+      return null;
+    }
+
+    const [parsedContentType] = contentType.split(';');
+    return parsedContentType ? parsedContentType.trim().toLowerCase() : null;
+  }
+
   /**
    * Reloads the config for Rooivalk and propagates to child services.
    */
@@ -105,13 +180,9 @@ class Rooivalk {
       );
 
       // filter attachments to only those with allowed content types
-      const attachmentUrls = message.attachments
-        .filter((attachment) =>
-          attachment.contentType
-            ? ALLOWED_ATTACHMENT_CONTENT_TYPES.includes(attachment.contentType)
-            : false,
-        )
-        .map((attachment) => attachment.url);
+      const attachments = Array.from(message.attachments.values())
+        .filter((attachment) => this.isAttachmentAllowed(attachment))
+        .map((attachment) => this.buildAttachmentForPrompt(attachment));
 
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
@@ -119,7 +190,7 @@ class Rooivalk {
         prompt,
         this._discord.allowedEmojis,
         conversationHistory,
-        attachmentUrls.length > 0 ? attachmentUrls : null,
+        attachments.length > 0 ? attachments : null,
       );
 
       if (response) {

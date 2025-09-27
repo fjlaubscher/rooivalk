@@ -1,6 +1,10 @@
 import OpenAI from 'openai';
 
-import type { InMemoryConfig, OpenAIResponse } from '@/types';
+import type {
+  AttachmentForPrompt,
+  InMemoryConfig,
+  OpenAIResponse,
+} from '@/types';
 
 class OpenAIService {
   private _config: InMemoryConfig;
@@ -36,7 +40,7 @@ class OpenAIService {
     prompt: string,
     emojis: string[] = [],
     history: string | null = null,
-    attachmentUrls: string[] | null = null,
+    attachments: AttachmentForPrompt[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
       let instructions = this._config.instructions;
@@ -58,12 +62,31 @@ class OpenAIService {
         },
       ];
 
-      if (attachmentUrls && attachmentUrls.length > 0) {
-        attachmentUrls.forEach((url) => {
+      if (attachments && attachments.length > 0) {
+        attachments.forEach((attachment) => {
+          if (attachment.kind === 'image') {
+            inputContent.push({
+              type: 'input_image',
+              image_url: attachment.url,
+              detail: 'auto',
+            });
+            return;
+          }
+
+          const metadata: string[] = [];
+          if (attachment.name) {
+            metadata.push(`name=${attachment.name}`);
+          }
+          if (attachment.contentType) {
+            metadata.push(`type=${attachment.contentType}`);
+          }
+
+          const metadataSuffix =
+            metadata.length > 0 ? ` (${metadata.join(', ')})` : '';
+
           inputContent.push({
-            type: 'input_image',
-            image_url: url,
-            detail: 'auto',
+            type: 'input_text',
+            text: `Attachment${metadataSuffix}: ${attachment.url}`,
           });
         });
       }

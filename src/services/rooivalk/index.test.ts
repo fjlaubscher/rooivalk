@@ -8,7 +8,9 @@ import {
   beforeAll,
   afterAll,
 } from 'vitest';
+import { Collection } from 'discord.js';
 import type {
+  Attachment,
   Message,
   ChatInputCommandInteraction,
   ThreadChannel,
@@ -119,6 +121,40 @@ describe('Rooivalk', () => {
           null,
         );
       });
+    });
+
+    it('should include allowed text attachments when prompting OpenAI', async () => {
+      const attachment = {
+        url: 'https://cdn.discordapp.com/attachments/file.md',
+        contentType: 'text/markdown',
+        name: 'file.md',
+      } as unknown as Attachment;
+
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> Please review the attached notes`,
+        attachments: new Collection<string, Attachment>([['1', attachment]]),
+      } as Partial<Message<boolean>>);
+
+      mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
+
+      await (rooivalk as any).processMessage(userMessage);
+
+      const expectedAuthor = buildPromptAuthor(userMessage.author);
+
+      expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+        expectedAuthor,
+        'Please review the attached notes',
+        [],
+        null,
+        [
+          {
+            url: attachment.url,
+            name: attachment.name,
+            contentType: 'text/markdown',
+            kind: 'file',
+          },
+        ],
+      );
     });
 
     describe('Rooivalk private shouldProcessMessage', () => {

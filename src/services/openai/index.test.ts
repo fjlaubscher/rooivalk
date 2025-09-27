@@ -11,6 +11,7 @@ import {
 
 import OpenAIService from '.';
 import { MOCK_CONFIG } from '@/test-utils/mock';
+import type { AttachmentForPrompt } from '@/types';
 
 const responsesCreateMock = vi.fn();
 const imagesGenerateMock = vi.fn();
@@ -71,6 +72,50 @@ describe('OpenAIService', () => {
         content: 'test response',
         base64Images: [],
       });
+    });
+
+    it('includes attachments in the request payload', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'test response',
+        output: [],
+      });
+
+      const attachments: AttachmentForPrompt[] = [
+        {
+          url: 'https://example.com/image.png',
+          kind: 'image',
+          name: 'image.png',
+          contentType: 'image/png',
+        },
+        {
+          url: 'https://example.com/data.txt',
+          kind: 'file',
+          name: 'data.txt',
+          contentType: 'text/plain',
+        },
+      ];
+
+      await service.createResponse('test user', 'hi', [], null, attachments);
+
+      expect(responsesCreateMock).toHaveBeenCalledTimes(1);
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      const userEntry = callArgs.input.find(
+        (entry: any) => entry.role === 'user',
+      );
+
+      expect(userEntry).toBeDefined();
+      expect(userEntry.content).toEqual([
+        { type: 'input_text', text: 'hi' },
+        {
+          type: 'input_image',
+          image_url: 'https://example.com/image.png',
+          detail: 'auto',
+        },
+        {
+          type: 'input_text',
+          text: 'Attachment (name=data.txt, type=text/plain): https://example.com/data.txt',
+        },
+      ]);
     });
 
     it('throws OpenAI error message', async () => {

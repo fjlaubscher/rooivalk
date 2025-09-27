@@ -33,6 +33,13 @@ export type MessageInChain = {
   attachmentUrls: string[];
 };
 
+export type AttachmentForPrompt = {
+  url: string;
+  kind: 'image' | 'file';
+  name?: string | null;
+  contentType?: string | null;
+};
+
 export type DiscordCommandParams = {
   description: string;
   parameters: {

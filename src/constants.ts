@@ -6,6 +6,27 @@ export const ALLOWED_ATTACHMENT_CONTENT_TYPES = [
   'image/png',
   'image/jpeg',
   'image/webp',
+  'text/plain',
+  'text/markdown',
+  'text/x-markdown',
+  'application/json',
+  'text/json',
+  'text/csv',
+  'application/csv',
+  'text/tab-separated-values',
+];
+
+export const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.txt',
+  '.md',
+  '.markdown',
+  '.json',
+  '.csv',
+  '.tsv',
 ];
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
