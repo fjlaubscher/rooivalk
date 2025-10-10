@@ -10,7 +10,6 @@ export const MOCK_ENV: Env = {
   OPENAI_MODEL: 'test-openai-model',
   OPENAI_IMAGE_MODEL: 'test-openai-image-model',
   ROOIVALK_MOTD_CRON: 'test-rooivalk-motd-cron',
-  ROOIVALK_QOTD_CRON: 'test-rooivalk-qotd-cron',
 };
 
 export const MOCK_CONFIG: InMemoryConfig = {
@@ -19,5 +18,4 @@ export const MOCK_CONFIG: InMemoryConfig = {
   discordLimitMessages: ['Too long!'],
   instructions: 'System instructions',
   motd: 'Message of the day',
-  qotd: 'Question of the day',
 };

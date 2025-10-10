@@ -10,7 +10,7 @@ It is written in TypeScript and designed for easy customization and extension.
 - **Smart conversation handling**: Responds to mentions, replies to bot messages, and automatically creates threads
 - **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity and initial context preservation
 - **Weather integration**: Fetches weather data from Yr.no for enhanced contextual responses and daily MOTD
-- **Scheduled tasks**: Configurable MOTD (Message of the Day) and QOTD (Question of the Day) via cron jobs
+- **Scheduled tasks**: Configurable MOTD (Message of the Day) via cron jobs
 - **Hot-reloadable configuration**: Runtime configuration updates via `config/*.md` files
 - **Robust testing**: Comprehensive test suite with dedicated utilities for mocking Discord interactions and service dependencies
 
@@ -48,7 +48,6 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    OPENAI_MODEL=gpt-4.1-mini-2025-04-14
    OPENAI_IMAGE_MODEL=gpt-image-1
    ROOIVALK_MOTD_CRON="0 8 * * *"
-   ROOIVALK_QOTD_CRON="0 12 * * 3"
    ```
 4. Start the bot (uses native TypeScript execution):
    ```sh

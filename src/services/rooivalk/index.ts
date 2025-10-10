@@ -256,16 +256,6 @@ class Rooivalk {
     await this.sendMessageToChannel(this._discord.motdChannelId, motd);
   }
 
-  public async sendQotdToMotdChannel(): Promise<void> {
-    if (!this._config.qotd) {
-      console.log('No QOTD configured');
-      return;
-    }
-
-    const qotd = this._config.qotd;
-    await this.sendMessageToChannel(this._discord.motdChannelId, qotd);
-  }
-
   public async sendMessageToChannel(
     channelId: string | undefined,
     prompt: string,

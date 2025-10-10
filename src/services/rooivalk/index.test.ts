@@ -8,7 +8,7 @@ import {
   beforeAll,
   afterAll,
 } from 'vitest';
-import { Collection } from 'discord.js';
+import { Collection, Events as DiscordEvents } from 'discord.js';
 import type {
   Attachment,
   Message,
@@ -384,8 +384,10 @@ describe('Rooivalk', () => {
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
       mockDiscordService.once.mockImplementation(
-        (event: string, cb: () => void) => {
-          if (event === 'ready') cb();
+        (event: string, cb: (client: unknown) => void) => {
+          if (event === DiscordEvents.ClientReady) {
+            cb(mockDiscordService.client as any);
+          }
           return mockDiscordService;
         },
       );

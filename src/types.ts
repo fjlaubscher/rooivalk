@@ -8,7 +8,6 @@ export type Env = {
   OPENAI_MODEL: string;
   OPENAI_IMAGE_MODEL: string;
   ROOIVALK_MOTD_CRON: string;
-  ROOIVALK_QOTD_CRON: string;
 };
 
 export type InMemoryConfig = {
@@ -17,7 +16,6 @@ export type InMemoryConfig = {
   discordLimitMessages: string[];
   instructions: string;
   motd: string;
-  qotd: string;
 };
 
 export type ResponseType = 'error' | 'greeting' | 'discordLimit';
