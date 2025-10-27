@@ -45,6 +45,9 @@ class OpenAIService {
     try {
       let instructions = this._config.instructions;
 
+      const currentDate = new Date().toISOString().split('T')[0];
+      instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);
+
       // inject emojis if available
       if (emojis) {
         instructions = instructions.replace(/{{EMOJIS}}/, emojis.join('\n'));
