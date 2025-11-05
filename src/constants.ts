@@ -52,20 +52,30 @@ export const CONFIG_DIR = join(__dirname, '..', 'config');
 export const YR_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 
 export const YR_COORDINATES: Record<string, WeatherLocation> = {
-  CAPE_TOWN: {
-    name: 'Cape Town, South Africa',
-    latitude: -33.92584,
-    longitude: 18.42322,
+  BONNIEVALE: {
+    name: 'Bonnievale, South Africa',
+    latitude: -33.9159,
+    longitude: 20.0807,
+  },
+  LAKESIDE: {
+    name: 'Lakeside, South Africa',
+    latitude: -34.0849,
+    longitude: 18.4561,
+  },
+  TABLEVIEW: {
+    name: 'Table View, South Africa',
+    latitude: -33.8236,
+    longitude: 18.4903,
   },
   DUBAI: {
     name: 'Dubai, United Arab Emirates',
-    latitude: 25.26472,
-    longitude: 55.29241,
+    latitude: 25.2647,
+    longitude: 55.2924,
   },
   TAMARIN: {
     name: 'Tamarin, Mauritius',
-    latitude: -20.32922,
-    longitude: 57.37768,
+    latitude: -20.3292,
+    longitude: 57.3777,
   },
 };
 

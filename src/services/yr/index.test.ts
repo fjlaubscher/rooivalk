@@ -85,10 +85,10 @@ describe('YrService', () => {
       json: async () => mockYrResponse(),
     } as Response);
 
-    const forecast = await yrService.getForecastByLocation('CAPE_TOWN');
+    const forecast = await yrService.getForecastByLocation('LAKESIDE');
     expect(forecast).not.toBeNull();
-    expect(forecast?.location).toBe('CAPE_TOWN');
-    expect(forecast?.friendlyName).toBe(YR_COORDINATES.CAPE_TOWN.name);
+    expect(forecast?.location).toBe('LAKESIDE');
+    expect(forecast?.friendlyName).toBe(YR_COORDINATES.LAKESIDE.name);
     expect(forecast?.minTemp).toBe(15);
     expect(forecast?.maxTemp).toBe(20);
     expect(forecast?.avgHumidity).toBe(57.5);
@@ -102,7 +102,7 @@ describe('YrService', () => {
       json: async () => null,
     } as Response);
 
-    const forecast = await yrService.getForecastByLocation('CAPE_TOWN');
+    const forecast = await yrService.getForecastByLocation('LAKESIDE');
     expect(forecast).toBeNull();
   });
 
@@ -119,7 +119,7 @@ describe('YrService', () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(yrService.getForecastByLocation('CAPE_TOWN')).rejects.toThrow(
+    await expect(yrService.getForecastByLocation('LAKESIDE')).rejects.toThrow(
       /Failed to fetch weather data/,
     );
   });
@@ -136,7 +136,7 @@ describe('YrService', () => {
       json: async () => response,
     } as Response);
 
-    await expect(yrService.getForecastByLocation('CAPE_TOWN')).rejects.toThrow(
+    await expect(yrService.getForecastByLocation('LAKESIDE')).rejects.toThrow(
       /No weather data available for today/,
     );
   });
