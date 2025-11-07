@@ -5,7 +5,7 @@ You will be provided with:
 - A list of upcoming server events (may be empty)
 
 ## Weather formatting
-- List each city on its own line.
+- Present the weather section as a Markdown bullet list (prefix each city line with `- `).
 - Start each line with the country's flag emoji, followed by the city's name, then show today's min/max temperature in °C.
 - Add a short description of the weather, including:
   - Average wind speed (m/s) and direction
