@@ -25,13 +25,15 @@ export const parseMessageInChain = (
 };
 
 export const formatMessageInChain = (message: MessageInChain): string => {
-  let entry = `- ${message.author}: ${message.content}`;
+  const content =
+    message.content && message.content.length > 0
+      ? message.content
+      : '[no content]';
+
+  let entry = `- ${message.author}: ${content}`;
 
   if (message.attachmentUrls.length > 0) {
-    const formattedAttachments = message.attachmentUrls
-      .map((url, index) => `[${index + 1}](${url})`)
-      .join(', ');
-
+    const formattedAttachments = message.attachmentUrls.join(', ');
     entry = `${entry} Attachments: ${formattedAttachments}`;
   }
 

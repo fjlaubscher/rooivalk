@@ -159,7 +159,7 @@ describe('discord helpers', () => {
       const result = formatMessageInChain(message);
 
       expect(result).toBe(
-        '- TestUser: Check this image Attachments: [1](https://example.com/image.png)',
+        '- TestUser: Check this image Attachments: https://example.com/image.png',
       );
     });
 
@@ -177,7 +177,7 @@ describe('discord helpers', () => {
       const result = formatMessageInChain(message);
 
       expect(result).toBe(
-        '- TestUser: Multiple files Attachments: [1](https://example.com/file1.pdf), [2](https://example.com/image.jpg), [3](https://example.com/document.docx)',
+        '- TestUser: Multiple files Attachments: https://example.com/file1.pdf, https://example.com/image.jpg, https://example.com/document.docx',
       );
     });
 
@@ -191,7 +191,7 @@ describe('discord helpers', () => {
       const result = formatMessageInChain(message);
 
       expect(result).toBe(
-        '- TestUser:  Attachments: [1](https://example.com/file.pdf)',
+        '- TestUser: [no content] Attachments: https://example.com/file.pdf',
       );
     });
 
@@ -204,7 +204,7 @@ describe('discord helpers', () => {
 
       const result = formatMessageInChain(message);
 
-      expect(result).toBe('- TestUser: ');
+      expect(result).toBe('- TestUser: [no content]');
     });
   });
 });

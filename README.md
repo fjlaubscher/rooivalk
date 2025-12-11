@@ -73,6 +73,15 @@ The bot uses a modular service-based architecture with helper utilities. Each se
 
 See [AGENTS.md](./AGENTS.md) for comprehensive architecture and development guidelines.
 
+### Prompt & Persona Tuning
+
+- Edit `config/instructions.md` to adjust Rooivalk's lore, tone, and response rules. The file is hot-reloaded, so changes take effect without redeploying.
+- Available placeholders:
+  - `{{CURRENT_DATE}}` – replaced with the current ISO date before sending prompts.
+  - `{{EMOJIS}}` – populated with the server's allowed custom emojis (one per line).
+  - `{{CONVERSATION_HISTORY}}` – replaced with the most recent sortie log (or a fallback line when no history exists). History is automatically truncated to keep prompts lean.
+- Set `LOG_LEVEL=debug` to emit prompt-metric debug logs (instructions length, presence of history, attachment count) ahead of each OpenAI request.
+
 ### Continuous Integration
 
 This project uses GitHub Actions to automatically run tests and deploy the bot. The workflows are located in `.github/workflows/`:

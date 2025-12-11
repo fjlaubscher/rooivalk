@@ -6,6 +6,11 @@ import type {
   OpenAIResponse,
 } from '@/types';
 
+const NO_HISTORY_FALLBACK =
+  'No prior sorties logged. Start fresh but stay on-mission.';
+const MAX_HISTORY_LINES = 40;
+const MAX_HISTORY_CHARACTERS = 6000;
+
 class OpenAIService {
   private _config: InMemoryConfig;
   private _model: string;
@@ -53,9 +58,19 @@ class OpenAIService {
         instructions = instructions.replace(/{{EMOJIS}}/, emojis.join('\n'));
       }
 
-      // inject conversation history if available
-      if (history) {
-        instructions += `\n\n### Conversation history:\n${history}`;
+      const sanitizedHistory = history?.trim() ?? '';
+      const hasHistory = sanitizedHistory.length > 0;
+      const historyContent = hasHistory
+        ? this.truncateConversationHistory(sanitizedHistory)
+        : NO_HISTORY_FALLBACK;
+
+      if (instructions.includes('{{CONVERSATION_HISTORY}}')) {
+        instructions = instructions.replace(
+          /{{CONVERSATION_HISTORY}}/g,
+          historyContent,
+        );
+      } else if (hasHistory) {
+        instructions += `\n\n### Conversation history:\n${historyContent}`;
       }
 
       const inputContent: OpenAI.Responses.ResponseInputContent[] = [
@@ -108,6 +123,14 @@ class OpenAIService {
         content: inputContent,
       });
 
+      this.logPromptMetrics({
+        instructionsLength: instructions.length,
+        hasHistory,
+        historyLength: sanitizedHistory.length,
+        attachmentsCount: attachments?.length ?? 0,
+        promptLength: prompt.length,
+      });
+
       const response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
@@ -141,6 +164,45 @@ class OpenAIService {
 
       throw new Error('Error creating chat completion');
     }
+  }
+
+  private truncateConversationHistory(history: string): string {
+    const lines = history.split('\n');
+    let truncatedLines = lines;
+    const notices: string[] = [];
+
+    if (lines.length > MAX_HISTORY_LINES) {
+      truncatedLines = lines.slice(lines.length - MAX_HISTORY_LINES);
+      notices.push('...prior sorties truncated...');
+    }
+
+    let truncated = truncatedLines.join('\n');
+
+    if (truncated.length > MAX_HISTORY_CHARACTERS) {
+      truncated = truncated.slice(truncated.length - MAX_HISTORY_CHARACTERS);
+      const firstNewline = truncated.indexOf('\n');
+      if (firstNewline > -1) {
+        truncated = truncated.slice(firstNewline + 1);
+      }
+      notices.push('...history clipped for length...');
+    }
+
+    const parts = [...notices, truncated].filter(Boolean);
+    return parts.join('\n').trim();
+  }
+
+  private logPromptMetrics(metrics: {
+    instructionsLength: number;
+    hasHistory: boolean;
+    historyLength: number;
+    attachmentsCount: number;
+    promptLength: number;
+  }): void {
+    if (process.env.LOG_LEVEL?.toLowerCase() !== 'debug') {
+      return;
+    }
+
+    console.debug('[OpenAIService] prompt metrics', metrics);
   }
 
   public reloadConfig(newConfig: InMemoryConfig): void {

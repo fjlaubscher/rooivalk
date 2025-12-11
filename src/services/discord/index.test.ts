@@ -439,7 +439,7 @@ describe('DiscordService', () => {
         // The bot message with attachment should be included
         expect(result).toContain('- User: Thread starter message');
         expect(result).toContain(
-          '- rooivalk:  Attachments: [1](https://example.com/image.png)',
+          '- rooivalk: [no content] Attachments: https://example.com/image.png',
         );
         expect(result).toContain('- User: generate a picture');
         expect(result).toContain('- User: great!');

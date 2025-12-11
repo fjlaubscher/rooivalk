@@ -134,6 +134,65 @@ describe('OpenAIService', () => {
         'Error creating chat completion',
       );
     });
+
+    it('replaces placeholders when building instructions', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2025-01-02T00:00:00Z'));
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      try {
+        await service.createResponse('test user', 'hi');
+
+        const callArgs = responsesCreateMock.mock.calls[0]![0];
+        expect(callArgs.instructions).toContain('2025-01-02');
+        expect(callArgs.instructions).toContain('No prior sorties logged.');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('injects conversation history when placeholder missing', async () => {
+      const localService = new OpenAIService({
+        ...MOCK_CONFIG,
+        instructions: 'Base instructions',
+      });
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await localService.createResponse(
+        'test user',
+        'hi',
+        [],
+        'line one\nline two',
+      );
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).toContain('### Conversation history');
+      expect(callArgs.instructions).toContain('line one');
+      expect(callArgs.instructions).toContain('line two');
+    });
+
+    it('truncates long conversation history', async () => {
+      const longHistory = Array.from(
+        { length: 50 },
+        (_, index) => `line ${index + 1}`,
+      ).join('\n');
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('test user', 'hi', [], longHistory);
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).toContain('...prior sorties truncated...');
+      expect(callArgs.instructions).toContain('line 50');
+    });
   });
 
   describe('createImage', () => {
