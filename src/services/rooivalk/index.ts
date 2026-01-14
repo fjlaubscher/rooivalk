@@ -12,6 +12,7 @@ import type {
   Message,
   MessageReaction,
   PartialMessageReaction,
+  TextBasedChannel,
 } from 'discord.js';
 
 import {
@@ -304,7 +305,12 @@ class Rooivalk {
       let motdImage: string | null = null;
       if (weatherSection) {
         const imagePrompt = this.buildMotdImagePrompt(weatherSection);
-        motdImage = await this._openai.createImage(imagePrompt);
+        try {
+          motdImage = await this._openai.createImage(imagePrompt);
+        } catch (error) {
+          console.error('Error generating MOTD weather image:', error);
+          motdImage = null;
+        }
       } else {
         console.warn('MOTD weather section markers not found');
       }
@@ -319,7 +325,7 @@ class Rooivalk {
       );
       if (!channel || !channel.isTextBased()) {
         console.error(
-          `Channel: ${this._discord.motdChannelId} is not text-based`,
+          `Cannot send MOTD: Channel ${this._discord.motdChannelId} is not text-based`,
         );
         return;
       }
@@ -349,7 +355,7 @@ class Rooivalk {
         );
       }
 
-      await (channel as any).send({
+      await (channel as TextBasedChannel).send({
         ...messageOptions,
         files: files.length > 0 ? files : undefined,
         embeds: embeds.length > 0 ? embeds : undefined,
