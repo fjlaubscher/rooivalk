@@ -51,6 +51,7 @@ const mockDiscordService = vi.mocked({
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
   chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
+  getGuildEventsBetween: vi.fn(),
   fetchScheduledEventsBetween: vi.fn(),
   buildMessageChainFromMessage: vi.fn(),
   buildMessageChainFromThreadMessage: vi.fn(),
@@ -380,6 +381,120 @@ describe('Rooivalk', () => {
     });
   });
 
+  describe('when sending a MOTD with weather image', () => {
+    it('adds an image attachment when weather markers are present', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = [
+        'Intro line',
+        '<!-- MOTD_WEATHER_START -->',
+        '- ZA Cape Town 12-21C sunny',
+        '<!-- MOTD_WEATHER_END -->',
+        'Footer line',
+      ].join('\n');
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockOpenAIClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockOpenAIClient.createImage.mockResolvedValue('base64image');
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: 'Intro line\n- ZA Cape Town 12-21C sunny\nFooter line',
+      });
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      expect(mockOpenAIClient.createImage).toHaveBeenCalledWith(
+        expect.stringContaining('- ZA Cape Town 12-21C sunny'),
+      );
+      expect(mockDiscordService.buildMessageReply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'Intro line\n- ZA Cape Town 12-21C sunny\nFooter line',
+        }),
+      );
+
+      const sendPayload = mockChannel.send.mock.calls[0]?.[0];
+      expect(sendPayload?.files).toHaveLength(1);
+      expect(sendPayload?.embeds).toHaveLength(1);
+    });
+
+    it('skips image generation when weather markers are missing', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = ['Intro line', 'Footer line'].join('\n');
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockOpenAIClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockOpenAIClient.createImage.mockResolvedValue('base64image');
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: motdContent,
+      });
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      expect(mockOpenAIClient.createImage).not.toHaveBeenCalled();
+      const sendPayload = mockChannel.send.mock.calls[0]?.[0];
+      expect(sendPayload?.files).toBeUndefined();
+      expect(sendPayload?.embeds).toBeUndefined();
+    });
+  });
+
   describe('when initialized', () => {
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
@@ -685,6 +800,61 @@ describe('Rooivalk', () => {
           'Question about something',
         );
       });
+    });
+  });
+
+  describe('MOTD weather helpers', () => {
+    it('extracts the weather section between markers', () => {
+      const motdContent = [
+        'Intro line',
+        '<!-- MOTD_WEATHER_START -->',
+        '- ZA Cape Town 12-21C sunny',
+        '- US New York 2-7C snow',
+        '<!-- MOTD_WEATHER_END -->',
+        'Footer line',
+      ].join('\n');
+
+      // @ts-expect-error testing private method
+      const weather = rooivalk.extractMotdWeatherSection(motdContent);
+
+      expect(weather).toBe(
+        ['- ZA Cape Town 12-21C sunny', '- US New York 2-7C snow'].join('\n'),
+      );
+    });
+
+    it('returns null when weather markers are missing', () => {
+      const motdContent = 'No markers here';
+      // @ts-expect-error testing private method
+      const weather = rooivalk.extractMotdWeatherSection(motdContent);
+      expect(weather).toBeNull();
+    });
+
+    it('strips weather markers from the MOTD content', () => {
+      const motdContent = [
+        'Intro line',
+        '<!-- MOTD_WEATHER_START -->',
+        '- Weather line',
+        '<!-- MOTD_WEATHER_END -->',
+        'Footer line',
+      ].join('\n');
+
+      // @ts-expect-error testing private method
+      const cleaned = rooivalk.stripMotdWeatherMarkers(motdContent);
+
+      expect(cleaned).toBe(
+        ['Intro line', '- Weather line', 'Footer line'].join('\n'),
+      );
+    });
+
+    it('builds a cartoon-style image prompt from the weather section', () => {
+      const weatherSection = '- ZA Cape Town 12-21C sunny';
+      // @ts-expect-error testing private method
+      const prompt = rooivalk.buildMotdImagePrompt(weatherSection);
+
+      expect(prompt).toContain(weatherSection);
+      expect(prompt).toContain('cartoon-style');
+      expect(prompt).toContain('Lakeside and Tableview');
+      expect(prompt).toContain('Rooivalk');
     });
   });
 });

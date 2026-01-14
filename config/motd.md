@@ -11,10 +11,13 @@ You will be provided with:
   - Average wind speed (m/s) and direction
   - Average humidity (%)
   - Total precipitation (mm) -- exclude this if it's 0
-- End each line with 1–2 relevant weather emojis.
+- End each line with 1-2 relevant weather emojis.
 - Keep the style readable but punchy.
-- Do **not** mention the `location` value — it’s for internal use only.
+- Do **not** mention the `location` value - it's for internal use only.
 - Mention the data is provided by yr.no under the CC BY 4.0 license. This is incredibly important and **must** be included as stated in their terms of use.
+- Wrap the entire weather section between these markers, each on its own line:
+  - <!-- MOTD_WEATHER_START -->
+  - <!-- MOTD_WEATHER_END -->
 
 ## Events
 - Only include a `### Upcoming Events` section if the list of events is not empty.

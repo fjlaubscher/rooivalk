@@ -1,4 +1,8 @@
-import { Events as DiscordEvents } from 'discord.js';
+import {
+  AttachmentBuilder,
+  EmbedBuilder,
+  Events as DiscordEvents,
+} from 'discord.js';
 import type {
   Attachment,
   ChatInputCommandInteraction,
@@ -147,6 +151,34 @@ class Rooivalk {
     return parsedContentType ? parsedContentType.trim().toLowerCase() : null;
   }
 
+  private extractMotdWeatherSection(motdContent: string): string | null {
+    const match = motdContent.match(
+      /<!-- MOTD_WEATHER_START -->([\s\S]*?)<!-- MOTD_WEATHER_END -->/,
+    );
+
+    if (!match) {
+      return null;
+    }
+
+    return match[1]?.trim() || null;
+  }
+
+  private stripMotdWeatherMarkers(motdContent: string): string {
+    return motdContent
+      .replace(/^[ \t]*<!-- MOTD_WEATHER_START -->\s*\n?/gm, '')
+      .replace(/^[ \t]*<!-- MOTD_WEATHER_END -->\s*\n?/gm, '');
+  }
+
+  private buildMotdImagePrompt(weatherSection: string): string {
+    return [
+      'Create a friendly cartoon-style illustration inspired by this weather report:',
+      weatherSection,
+      'Include subtle Rooivalk (attack helicopter) flavor in a playful way.',
+      'Lakeside and Tableview are suburbs in Cape Town; other locations are cities.',
+      'Emphasize local scenery and weather mood. No text, no logos.',
+    ].join('\n');
+  }
+
   /**
    * Reloads the config for Rooivalk and propagates to child services.
    */
@@ -252,8 +284,79 @@ class Rooivalk {
     );
     motd = motd.replace(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
-    // finally send the message
-    await this.sendMessageToChannel(this._discord.motdChannelId, motd);
+    try {
+      const response = await this._openai.createResponse(
+        'rooivalk',
+        motd,
+        this._discord.allowedEmojis,
+        undefined,
+      );
+
+      const rawMotdContent = response.content?.trim();
+      if (!rawMotdContent) {
+        console.error('MOTD response was empty');
+        return;
+      }
+
+      const weatherSection = this.extractMotdWeatherSection(rawMotdContent);
+      const cleanedMotdContent = this.stripMotdWeatherMarkers(rawMotdContent);
+
+      let motdImage: string | null = null;
+      if (weatherSection) {
+        const imagePrompt = this.buildMotdImagePrompt(weatherSection);
+        motdImage = await this._openai.createImage(imagePrompt);
+      } else {
+        console.warn('MOTD weather section markers not found');
+      }
+
+      if (!this._discord.motdChannelId) {
+        console.error('Channel ID not set');
+        return;
+      }
+
+      const channel = await this._discord.client.channels.fetch(
+        this._discord.motdChannelId,
+      );
+      if (!channel || !channel.isTextBased()) {
+        console.error(
+          `Channel: ${this._discord.motdChannelId} is not text-based`,
+        );
+        return;
+      }
+
+      const messageOptions = this._discord.buildMessageReply({
+        type: 'text',
+        content: cleanedMotdContent,
+        base64Images: [],
+      });
+
+      const files = [...(messageOptions.files ?? [])];
+      const embeds = [...(messageOptions.embeds ?? [])];
+
+      if (motdImage) {
+        const attachmentName = 'rooivalk_motd.jpeg';
+        files.push(
+          new AttachmentBuilder(Buffer.from(motdImage, 'base64'), {
+            name: attachmentName,
+          }),
+        );
+        embeds.push(
+          new EmbedBuilder({
+            image: {
+              url: `attachment://${attachmentName}`,
+            },
+          }),
+        );
+      }
+
+      await (channel as any).send({
+        ...messageOptions,
+        files: files.length > 0 ? files : undefined,
+        embeds: embeds.length > 0 ? embeds : undefined,
+      });
+    } catch (err) {
+      console.error(`Error sending MOTD to channel:`, err);
+    }
   }
 
   public async sendMessageToChannel(
