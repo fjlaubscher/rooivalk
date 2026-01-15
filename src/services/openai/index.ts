@@ -209,7 +209,7 @@ class OpenAIService {
     this._config = newConfig;
   }
 
-  async createImage(prompt: string) {
+  async createImage(prompt: string): Promise<string | null> {
     try {
       const result = await this._openai.images.generate({
         model: this._imageModel,
@@ -218,8 +218,9 @@ class OpenAIService {
         output_format: 'jpeg',
       });
 
-      if (result.data && result.data[0]) {
-        return result.data[0].b64_json;
+      const base64Image = result.data?.[0]?.b64_json ?? null;
+      if (base64Image) {
+        return base64Image;
       }
 
       console.log('Failed to generate image', JSON.stringify(result));

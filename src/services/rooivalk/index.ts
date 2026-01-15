@@ -12,7 +12,7 @@ import type {
   Message,
   MessageReaction,
   PartialMessageReaction,
-  TextBasedChannel,
+  SendableChannels,
 } from 'discord.js';
 
 import {
@@ -353,7 +353,14 @@ class Rooivalk {
         );
       }
 
-      await (channel as TextBasedChannel).send({
+      if (!('send' in channel)) {
+        console.error(
+          `Cannot send MOTD: Channel ${this._discord.motdChannelId} is not sendable`,
+        );
+        return;
+      }
+
+      await (channel as SendableChannels).send({
         ...messageOptions,
         files: files.length > 0 ? files : undefined,
         embeds: embeds.length > 0 ? embeds : undefined,
