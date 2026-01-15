@@ -34,7 +34,7 @@ class OpenAIService {
       },
       {
         type: 'image_generation',
-        model: this._imageModel as `gpt-image-1`,
+        model: this._imageModel as `gpt-image-1.5`,
         output_format: 'jpeg',
       },
     ];

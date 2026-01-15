@@ -24,7 +24,11 @@ import DiscordService from '@/services/discord';
 import OpenAIService from '@/services/openai';
 import YrService from '@/services/yr';
 
-import type { AttachmentForPrompt, InMemoryConfig } from '@/types';
+import type {
+  AttachmentForPrompt,
+  InMemoryConfig,
+  WeatherForecast,
+} from '@/types';
 
 import {
   isReplyToRooivalk,
@@ -152,29 +156,26 @@ class Rooivalk {
     return parsedContentType ? parsedContentType.trim().toLowerCase() : null;
   }
 
-  private extractMotdWeatherSection(motdContent: string): string | null {
-    const match = motdContent.match(
-      /<!-- MOTD_WEATHER_START -->([\s\S]*?)<!-- MOTD_WEATHER_END -->/,
-    );
-
-    if (!match) {
+  private pickRandomForecast(
+    forecasts: Awaited<ReturnType<YrService['getAllForecasts']>>,
+  ) {
+    if (!forecasts || forecasts.length === 0) {
       return null;
     }
 
-    return match[1]?.trim() || null;
+    const index = Math.floor(Math.random() * forecasts.length);
+    return forecasts[index] ?? null;
   }
 
-  private stripMotdWeatherMarkers(motdContent: string): string {
-    return motdContent
-      .replace(/^[ \t]*<!-- MOTD_WEATHER_START -->\s*\n?/gm, '')
-      .replace(/^[ \t]*<!-- MOTD_WEATHER_END -->\s*\n?/gm, '');
-  }
-
-  private buildMotdImagePrompt(weatherSection: string): string {
+  private buildMotdImagePrompt(forecast: WeatherForecast): string {
+    const forecastJson = JSON.stringify(forecast);
     return [
-      'Create a friendly cartoon-style illustration inspired by this weather report:',
-      weatherSection,
-      'Include subtle Rooivalk (attack helicopter) flavor in a playful way.',
+      'Create a friendly cartoon-style illustration inspired by this weather forecast JSON:',
+      forecastJson,
+      'Rooivalk persona: sardonic, battle-worn attack helicopter AI; combat briefing vibe.',
+      'Include Rooivalk (attack helicopter) flavor without being cute or playful.',
+      'Visual mood: rotor wash, sun-bleached metal, weathered decals, grit in the air.',
+      'Tone: grim, deadpan, Rotor Fodder address implied through the visuals.',
       'Lakeside and Tableview are suburbs in Cape Town; other locations are cities.',
       'Emphasize local scenery and weather mood. No text, no logos.',
     ].join('\n');
@@ -276,6 +277,7 @@ class Rooivalk {
 
     let motd = this._config.motd;
     const forecasts = await this._yr.getAllForecasts();
+    const selectedForecast = this.pickRandomForecast(forecasts);
     const events = await this._discord.getGuildEventsBetween(start, end);
 
     // replace placeholders with JSON for the prompt
@@ -299,20 +301,15 @@ class Rooivalk {
         return;
       }
 
-      const weatherSection = this.extractMotdWeatherSection(rawMotdContent);
-      const cleanedMotdContent = this.stripMotdWeatherMarkers(rawMotdContent);
-
       let motdImage: string | null = null;
-      if (weatherSection) {
-        const imagePrompt = this.buildMotdImagePrompt(weatherSection);
+      if (selectedForecast) {
+        const imagePrompt = this.buildMotdImagePrompt(selectedForecast);
         try {
           motdImage = await this._openai.createImage(imagePrompt);
         } catch (error) {
           console.error('Error generating MOTD weather image:', error);
           motdImage = null;
         }
-      } else {
-        console.warn('MOTD weather section markers not found');
       }
 
       if (!this._discord.motdChannelId) {
@@ -332,7 +329,7 @@ class Rooivalk {
 
       const messageOptions = this._discord.buildMessageReply({
         type: 'text',
-        content: cleanedMotdContent,
+        content: rawMotdContent,
         base64Images: [],
       });
 
@@ -348,6 +345,7 @@ class Rooivalk {
         );
         embeds.push(
           new EmbedBuilder({
+            description: `Today's warzone: ${selectedForecast?.friendlyName}`,
             image: {
               url: `attachment://${attachmentName}`,
             },
