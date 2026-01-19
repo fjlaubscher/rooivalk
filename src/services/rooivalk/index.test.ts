@@ -829,9 +829,9 @@ describe('Rooivalk', () => {
       const prompt = rooivalk.buildMotdImagePrompt(forecast);
 
       expect(prompt).toContain(JSON.stringify(forecast));
-      expect(prompt).toContain('cartoon-style');
+      expect(prompt).toContain('cartoony');
       expect(prompt).toContain('Lakeside and Tableview');
-      expect(prompt).toContain('Rooivalk');
+      expect(prompt).toContain('Do not depict Rooivalk');
     });
   });
 });

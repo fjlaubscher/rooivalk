@@ -170,11 +170,11 @@ class Rooivalk {
   private buildMotdImagePrompt(forecast: WeatherForecast): string {
     const forecastJson = JSON.stringify(forecast);
     return [
-      'Create a friendly cartoon-style illustration inspired by this weather forecast JSON:',
+      'Create a cartoony illustration inspired by this weather forecast JSON:',
       forecastJson,
-      'Rooivalk persona: sardonic, battle-worn attack helicopter AI; combat briefing vibe.',
-      'Include Rooivalk (attack helicopter) flavor without being cute or playful.',
-      'Visual mood: rotor wash, sun-bleached metal, weathered decals, grit in the air.',
+      'Rooivalk flavor: sardonic, battle-worn attack helicopter AI; combat briefing vibe.',
+      'Do not depict Rooivalk or any helicopter/aircraft; evoke the vibe through scenery and props.',
+      'Visual mood: wind-swept dust, sun-bleached metal, weathered decals, grit in the air.',
       'Tone: grim, deadpan, Rotor Fodder address implied through the visuals.',
       'Lakeside and Tableview are suburbs in Cape Town; other locations are cities.',
       'Emphasize local scenery and weather mood. No text, no logos.',
