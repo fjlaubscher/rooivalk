@@ -1,7 +1,7 @@
 import type { PeapixFeedResponseItem } from '@/types';
 
 const PEAPIX_BING_FEED_URL = 'https://peapix.com/bing/feed';
-const PEAPIX_COUNTRY = 'us';
+const PEAPIX_COUNTRY = 'gb';
 const PEAPIX_FEED_COUNT = '1';
 
 export type PeapixImage = {
