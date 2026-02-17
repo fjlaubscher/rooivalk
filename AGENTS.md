@@ -21,6 +21,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
   - `helpers.ts` – Thread detection and reply handling utilities
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
+- `src/services/peapix/` – PeapixService (Bing image feed integration) - [See AGENTS.md](src/services/peapix/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
 - `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
 - `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
@@ -79,6 +80,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
 | Update message history       | `services/discord/index.ts`              | Modify `buildMessageChainFrom*` methods; use `setThreadInitialContext()` for thread context preservation |
 | Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts` and `test-utils/mock.ts` |
+| Update MOTD image feed       | `services/peapix/index.ts`               | Adjust feed params/parsing and image metadata handling |
 | Update config system         | `src/config/loader.ts`, `config/*.md`    | Modify config loading/watching; update markdown configs |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 

@@ -22,13 +22,10 @@ import {
 } from '@/constants';
 import DiscordService from '@/services/discord';
 import OpenAIService from '@/services/openai';
+import PeapixService from '@/services/peapix';
 import YrService from '@/services/yr';
 
-import type {
-  AttachmentForPrompt,
-  InMemoryConfig,
-  WeatherForecast,
-} from '@/types';
+import type { AttachmentForPrompt, InMemoryConfig } from '@/types';
 
 import {
   isReplyToRooivalk,
@@ -37,12 +34,14 @@ import {
 } from './helpers';
 
 const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
+const MOTD_IMAGE_ATTACHMENT_NAME = 'rooivalk_motd.jpg';
 
 class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _openai: OpenAIService;
   protected _yr: YrService;
+  protected _peapix: PeapixService;
   private _allowedAppIds: string[];
 
   constructor(
@@ -50,11 +49,13 @@ class Rooivalk {
     discordService?: DiscordService,
     openaiService?: OpenAIService,
     yrService?: YrService,
+    peapixService?: PeapixService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? new OpenAIService(this._config);
     this._yr = yrService ?? new YrService();
+    this._peapix = peapixService ?? new PeapixService();
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -156,31 +157,6 @@ class Rooivalk {
     return parsedContentType ? parsedContentType.trim().toLowerCase() : null;
   }
 
-  private pickRandomForecast(
-    forecasts: Awaited<ReturnType<YrService['getAllForecasts']>>,
-  ) {
-    if (!forecasts || forecasts.length === 0) {
-      return null;
-    }
-
-    const index = Math.floor(Math.random() * forecasts.length);
-    return forecasts[index] ?? null;
-  }
-
-  private buildMotdImagePrompt(forecast: WeatherForecast): string {
-    const forecastJson = JSON.stringify(forecast);
-    return [
-      'Create a cartoony illustration inspired by this weather forecast JSON:',
-      forecastJson,
-      'Rooivalk flavor: sardonic, battle-worn attack helicopter AI; combat briefing vibe.',
-      'Do not depict Rooivalk or any helicopter/aircraft; evoke the vibe through scenery and props.',
-      'Visual mood: wind-swept dust, sun-bleached metal, weathered decals, grit in the air.',
-      'Tone: grim, deadpan, Rotor Fodder address implied through the visuals.',
-      'Lakeside and Tableview are suburbs in Cape Town; other locations are cities.',
-      'Emphasize local scenery and weather mood. No text, no logos.',
-    ].join('\n');
-  }
-
   /**
    * Reloads the config for Rooivalk and propagates to child services.
    */
@@ -277,7 +253,6 @@ class Rooivalk {
 
     let motd = this._config.motd;
     const forecasts = await this._yr.getAllForecasts();
-    const selectedForecast = this.pickRandomForecast(forecasts);
     const events = await this._discord.getGuildEventsBetween(start, end);
 
     // replace placeholders with JSON for the prompt
@@ -301,16 +276,14 @@ class Rooivalk {
         return;
       }
 
-      let motdImage: string | null = null;
-      if (selectedForecast) {
-        const imagePrompt = this.buildMotdImagePrompt(selectedForecast);
-        try {
-          motdImage = await this._openai.createImage(imagePrompt);
-        } catch (error) {
-          console.error('Error generating MOTD weather image:', error);
-          motdImage = null;
-        }
-      }
+      let motdImage: {
+        title: string;
+        copyright: string;
+        pageUrl: string;
+        buffer: Buffer;
+      } | null = null;
+
+      motdImage = await this._peapix.getImage();
 
       if (!this._discord.motdChannelId) {
         console.error('Channel ID not set');
@@ -337,17 +310,22 @@ class Rooivalk {
       const embeds = [...(messageOptions.embeds ?? [])];
 
       if (motdImage) {
-        const attachmentName = 'rooivalk_motd.jpeg';
         files.push(
-          new AttachmentBuilder(Buffer.from(motdImage, 'base64'), {
-            name: attachmentName,
+          new AttachmentBuilder(motdImage.buffer, {
+            name: MOTD_IMAGE_ATTACHMENT_NAME,
           }),
         );
+
+        const imageDescription = `Today's warzone: ${motdImage.title}`;
+
         embeds.push(
           new EmbedBuilder({
-            description: `Today's warzone: ${selectedForecast?.friendlyName}`,
+            description: `${imageDescription}\n${motdImage.pageUrl}`,
+            footer: {
+              text: motdImage.copyright,
+            },
             image: {
-              url: `attachment://${attachmentName}`,
+              url: `attachment://${MOTD_IMAGE_ATTACHMENT_NAME}`,
             },
           }),
         );

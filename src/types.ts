@@ -123,3 +123,12 @@ export type YrResponse = {
     }[];
   };
 };
+
+export type PeapixFeedResponseItem = {
+  title: string;
+  copyright: string;
+  fullUrl: string;
+  thumbUrl: string;
+  imageUrl: string;
+  pageUrl: string;
+};

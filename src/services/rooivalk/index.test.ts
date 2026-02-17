@@ -71,6 +71,9 @@ const mockOpenAIClient = vi.mocked({
 } as any);
 
 const BOT_ID = 'test-bot-id';
+const mockPeapixService = vi.mocked({
+  getImage: vi.fn(),
+} as any);
 
 describe('Rooivalk', () => {
   let rooivalk: Rooivalk;
@@ -82,6 +85,7 @@ describe('Rooivalk', () => {
     mockOpenAIClient.createResponse.mockResolvedValue('Mocked AI Response');
     mockOpenAIClient.createImage.mockReset();
     mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Title');
+    mockPeapixService.getImage.mockResolvedValue(null);
     mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
     Object.defineProperty(mockDiscordService, 'client', {
@@ -382,7 +386,7 @@ describe('Rooivalk', () => {
   });
 
   describe('when sending a MOTD with weather image', () => {
-    it('adds an image attachment when a forecast is available', async () => {
+    it('adds an image attachment when a feed image is available', async () => {
       const motdConfig = {
         ...MOCK_CONFIG,
         motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
@@ -418,9 +422,14 @@ describe('Rooivalk', () => {
         content: motdContent,
         base64Images: [],
       });
-      mockOpenAIClient.createImage.mockResolvedValue('base64image');
       mockDiscordService.buildMessageReply.mockReturnValue({
         content: motdContent,
+      });
+      mockPeapixService.getImage.mockResolvedValue({
+        title: 'Dune Patrol',
+        copyright: '© Eric Yang/Getty Image',
+        pageUrl: 'https://peapix.com/bing/123',
+        buffer: Buffer.from([1, 2, 3]),
       });
 
       const mockYrService = {
@@ -431,15 +440,12 @@ describe('Rooivalk', () => {
         mockDiscordService,
         mockOpenAIClient,
         mockYrService,
+        mockPeapixService,
       );
-
-      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
 
       await motdRooivalk.sendMotdToMotdChannel();
 
-      expect(mockOpenAIClient.createImage).toHaveBeenCalledWith(
-        expect.stringContaining(JSON.stringify(forecast)),
-      );
+      expect(mockOpenAIClient.createImage).not.toHaveBeenCalled();
       expect(mockDiscordService.buildMessageReply).toHaveBeenCalledWith(
         expect.objectContaining({
           content: motdContent,
@@ -449,13 +455,15 @@ describe('Rooivalk', () => {
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.files).toHaveLength(1);
       expect(sendPayload?.embeds).toHaveLength(1);
-      expect(sendPayload?.embeds?.[0]?.data?.description).toBe(
-        `Today's warzone: ${forecast.friendlyName}`,
+      expect(sendPayload?.embeds?.[0]?.data?.description).toContain(
+        `Today's warzone: Dune Patrol`,
       );
-      randomSpy.mockRestore();
+      expect(sendPayload?.embeds?.[0]?.data?.footer?.text).toBe(
+        '© Eric Yang/Getty Image',
+      );
     });
 
-    it('skips image generation when no forecast is available', async () => {
+    it('skips image attachment when the feed has no images', async () => {
       const motdConfig = {
         ...MOCK_CONFIG,
         motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
@@ -481,10 +489,10 @@ describe('Rooivalk', () => {
         content: motdContent,
         base64Images: [],
       });
-      mockOpenAIClient.createImage.mockResolvedValue('base64image');
       mockDiscordService.buildMessageReply.mockReturnValue({
         content: motdContent,
       });
+      mockPeapixService.getImage.mockResolvedValue(null);
 
       const mockYrService = {
         getAllForecasts: vi.fn().mockResolvedValue([]),
@@ -494,6 +502,7 @@ describe('Rooivalk', () => {
         mockDiscordService,
         mockOpenAIClient,
         mockYrService,
+        mockPeapixService,
       );
 
       await motdRooivalk.sendMotdToMotdChannel();
@@ -810,28 +819,6 @@ describe('Rooivalk', () => {
           'Question about something',
         );
       });
-    });
-  });
-
-  describe('MOTD weather helpers', () => {
-    it('builds a cartoon-style image prompt from forecast JSON', () => {
-      const forecast = {
-        location: 'DUBAI',
-        friendlyName: 'Dubai, United Arab Emirates',
-        minTemp: 30,
-        maxTemp: 39,
-        avgWindSpeed: 3,
-        avgWindDirection: 'W',
-        avgHumidity: 20,
-        totalPrecipitation: 0,
-      };
-      // @ts-expect-error testing private method
-      const prompt = rooivalk.buildMotdImagePrompt(forecast);
-
-      expect(prompt).toContain(JSON.stringify(forecast));
-      expect(prompt).toContain('cartoony');
-      expect(prompt).toContain('Lakeside and Tableview');
-      expect(prompt).toContain('Do not depict Rooivalk');
     });
   });
 });
