@@ -39,8 +39,9 @@ describe('PeapixService', () => {
 
     const firstCallUrl = String(fetchSpy.mock.calls[0]?.[0]);
     expect(firstCallUrl).toContain('https://peapix.com/bing/feed');
-    expect(firstCallUrl).toContain('country=us');
+    expect(firstCallUrl).toContain('country=gb');
     expect(firstCallUrl).toContain('n=1');
+    expect(firstCallUrl).toContain('date=');
   });
 
   it('returns image buffer and metadata when feed and image fetch succeed', async () => {

@@ -456,7 +456,7 @@ describe('Rooivalk', () => {
       expect(sendPayload?.files).toHaveLength(1);
       expect(sendPayload?.embeds).toHaveLength(1);
       expect(sendPayload?.embeds?.[0]?.data?.description).toContain(
-        `Today's warzone: Dune Patrol`,
+        `Dune Patrol`,
       );
       expect(sendPayload?.embeds?.[0]?.data?.footer?.text).toBe(
         '© Eric Yang/Getty Image',

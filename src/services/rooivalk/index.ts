@@ -316,11 +316,9 @@ class Rooivalk {
           }),
         );
 
-        const imageDescription = `Today's warzone: ${motdImage.title}`;
-
         embeds.push(
           new EmbedBuilder({
-            description: `${imageDescription}\n${motdImage.pageUrl}`,
+            description: motdImage.title ?? 'Image of the day',
             footer: {
               text: motdImage.copyright,
             },

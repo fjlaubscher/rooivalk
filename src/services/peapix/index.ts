@@ -17,6 +17,8 @@ class PeapixService {
 
     feedUrl.searchParams.set('country', PEAPIX_COUNTRY);
     feedUrl.searchParams.set('n', PEAPIX_FEED_COUNT);
+    // add this for cache busting, the date is ignored by the api
+    feedUrl.searchParams.set('date', Date.now().toString());
 
     return feedUrl.toString();
   }
