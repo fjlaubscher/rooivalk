@@ -22,14 +22,16 @@ import DiscordService from '.';
 vi.mock('discord.js', async (importOriginal) => {
   const actual = await importOriginal();
   return Object.assign({}, actual, {
-    REST: vi.fn().mockImplementation(() => ({
-      setToken: vi.fn().mockReturnValue({
-        put: vi
-          .fn()
-          .mockResolvedValueOnce(undefined) // Simulate success
-          .mockRejectedValueOnce(new Error('fail')), // Simulate error
-      }),
-    })),
+    REST: vi.fn().mockImplementation(function () {
+      return {
+        setToken: vi.fn().mockReturnValue({
+          put: vi
+            .fn()
+            .mockResolvedValueOnce(undefined) // Simulate success
+            .mockRejectedValueOnce(new Error('fail')), // Simulate error
+        }),
+      };
+    }),
   });
 });
 
