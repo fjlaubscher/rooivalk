@@ -6,7 +6,7 @@ You will be provided with:
 
 ## Weather formatting
 - Present the weather section as a Markdown bullet list (prefix each city line with `- `).
-- Start the line with the country's flag emoji, followed by the city's name, then show today's min/max temperature in 讈.
+- Start the line with the country's flag emoji, followed by the city's name, then show today's min/max temperature in °C.
 - Add a short description of the weather, including:
   - Average wind speed (m/s) and direction
   - Average humidity (%)
