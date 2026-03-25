@@ -23,6 +23,7 @@ import {
 import DiscordService from '@/services/discord';
 import OpenAIService from '@/services/openai';
 import PeapixService from '@/services/peapix';
+import WikimediaService from '@/services/wikimedia';
 import YrService from '@/services/yr';
 
 import type { AttachmentForPrompt, InMemoryConfig } from '@/types';
@@ -42,6 +43,7 @@ class Rooivalk {
   protected _openai: OpenAIService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
+  protected _wikimedia: WikimediaService;
   private _allowedAppIds: string[];
 
   constructor(
@@ -50,12 +52,14 @@ class Rooivalk {
     openaiService?: OpenAIService,
     yrService?: YrService,
     peapixService?: PeapixService,
+    wikimediaService?: WikimediaService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? new OpenAIService(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
+    this._wikimedia = wikimediaService ?? new WikimediaService();
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -276,14 +280,54 @@ class Rooivalk {
         return;
       }
 
+      // Try Wikimedia city image first, fall back to Peapix
       let motdImage: {
-        title: string;
-        copyright: string;
-        pageUrl: string;
+        heading: string;
+        attribution: string;
         buffer: Buffer;
       } | null = null;
 
-      motdImage = await this._peapix.getImage();
+      let cityImage = null;
+      try {
+        cityImage = await this._wikimedia.getRandomCityImage();
+      } catch (err) {
+        console.error('Wikimedia image fetch threw an error:', err);
+      }
+
+      if (cityImage) {
+        motdImage = {
+          heading: cityImage.cityName,
+          attribution: cityImage.title,
+          buffer: cityImage.buffer,
+        };
+      } else {
+        console.warn(
+          'Wikimedia image unavailable, falling back to Peapix. ' +
+            'Check earlier logs for Wikimedia API errors.',
+        );
+        try {
+          const peapixImage = await this._peapix.getImage();
+          if (peapixImage) {
+            motdImage = {
+              heading: peapixImage.title ?? 'Image of the day',
+              attribution: peapixImage.copyright,
+              buffer: peapixImage.buffer,
+            };
+          }
+        } catch (peapixErr) {
+          console.error(
+            'Peapix fallback image fetch threw an error:',
+            peapixErr,
+          );
+        }
+      }
+
+      if (!motdImage) {
+        console.error(
+          'MOTD image sources exhausted: both Wikimedia and Peapix failed to provide an image. ' +
+            'The MOTD will be sent without an image.',
+        );
+      }
 
       if (!this._discord.motdChannelId) {
         console.error('Channel ID not set');
@@ -318,9 +362,9 @@ class Rooivalk {
 
         embeds.push(
           new EmbedBuilder({
-            description: motdImage.title ?? 'Image of the day',
+            description: motdImage.heading,
             footer: {
-              text: motdImage.copyright,
+              text: motdImage.attribution,
             },
             image: {
               url: `attachment://${MOTD_IMAGE_ATTACHMENT_NAME}`,
