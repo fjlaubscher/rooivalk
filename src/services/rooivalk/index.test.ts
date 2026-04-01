@@ -16,11 +16,15 @@ import type {
   ThreadChannel,
 } from 'discord.js';
 
+import { YR_COORDINATES } from '@/constants';
 import { silenceConsole } from '@/test-utils/consoleMocks';
 import { createMockMessage } from '@/test-utils/createMockMessage';
 import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
 
 import { buildPromptAuthor } from './helpers';
+
+const VALID_CITY_NAMES = Object.values(YR_COORDINATES).map((loc) => loc.name);
+const CITY_COUNT = Object.keys(YR_COORDINATES).length;
 
 let restoreConsole: () => void;
 
@@ -76,7 +80,7 @@ const mockPeapixService = vi.mocked({
 } as any);
 
 const mockWikimediaService = vi.mocked({
-  getRandomCityImage: vi.fn(),
+  getCityImage: vi.fn(),
 } as any);
 
 describe('Rooivalk', () => {
@@ -389,6 +393,104 @@ describe('Rooivalk', () => {
     });
   });
 
+  describe('when handling a weather command', () => {
+    it('should reply with weather data on success', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('Dubai') },
+        user: { displayName: 'TestUser' },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      const mockYrService = {
+        getAllForecasts: vi.fn(),
+        getForecastByLocation: vi
+          .fn()
+          .mockResolvedValue({ location: 'DUBAI', minTemp: 25 }),
+      } as any;
+
+      mockOpenAIClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: 'Sunny in Dubai!',
+        base64Images: [],
+      });
+
+      const weatherRooivalk = new Rooivalk(
+        MOCK_CONFIG,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+        mockWikimediaService,
+      );
+
+      await weatherRooivalk.handleWeatherCommand(interaction);
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        content: 'Sunny in Dubai!',
+      });
+    });
+
+    it('should reply with error when Yr returns null', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('Unknown') },
+        user: { displayName: 'TestUser' },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      const mockYrService = {
+        getAllForecasts: vi.fn(),
+        getForecastByLocation: vi.fn().mockResolvedValue(null),
+      } as any;
+
+      const weatherRooivalk = new Rooivalk(
+        MOCK_CONFIG,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+        mockWikimediaService,
+      );
+
+      await weatherRooivalk.handleWeatherCommand(interaction);
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        content: 'Error!',
+      });
+    });
+
+    it('should reply with error details when Yr throws', async () => {
+      const interaction = {
+        options: { getString: vi.fn().mockReturnValue('Dubai') },
+        user: { displayName: 'TestUser' },
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      const mockYrService = {
+        getAllForecasts: vi.fn(),
+        getForecastByLocation: vi
+          .fn()
+          .mockRejectedValue(new Error('Yr API down')),
+      } as any;
+
+      const weatherRooivalk = new Rooivalk(
+        MOCK_CONFIG,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+        mockWikimediaService,
+      );
+
+      await weatherRooivalk.handleWeatherCommand(interaction);
+      expect(interaction.editReply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining('Yr API down'),
+        }),
+      );
+    });
+  });
+
   describe('when sending a MOTD with weather image', () => {
     it('adds an image attachment when a feed image is available', async () => {
       const motdConfig = {
@@ -439,7 +541,7 @@ describe('Rooivalk', () => {
       const mockYrService = {
         getAllForecasts: vi.fn().mockResolvedValue([forecast]),
       } as any;
-      mockWikimediaService.getRandomCityImage.mockResolvedValue({
+      mockWikimediaService.getCityImage.mockResolvedValue({
         title: 'Table View Beach',
         cityName: 'Table View, South Africa',
         mimeType: 'image/jpeg',
@@ -475,7 +577,81 @@ describe('Rooivalk', () => {
       expect(sendPayload?.embeds?.[0]?.data?.footer?.text).toBe(
         'Table View Beach',
       );
+      // Should stop after first successful city, not try all
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(1);
       expect(mockPeapixService.getImage).not.toHaveBeenCalled();
+    });
+
+    it('succeeds on a later city after earlier cities return null', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = 'Good morning!';
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockOpenAIClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: motdContent,
+      });
+
+      // First two cities return null (no image found), third succeeds
+      mockWikimediaService.getCityImage
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          title: 'Dubai Skyline',
+          cityName: 'Dubai, United Arab Emirates',
+          mimeType: 'image/jpeg',
+          sourceUrl:
+            'https://commons.wikimedia.org/wiki/File:Dubai_Skyline.jpg',
+          buffer: Buffer.from([1, 2, 3]),
+        });
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+        mockWikimediaService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      // Should stop after the third city succeeds
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(3);
+      expect(mockPeapixService.getImage).not.toHaveBeenCalled();
+
+      const sendPayload = mockChannel.send.mock.calls[0]?.[0];
+      expect(sendPayload?.files).toHaveLength(1);
+      expect(sendPayload?.embeds).toHaveLength(1);
+      expect(sendPayload?.embeds?.[0]?.data?.description).toBe(
+        'Dubai, United Arab Emirates',
+      );
+      expect(sendPayload?.embeds?.[0]?.data?.footer?.text).toBe(
+        'Dubai Skyline',
+      );
     });
 
     it('skips image attachment when the feed has no images', async () => {
@@ -508,7 +684,7 @@ describe('Rooivalk', () => {
         content: motdContent,
       });
       mockPeapixService.getImage.mockResolvedValue(null);
-      mockWikimediaService.getRandomCityImage.mockResolvedValue(null);
+      mockWikimediaService.getCityImage.mockResolvedValue(null);
 
       const mockYrService = {
         getAllForecasts: vi.fn().mockResolvedValue([]),
@@ -525,12 +701,16 @@ describe('Rooivalk', () => {
       await motdRooivalk.sendMotdToMotdChannel();
 
       expect(mockOpenAIClient.createImage).not.toHaveBeenCalled();
+      // Should try all cities before giving up
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(
+        CITY_COUNT,
+      );
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.files).toBeUndefined();
       expect(sendPayload?.embeds).toBeUndefined();
     });
 
-    it('falls back to Peapix when Wikimedia returns null', async () => {
+    it('falls back to Peapix when Wikimedia returns null for all cities', async () => {
       const motdConfig = {
         ...MOCK_CONFIG,
         motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
@@ -559,7 +739,7 @@ describe('Rooivalk', () => {
       mockDiscordService.buildMessageReply.mockReturnValue({
         content: motdContent,
       });
-      mockWikimediaService.getRandomCityImage.mockResolvedValue(null);
+      mockWikimediaService.getCityImage.mockResolvedValue(null);
       mockPeapixService.getImage.mockResolvedValue({
         title: 'Dune Patrol',
         copyright: '© Eric Yang/Getty Image',
@@ -581,16 +761,23 @@ describe('Rooivalk', () => {
 
       await motdRooivalk.sendMotdToMotdChannel();
 
+      // Should try all cities before falling back to Peapix
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(
+        CITY_COUNT,
+      );
+      expect(mockPeapixService.getImage).toHaveBeenCalledTimes(1);
+
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.files).toHaveLength(1);
       expect(sendPayload?.embeds).toHaveLength(1);
+      // Peapix fallback uses Peapix title as heading, not a city name
       expect(sendPayload?.embeds?.[0]?.data?.description).toBe('Dune Patrol');
       expect(sendPayload?.embeds?.[0]?.data?.footer?.text).toBe(
         '© Eric Yang/Getty Image',
       );
     });
 
-    it('falls back to Peapix with default heading when Peapix title is null', async () => {
+    it('uses "Image of the day" as heading when Peapix title is null', async () => {
       const motdConfig = {
         ...MOCK_CONFIG,
         motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
@@ -619,7 +806,7 @@ describe('Rooivalk', () => {
       mockDiscordService.buildMessageReply.mockReturnValue({
         content: motdContent,
       });
-      mockWikimediaService.getRandomCityImage.mockResolvedValue(null);
+      mockWikimediaService.getCityImage.mockResolvedValue(null);
       mockPeapixService.getImage.mockResolvedValue({
         title: null,
         copyright: '© Some Photographer',
@@ -641,13 +828,19 @@ describe('Rooivalk', () => {
 
       await motdRooivalk.sendMotdToMotdChannel();
 
+      // Should try all cities before falling back
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(
+        CITY_COUNT,
+      );
+
+      // Heading should be "Image of the day" when Peapix title is null
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.embeds?.[0]?.data?.description).toBe(
         'Image of the day',
       );
     });
 
-    it('still sends MOTD when Wikimedia throws an error', async () => {
+    it('tries all cities then falls back to Peapix when Wikimedia throws for every city', async () => {
       const motdConfig = {
         ...MOCK_CONFIG,
         motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
@@ -676,7 +869,7 @@ describe('Rooivalk', () => {
       mockDiscordService.buildMessageReply.mockReturnValue({
         content: motdContent,
       });
-      mockWikimediaService.getRandomCityImage.mockRejectedValue(
+      mockWikimediaService.getCityImage.mockRejectedValue(
         new Error('Unexpected Wikimedia crash'),
       );
       mockPeapixService.getImage.mockResolvedValue({
@@ -700,15 +893,24 @@ describe('Rooivalk', () => {
 
       await motdRooivalk.sendMotdToMotdChannel();
 
+      // Should try every city before falling back
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(
+        CITY_COUNT,
+      );
+      expect(mockPeapixService.getImage).toHaveBeenCalledTimes(1);
+
       // MOTD should still be sent with Peapix fallback image
       expect(mockChannel.send).toHaveBeenCalled();
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
+      expect(sendPayload?.files).toHaveLength(1);
+      expect(sendPayload?.embeds).toHaveLength(1);
+      // Peapix fallback uses Peapix title as heading
       expect(sendPayload?.embeds?.[0]?.data?.description).toBe(
         'Fallback Image',
       );
     });
 
-    it('still sends MOTD without image when both Wikimedia and Peapix throw', async () => {
+    it('still sends MOTD without image when all cities fail and Peapix throws', async () => {
       const motdConfig = {
         ...MOCK_CONFIG,
         motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
@@ -737,7 +939,7 @@ describe('Rooivalk', () => {
       mockDiscordService.buildMessageReply.mockReturnValue({
         content: motdContent,
       });
-      mockWikimediaService.getRandomCityImage.mockResolvedValue(null);
+      mockWikimediaService.getCityImage.mockResolvedValue(null);
       mockPeapixService.getImage.mockRejectedValue(
         new Error('Peapix network failure'),
       );
@@ -756,11 +958,137 @@ describe('Rooivalk', () => {
 
       await motdRooivalk.sendMotdToMotdChannel();
 
+      // Should exhaust all cities then try Peapix
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(
+        CITY_COUNT,
+      );
+      expect(mockPeapixService.getImage).toHaveBeenCalledTimes(1);
+
       expect(mockChannel.send).toHaveBeenCalled();
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.content).toBe(motdContent);
       expect(sendPayload?.files).toBeUndefined();
       expect(sendPayload?.embeds).toBeUndefined();
+    });
+
+    it('passes valid WeatherLocation objects to getCityImage', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockOpenAIClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: 'Good morning!',
+        base64Images: [],
+      });
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: 'Good morning!',
+      });
+      mockWikimediaService.getCityImage.mockResolvedValue(null);
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+        mockWikimediaService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      // Every call should receive a valid WeatherLocation with name and coordinates
+      for (const call of mockWikimediaService.getCityImage.mock.calls) {
+        const location = call[0];
+        expect(location).toHaveProperty('name');
+        expect(location).toHaveProperty('latitude');
+        expect(location).toHaveProperty('longitude');
+        expect(VALID_CITY_NAMES).toContain(location.name);
+      }
+    });
+
+    it('succeeds on a later city after earlier cities throw', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = 'Good morning!';
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockOpenAIClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: motdContent,
+      });
+
+      // First city throws, second succeeds
+      mockWikimediaService.getCityImage
+        .mockRejectedValueOnce(new Error('Network timeout'))
+        .mockResolvedValueOnce({
+          title: 'City Photo',
+          cityName: 'Dubai, United Arab Emirates',
+          mimeType: 'image/jpeg',
+          sourceUrl: 'https://commons.wikimedia.org/wiki/File:City_Photo.jpg',
+          buffer: Buffer.from([1, 2, 3]),
+        });
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+        mockWikimediaService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      // Should recover after the throw and use the successful city
+      expect(mockWikimediaService.getCityImage).toHaveBeenCalledTimes(2);
+      expect(mockPeapixService.getImage).not.toHaveBeenCalled();
+
+      const sendPayload = mockChannel.send.mock.calls[0]?.[0];
+      expect(sendPayload?.files).toHaveLength(1);
+      expect(sendPayload?.embeds?.[0]?.data?.description).toBe(
+        'Dubai, United Arab Emirates',
+      );
     });
   });
 

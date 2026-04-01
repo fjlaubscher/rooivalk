@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { YR_COORDINATES } from '@/constants';
 import WikimediaService from '.';
+
+const TEST_LOCATION = Object.values(YR_COORDINATES)[0];
 
 const VALID_API_RESPONSE = {
   query: {
@@ -38,7 +41,7 @@ describe('WikimediaService', () => {
   beforeEach(() => {
     service = new WikimediaService();
     fetchSpy = vi.spyOn(global as any, 'fetch');
-    // Pin random to select the first element
+    // Pin random to select the first image from search results
     vi.spyOn(Math, 'random').mockReturnValue(0);
   });
 
@@ -58,7 +61,7 @@ describe('WikimediaService', () => {
         arrayBuffer: async () => new Uint8Array([9, 8, 7]).buffer,
       } as unknown as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
 
     expect(image).not.toBeNull();
     expect(image?.title).toBe('Dubai Marina Skyline');
@@ -83,21 +86,22 @@ describe('WikimediaService', () => {
         arrayBuffer: async () => new Uint8Array([1]).buffer,
       } as unknown as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
 
     // Should pick the JPEG, not the SVG
     expect(image?.title).toBe('Dubai Marina Skyline');
   });
 
-  it('returns null when API returns non-OK status', async () => {
+  it('throws when API returns non-OK status', async () => {
     fetchSpy.mockResolvedValueOnce({
       ok: false,
       status: 500,
       statusText: 'Server Error',
     } as Response);
 
-    const image = await service.getRandomCityImage();
-    expect(image).toBeNull();
+    await expect(service.getCityImage(TEST_LOCATION)).rejects.toThrow(
+      'Wikimedia API returned 500 Server Error',
+    );
   });
 
   it('returns null when API response has no pages', async () => {
@@ -106,7 +110,7 @@ describe('WikimediaService', () => {
       json: async () => ({ query: {} }),
     } as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
     expect(image).toBeNull();
   });
 
@@ -130,11 +134,11 @@ describe('WikimediaService', () => {
       }),
     } as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
     expect(image).toBeNull();
   });
 
-  it('returns null when image download fails', async () => {
+  it('throws when image download fails', async () => {
     fetchSpy
       .mockResolvedValueOnce({
         ok: true,
@@ -146,15 +150,17 @@ describe('WikimediaService', () => {
         statusText: 'Not Found',
       } as Response);
 
-    const image = await service.getRandomCityImage();
-    expect(image).toBeNull();
+    await expect(service.getCityImage(TEST_LOCATION)).rejects.toThrow(
+      'Image download returned 404 Not Found',
+    );
   });
 
-  it('returns null when fetch throws a network error', async () => {
+  it('throws when fetch throws a network error', async () => {
     fetchSpy.mockRejectedValueOnce(new Error('Network error'));
 
-    const image = await service.getRandomCityImage();
-    expect(image).toBeNull();
+    await expect(service.getCityImage(TEST_LOCATION)).rejects.toThrow(
+      'Network error',
+    );
   });
 
   it('sanitizes title with multiple dots correctly', async () => {
@@ -184,11 +190,11 @@ describe('WikimediaService', () => {
         arrayBuffer: async () => new Uint8Array([1]).buffer,
       } as unknown as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
     expect(image?.title).toBe('St.Paul.Cathedral');
   });
 
-  it('returns null when API returns error in response body', async () => {
+  it('throws when API returns error in response body', async () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -196,8 +202,9 @@ describe('WikimediaService', () => {
       }),
     } as Response);
 
-    const image = await service.getRandomCityImage();
-    expect(image).toBeNull();
+    await expect(service.getCityImage(TEST_LOCATION)).rejects.toThrow(
+      'Wikimedia API error',
+    );
   });
 
   it('returns null when response has no query key at all', async () => {
@@ -206,7 +213,7 @@ describe('WikimediaService', () => {
       json: async () => ({}),
     } as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
     expect(image).toBeNull();
   });
 
@@ -224,8 +231,40 @@ describe('WikimediaService', () => {
         arrayBuffer: async () => new Uint8Array([1]).buffer,
       } as unknown as Response);
 
-    const image = await service.getRandomCityImage();
+    const image = await service.getCityImage(TEST_LOCATION);
     expect(image).toBeNull();
+  });
+
+  it('throws when image download fetch throws a network error', async () => {
+    fetchSpy
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => VALID_API_RESPONSE,
+      } as Response)
+      .mockRejectedValueOnce(new Error('Connection reset'));
+
+    await expect(service.getCityImage(TEST_LOCATION)).rejects.toThrow(
+      'Image download failed for',
+    );
+  });
+
+  it('throws when arrayBuffer() fails during image body read', async () => {
+    fetchSpy
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => VALID_API_RESPONSE,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ 'content-length': '3' }),
+        arrayBuffer: async () => {
+          throw new Error('Unexpected end of stream');
+        },
+      } as unknown as Response);
+
+    await expect(service.getCityImage(TEST_LOCATION)).rejects.toThrow(
+      'Image body read failed for',
+    );
   });
 
   it('builds search URL with correct parameters', async () => {
@@ -234,10 +273,12 @@ describe('WikimediaService', () => {
       json: async () => ({ query: {} }),
     } as Response);
 
-    await service.getRandomCityImage();
+    await service.getCityImage(TEST_LOCATION);
 
     const url = String(fetchSpy.mock.calls[0]?.[0]);
     expect(url).toContain('commons.wikimedia.org');
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get('gsrsearch')).toBe(TEST_LOCATION.name);
     expect(url).toContain('gsrnamespace=6');
     expect(url).toContain('gsrlimit=20');
     expect(url).toContain('iiprop=url');

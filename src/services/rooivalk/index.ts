@@ -19,6 +19,7 @@ import {
   ALLOWED_ATTACHMENT_CONTENT_TYPES,
   ALLOWED_ATTACHMENT_EXTENSIONS,
   DISCORD_COMMANDS,
+  YR_COORDINATES,
 } from '@/constants';
 import DiscordService from '@/services/discord';
 import OpenAIService from '@/services/openai';
@@ -33,6 +34,13 @@ import {
   isRooivalkThread,
   buildPromptAuthor,
 } from './helpers';
+
+function shuffleArray<T>(items: T[]): T[] {
+  return items
+    .map((item) => ({ item, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ item }) => item);
+}
 
 const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 const MOTD_IMAGE_ATTACHMENT_NAME = 'rooivalk_motd.jpg';
@@ -280,30 +288,42 @@ class Rooivalk {
         return;
       }
 
-      // Try Wikimedia city image first, fall back to Peapix
+      // Try Wikimedia city image for each city (in random order), skipping failures; fall back to Peapix if all cities fail
       let motdImage: {
         heading: string;
         attribution: string;
         buffer: Buffer;
       } | null = null;
 
-      let cityImage = null;
-      try {
-        cityImage = await this._wikimedia.getRandomCityImage();
-      } catch (err) {
-        console.error('Wikimedia image fetch threw an error:', err);
+      const locations = Object.values(YR_COORDINATES);
+      const shuffled = shuffleArray(locations);
+
+      let errorCount = 0;
+      for (const location of shuffled) {
+        try {
+          const cityImage = await this._wikimedia.getCityImage(location);
+          if (cityImage) {
+            motdImage = {
+              heading: cityImage.cityName,
+              attribution: cityImage.title,
+              buffer: cityImage.buffer,
+            };
+            break;
+          }
+        } catch (err) {
+          errorCount++;
+          console.error(
+            `Wikimedia image fetch failed for ${location.name}:`,
+            err,
+          );
+        }
       }
 
-      if (cityImage) {
-        motdImage = {
-          heading: cityImage.cityName,
-          attribution: cityImage.title,
-          buffer: cityImage.buffer,
-        };
-      } else {
+      if (!motdImage) {
         console.warn(
-          'Wikimedia image unavailable, falling back to Peapix. ' +
-            'Check earlier logs for Wikimedia API errors.',
+          `Wikimedia image unavailable for all ${shuffled.length} cities` +
+            ` (${errorCount} threw, ${shuffled.length - errorCount} returned null).` +
+            ` Falling back to Peapix.`,
         );
         try {
           const peapixImage = await this._peapix.getImage();
@@ -313,6 +333,8 @@ class Rooivalk {
               attribution: peapixImage.copyright,
               buffer: peapixImage.buffer,
             };
+          } else {
+            console.warn('Peapix fallback returned no image.');
           }
         } catch (peapixErr) {
           console.error(
@@ -467,46 +489,51 @@ class Rooivalk {
     const city = interaction.options.getString('city', true);
     await interaction.deferReply();
 
-    if (city) {
+    try {
       const weather = await this._yr.getForecastByLocation(city);
-      if (weather) {
-        const prompt = `
-          You will be provided with a daily weather forecast in JSON format.
-
-          ## Weather formatting
-          - Include the friendlyName along with the country flag emoji.
-          - Add a short description of the weather, including:
-            - Average wind speed (m/s) and direction
-            - Average humidity (%)
-            - Total precipitation (mm) -- exclude this if it's 0
-          - Add 1–2 relevant weather emojis.
-          - Keep the style readable but punchy.
-          - Do **not** mention the \`location\` value — it’s for internal use only.
-          - Mention the data is provided by yr.no under the CC BY 4.0 license. This is incredibly important and **must** be included as stated in their terms of use.
-
-          ### Forecast Data
-          \`\`\`json
-          ${JSON.stringify(weather)}
-          \`\`\`
-        `;
-
-        const response = await this._openai.createResponse(
-          interaction.user.displayName,
-          prompt,
-          this._discord.allowedEmojis,
-        );
-        await interaction.editReply({
-          content: response.content,
-        });
-      } else {
+      if (!weather) {
         await interaction.editReply({
           content: this._discord.getRooivalkResponse('error'),
         });
+        return;
       }
-    } else {
+
+      const prompt = `
+        You will be provided with a daily weather forecast in JSON format.
+
+        ## Weather formatting
+        - Include the friendlyName along with the country flag emoji.
+        - Add a short description of the weather, including:
+          - Average wind speed (m/s) and direction
+          - Average humidity (%)
+          - Total precipitation (mm) -- exclude this if it's 0
+        - Add 1–2 relevant weather emojis.
+        - Keep the style readable but punchy.
+        - Do **not** mention the \`location\` value — it's for internal use only.
+        - Mention the data is provided by yr.no under the CC BY 4.0 license. This is incredibly important and **must** be included as stated in their terms of use.
+
+        ### Forecast Data
+        \`\`\`json
+        ${JSON.stringify(weather)}
+        \`\`\`
+      `;
+
+      const response = await this._openai.createResponse(
+        interaction.user.displayName,
+        prompt,
+        this._discord.allowedEmojis,
+      );
       await interaction.editReply({
-        content: this._discord.getRooivalkResponse('error'),
+        content: response.content,
       });
+    } catch (error) {
+      console.error('Error handling weather command:', error);
+      const errorMessage = this._discord.getRooivalkResponse('error');
+      const reply =
+        error instanceof Error
+          ? `${errorMessage}\n\n\`\`\`${error.message}\`\`\``
+          : errorMessage;
+      await interaction.editReply({ content: reply });
     }
   }
 
