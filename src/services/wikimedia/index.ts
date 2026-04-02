@@ -36,13 +36,18 @@ const WIKIMEDIA_API_URL = 'https://commons.wikimedia.org/w/api.php';
 const USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 
 class WikimediaService {
-  private buildSearchUrl(searchTerm: string): string {
+  private buildGeoSearchUrl(
+    latitude: number,
+    longitude: number,
+    radiusMetres = 10_000,
+  ): string {
     const url = new URL(WIKIMEDIA_API_URL);
     url.searchParams.set('action', 'query');
-    url.searchParams.set('generator', 'search');
-    url.searchParams.set('gsrnamespace', '6');
-    url.searchParams.set('gsrsearch', searchTerm);
-    url.searchParams.set('gsrlimit', '20');
+    url.searchParams.set('generator', 'geosearch');
+    url.searchParams.set('ggsnamespace', '6');
+    url.searchParams.set('ggscoord', `${latitude}|${longitude}`);
+    url.searchParams.set('ggsradius', String(radiusMetres));
+    url.searchParams.set('ggslimit', '20');
     url.searchParams.set('prop', 'imageinfo');
     url.searchParams.set('iiprop', 'url|mime');
     url.searchParams.set('format', 'json');
@@ -55,9 +60,10 @@ class WikimediaService {
   ): Promise<WikimediaImage | null> {
     const cityName = location.name;
 
-    const response = await fetch(this.buildSearchUrl(cityName), {
-      headers: { 'User-Agent': USER_AGENT },
-    });
+    const response = await fetch(
+      this.buildGeoSearchUrl(location.latitude, location.longitude),
+      { headers: { 'User-Agent': USER_AGENT } },
+    );
 
     if (!response.ok) {
       throw new Error(
