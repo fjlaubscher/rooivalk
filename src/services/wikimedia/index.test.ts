@@ -267,7 +267,7 @@ describe('WikimediaService', () => {
     );
   });
 
-  it('builds search URL with correct parameters', async () => {
+  it('builds geosearch URL with correct parameters', async () => {
     fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ query: {} }),
@@ -278,9 +278,13 @@ describe('WikimediaService', () => {
     const url = String(fetchSpy.mock.calls[0]?.[0]);
     expect(url).toContain('commons.wikimedia.org');
     const parsed = new URL(url);
-    expect(parsed.searchParams.get('gsrsearch')).toBe(TEST_LOCATION.name);
-    expect(url).toContain('gsrnamespace=6');
-    expect(url).toContain('gsrlimit=20');
+    expect(parsed.searchParams.get('generator')).toBe('geosearch');
+    expect(parsed.searchParams.get('ggscoord')).toBe(
+      `${TEST_LOCATION.latitude}|${TEST_LOCATION.longitude}`,
+    );
+    expect(parsed.searchParams.get('ggsradius')).toBe('10000');
+    expect(url).toContain('ggsnamespace=6');
+    expect(url).toContain('ggslimit=20');
     expect(url).toContain('iiprop=url');
     expect(url).toContain('format=json');
   });
