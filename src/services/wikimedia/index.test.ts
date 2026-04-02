@@ -282,6 +282,7 @@ describe('WikimediaService', () => {
     expect(parsed.searchParams.get('ggscoord')).toBe(
       `${TEST_LOCATION.latitude}|${TEST_LOCATION.longitude}`,
     );
+    expect(parsed.searchParams.get('ggsradius')).toBe('10000');
     expect(url).toContain('ggsnamespace=6');
     expect(url).toContain('ggslimit=20');
     expect(url).toContain('iiprop=url');
