@@ -16,11 +16,10 @@ export const ALLOWED_ATTACHMENT_CONTENT_TYPES = [
   'text/tab-separated-values',
 ];
 
+export const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
+
 export const ALLOWED_ATTACHMENT_EXTENSIONS = [
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.webp',
+  ...IMAGE_ATTACHMENT_EXTENSIONS,
   '.txt',
   '.md',
   '.markdown',

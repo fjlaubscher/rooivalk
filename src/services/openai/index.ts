@@ -7,6 +7,7 @@ import type {
   OpenAIResponse,
   ToolExecutor,
 } from '@/types';
+import { IMAGE_ATTACHMENT_EXTENSIONS } from '@/constants';
 import { FUNCTION_TOOLS } from './tools';
 
 const MAX_HISTORY_MESSAGES = 40;
@@ -103,24 +104,56 @@ class OpenAIService {
         const truncatedHistory = history.slice(-MAX_HISTORY_MESSAGES);
 
         for (const msg of truncatedHistory) {
+          const imageUrls = msg.attachmentUrls.filter((url) => {
+            const pathWithoutQuery = url.split('?')[0].toLowerCase();
+            return IMAGE_ATTACHMENT_EXTENSIONS.some((ext) =>
+              pathWithoutQuery.endsWith(ext),
+            );
+          });
+          const nonImageUrls = msg.attachmentUrls.filter(
+            (url) => !imageUrls.includes(url),
+          );
+
           if (msg.author === 'rooivalk') {
             let content = msg.content || '';
-            if (msg.attachmentUrls.length > 0) {
-              content += `\nAttachments: ${msg.attachmentUrls.join(', ')}`;
+            if (nonImageUrls.length > 0) {
+              content += `\nAttachments: ${nonImageUrls.join(', ')}`;
             }
             responseInput.push({
               role: 'assistant',
               content: content.trim(),
             });
           } else {
-            let content = `${msg.content || ''}`;
-            if (msg.attachmentUrls.length > 0) {
-              content += `\nAttachments: ${msg.attachmentUrls.join(', ')}`;
+            let textContent = `${msg.content || ''}`;
+            if (nonImageUrls.length > 0) {
+              textContent += `\nAttachments: ${nonImageUrls.join(', ')}`;
             }
-            responseInput.push({
-              role: 'user',
-              content: `[${msg.author}]: ${content.trim()}`,
-            });
+
+            if (imageUrls.length > 0) {
+              const msgContent: OpenAI.Responses.ResponseInputContent[] = [
+                {
+                  type: 'input_text',
+                  text: `[${msg.author}]: ${textContent.trim()}`,
+                },
+                ...imageUrls.map(
+                  (url) =>
+                    ({
+                      type: 'input_image',
+                      image_url: url,
+                      detail: 'auto',
+                    }) as OpenAI.Responses.ResponseInputContent,
+                ),
+              ];
+              responseInput.push({
+                role: 'user',
+                content: msgContent,
+              });
+            } else {
+              responseInput.push({
+                role: 'user',
+                content: `[${msg.author}]: ${textContent.trim()}`,
+              });
+            }
           }
         }
       }

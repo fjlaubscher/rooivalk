@@ -19,6 +19,7 @@ import {
   ALLOWED_ATTACHMENT_CONTENT_TYPES,
   ALLOWED_ATTACHMENT_EXTENSIONS,
   DISCORD_COMMANDS,
+  IMAGE_ATTACHMENT_EXTENSIONS,
   YR_COORDINATES,
 } from '@/constants';
 import DiscordService from '@/services/discord';
@@ -49,7 +50,6 @@ function shuffleArray<T>(items: T[]): T[] {
     .map(({ item }) => item);
 }
 
-const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 const MOTD_IMAGE_ATTACHMENT_NAME = 'rooivalk_motd.jpg';
 
 class Rooivalk {
