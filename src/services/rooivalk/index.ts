@@ -206,6 +206,14 @@ class Rooivalk {
           return { output: JSON.stringify(forecasts) };
         }
         case TOOL_NAMES.CREATE_THREAD: {
+          if (message.channel.isThread()) {
+            return {
+              output: JSON.stringify({
+                error: 'Cannot create a thread inside an existing thread',
+              }),
+            };
+          }
+
           try {
             const threadName = args.name as string | undefined;
             const thread = await this.createRooivalkThread(message, threadName);
@@ -618,8 +626,10 @@ class Rooivalk {
   ): Promise<ThreadChannel | null> {
     let threadName: string;
 
-    if (name && name.length > 0) {
-      threadName = name.substring(0, 100);
+    const trimmedName = name?.trim();
+
+    if (trimmedName && trimmedName.length > 0) {
+      threadName = trimmedName.substring(0, 100);
     } else {
       const history = await this._discord.buildMessageChainFromMessage(message);
       const historyText = history

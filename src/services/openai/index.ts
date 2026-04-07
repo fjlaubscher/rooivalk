@@ -38,7 +38,6 @@ class OpenAIService {
         model: this._imageModel as `gpt-image-1.5`,
         output_format: 'jpeg',
       },
-      ...FUNCTION_TOOLS,
     ];
   }
 
@@ -146,9 +145,13 @@ class OpenAIService {
         promptLength: prompt.length,
       });
 
+      const tools = toolExecutor
+        ? [...this._tools, ...FUNCTION_TOOLS]
+        : this._tools;
+
       let response = await this._openai.responses.create({
         model: this._model,
-        tools: this._tools,
+        tools,
         instructions,
         input: responseInput,
       });
@@ -185,7 +188,7 @@ class OpenAIService {
 
           response = await this._openai.responses.create({
             model: this._model,
-            tools: this._tools,
+            tools,
             instructions,
             previous_response_id: response.id,
             input: toolOutputs,
