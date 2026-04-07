@@ -16,7 +16,6 @@ export const MOCK_CONFIG: InMemoryConfig = {
   errorMessages: ['Error!'],
   greetingMessages: ['Hello!'],
   discordLimitMessages: ['Too long!'],
-  instructions:
-    'System instructions {{CURRENT_DATE}} :: {{CONVERSATION_HISTORY}}',
+  instructions: 'System instructions {{CURRENT_DATE}}',
   motd: 'Message of the day',
 };

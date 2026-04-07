@@ -31,9 +31,11 @@ import { TOOL_NAMES } from '@/services/openai/tools';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
+  MessageInChain,
   ToolExecutionResult,
 } from '@/types';
 
+import { formatMessageInChain } from '@/services/discord/helpers';
 import {
   isReplyToRooivalk,
   isRooivalkThread,
@@ -258,7 +260,7 @@ class Rooivalk {
         .replace(this._discord.mentionRegex!, '')
         .trim();
 
-      let conversationHistory: string | null = null;
+      let conversationHistory: MessageInChain[] | null = null;
 
       if (message.channel.isThread()) {
         conversationHistory =
@@ -620,8 +622,11 @@ class Rooivalk {
       threadName = name.substring(0, 100);
     } else {
       const history = await this._discord.buildMessageChainFromMessage(message);
+      const historyText = history
+        ? history.map(formatMessageInChain).join('\n')
+        : null;
       threadName = await this._openai.generateThreadName(
-        history ?? message.content.trim(),
+        historyText ?? message.content.trim(),
       );
     }
 

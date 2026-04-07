@@ -159,7 +159,7 @@ describe('DiscordService', () => {
     });
 
     describe('buildMessageChainFromMessage', () => {
-      it('should build prompt from message chain', async () => {
+      it('should return MessageInChain array from message chain', async () => {
         const msg = createMockMessage({
           reference: { messageId: '123' },
         } as Partial<Message<boolean>>);
@@ -168,14 +168,16 @@ describe('DiscordService', () => {
           author: { id: BOT_ID },
         } as any);
 
-        vi.spyOn(service, 'getMessageChain').mockResolvedValue([
+        const mockChain = [
           { author: 'user', content: 'hi', attachmentUrls: [] },
           { author: 'rooivalk', content: 'yo', attachmentUrls: [] },
-        ]);
+        ];
+
+        vi.spyOn(service, 'getMessageChain').mockResolvedValue(mockChain);
 
         service.mentionRegex = /<@test-bot-id>/g;
-        const prompt = await service.buildMessageChainFromMessage(msg);
-        expect(typeof prompt).toBe('string');
+        const result = await service.buildMessageChainFromMessage(msg);
+        expect(result).toEqual(mockChain);
       });
     });
 
@@ -198,7 +200,7 @@ describe('DiscordService', () => {
     });
 
     describe('buildMessageChainFromThreadMessage', () => {
-      it('should build prompt from thread messages in chronological order', async () => {
+      it('should return MessageInChain array from thread messages in chronological order', async () => {
         const mockThreadMessages = new Map([
           [
             '3',
@@ -245,15 +247,31 @@ describe('DiscordService', () => {
         service.mentionRegex = /<@test-bot-id>/g;
 
         // Mock buildMessageChainFromMessage for the starter message
-        vi.spyOn(service, 'buildMessageChainFromMessage').mockResolvedValue(
-          '- OlderUser: Previous context',
-        );
+        vi.spyOn(service, 'buildMessageChainFromMessage').mockResolvedValue([
+          {
+            author: 'OlderUser',
+            content: 'Previous context',
+            attachmentUrls: [],
+          },
+        ]);
 
-        const prompt = await service.buildMessageChainFromThreadMessage(msg);
+        const result = await service.buildMessageChainFromThreadMessage(msg);
 
-        expect(prompt).toBe(
-          '- OlderUser: Previous context\n- User: Thread starter message\n- rooivalk: First message\n- User: Second message\n- User: Third message',
-        );
+        expect(result).toEqual([
+          {
+            author: 'OlderUser',
+            content: 'Previous context',
+            attachmentUrls: [],
+          },
+          {
+            author: 'User',
+            content: 'Thread starter message',
+            attachmentUrls: [],
+          },
+          { author: 'rooivalk', content: 'First message', attachmentUrls: [] },
+          { author: 'User', content: 'Second message', attachmentUrls: [] },
+          { author: 'User', content: 'Third message', attachmentUrls: [] },
+        ]);
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
 
@@ -331,15 +349,23 @@ describe('DiscordService', () => {
         } as Partial<Message<boolean>>);
 
         // Mock buildMessageChainFromMessage for pre-thread context
-        vi.spyOn(service, 'buildMessageChainFromMessage').mockResolvedValue(
-          '- user: Previous context\n- rooivalk: Bot response',
-        );
+        vi.spyOn(service, 'buildMessageChainFromMessage').mockResolvedValue([
+          { author: 'user', content: 'Previous context', attachmentUrls: [] },
+          { author: 'rooivalk', content: 'Bot response', attachmentUrls: [] },
+        ]);
 
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
-        expect(result).toBe(
-          '- user: Previous context\n- rooivalk: Bot response\n- User: Start thread message\n- User: Thread message',
-        );
+        expect(result).toEqual([
+          { author: 'user', content: 'Previous context', attachmentUrls: [] },
+          { author: 'rooivalk', content: 'Bot response', attachmentUrls: [] },
+          {
+            author: 'User',
+            content: 'Start thread message',
+            attachmentUrls: [],
+          },
+          { author: 'User', content: 'Thread message', attachmentUrls: [] },
+        ]);
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
 
@@ -378,9 +404,14 @@ describe('DiscordService', () => {
 
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
-        expect(result).toBe(
-          '- User: Thread starter\n- User: Thread message only',
-        );
+        expect(result).toEqual([
+          { author: 'User', content: 'Thread starter', attachmentUrls: [] },
+          {
+            author: 'User',
+            content: 'Thread message only',
+            attachmentUrls: [],
+          },
+        ]);
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
     });
@@ -439,12 +470,24 @@ describe('DiscordService', () => {
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
         // The bot message with attachment should be included
-        expect(result).toContain('- User: Thread starter message');
-        expect(result).toContain(
-          '- rooivalk: [no content] Attachments: https://example.com/image.png',
+        expect(result).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              author: 'User',
+              content: 'Thread starter message',
+            }),
+            expect.objectContaining({
+              author: 'rooivalk',
+              content: '',
+              attachmentUrls: ['https://example.com/image.png'],
+            }),
+            expect.objectContaining({
+              author: 'User',
+              content: 'generate a picture',
+            }),
+            expect.objectContaining({ author: 'User', content: 'great!' }),
+          ]),
         );
-        expect(result).toContain('- User: generate a picture');
-        expect(result).toContain('- User: great!');
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
 
@@ -495,10 +538,21 @@ describe('DiscordService', () => {
         const result = await service.buildMessageChainFromThreadMessage(msg);
 
         // The empty bot message should be filtered out
-        expect(result).toContain('- User: Thread starter message');
-        expect(result).toContain('- User: hello');
-        expect(result).toContain('- User: are you there?');
-        expect(result).not.toContain('- rooivalk:');
+        expect(result).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              author: 'User',
+              content: 'Thread starter message',
+            }),
+            expect.objectContaining({ author: 'User', content: 'hello' }),
+            expect.objectContaining({
+              author: 'User',
+              content: 'are you there?',
+            }),
+          ]),
+        );
+        // No rooivalk messages should be present (empty one was filtered)
+        expect(result!.some((m: any) => m.author === 'rooivalk')).toBe(false);
         expect(mockThread.messages.fetch).toHaveBeenCalled();
       });
     });

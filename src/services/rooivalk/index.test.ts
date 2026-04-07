@@ -117,8 +117,12 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<Message<boolean>>);
+        const mockHistory = [
+          { author: 'User', content: 'Hi!', attachmentUrls: [] },
+          { author: 'rooivalk', content: 'Hello!', attachmentUrls: [] },
+        ];
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          '- User: Hi!\n- Rooivalk: Hello!',
+          mockHistory,
         );
         await (rooivalk as any).processMessage(userMessage);
         expect(
@@ -130,7 +134,7 @@ describe('Rooivalk', () => {
           expectedAuthor,
           'Hi!',
           [],
-          '- User: Hi!\n- Rooivalk: Hello!',
+          mockHistory,
           null,
           expect.any(Function),
         );
@@ -1129,8 +1133,15 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
+        const mockThreadHistory = [
+          {
+            author: 'User',
+            content: 'thread conversation',
+            attachmentUrls: [],
+          },
+        ];
         mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
-          'thread conversation history',
+          mockThreadHistory,
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
@@ -1150,7 +1161,7 @@ describe('Rooivalk', () => {
           expectedAuthor,
           'Hello in thread',
           [],
-          'thread conversation history',
+          mockThreadHistory,
           null,
           expect.any(Function),
         );
@@ -1188,8 +1199,11 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
+        const mockChainHistory = [
+          { author: 'User', content: 'message chain', attachmentUrls: [] },
+        ];
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          'message chain history',
+          mockChainHistory,
         );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
@@ -1209,7 +1223,7 @@ describe('Rooivalk', () => {
           expectedAuthor,
           'Hello outside thread',
           [],
-          'message chain history',
+          mockChainHistory,
           null,
           expect.any(Function),
         );
@@ -1251,9 +1265,13 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          'conversation history',
-        );
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
+          {
+            author: 'user',
+            content: 'conversation history',
+            attachmentUrls: [],
+          },
+        ]);
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Thread response',
         });
@@ -1277,8 +1295,14 @@ describe('Rooivalk', () => {
 
     describe('when creating a thread from a reply', () => {
       it('should store initial context when history is available', async () => {
-        const mockHistory =
-          '- user: Original question\n- rooivalk: Previous response';
+        const mockHistory = [
+          { author: 'user', content: 'Original question', attachmentUrls: [] },
+          {
+            author: 'rooivalk',
+            content: 'Previous response',
+            attachmentUrls: [],
+          },
+        ];
         const mockThread = {
           id: 'new-thread-123',
           members: { add: vi.fn() },
@@ -1301,7 +1325,7 @@ describe('Rooivalk', () => {
 
         expect(result).toBe(mockThread);
         expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
-          mockHistory,
+          '- user: Original question\n- rooivalk: Previous response',
         );
         expect(replyMessage.startThread).toHaveBeenCalledWith({
           name: 'Discussion Thread',
@@ -1342,9 +1366,9 @@ describe('Rooivalk', () => {
             .mockRejectedValue(new Error('Thread creation failed')),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          'some history',
-        );
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
+          { author: 'user', content: 'some history', attachmentUrls: [] },
+        ]);
         mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Name');
 
         await expect(
