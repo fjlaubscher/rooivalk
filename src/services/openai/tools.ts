@@ -51,12 +51,12 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
       type: 'object',
       properties: {
         name: {
-          type: 'string',
+          type: ['string', 'null'],
           description:
-            'Optional thread name (max 100 chars). If omitted, one will be auto-generated.',
+            'Optional thread name (max 100 chars). If null, one will be auto-generated.',
         },
       },
-      required: [],
+      required: ['name'],
       additionalProperties: false,
     },
   },
@@ -70,17 +70,17 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
       type: 'object',
       properties: {
         start_date: {
-          type: 'string',
+          type: ['string', 'null'],
           description:
-            'Start date in ISO 8601 format (YYYY-MM-DD). Defaults to today.',
+            'Start date in ISO 8601 format (YYYY-MM-DD). Defaults to today if null.',
         },
         end_date: {
-          type: 'string',
+          type: ['string', 'null'],
           description:
-            'End date in ISO 8601 format (YYYY-MM-DD). Defaults to 7 days from start.',
+            'End date in ISO 8601 format (YYYY-MM-DD). Defaults to 7 days from start if null.',
         },
       },
-      required: [],
+      required: ['start_date', 'end_date'],
       additionalProperties: false,
     },
   },

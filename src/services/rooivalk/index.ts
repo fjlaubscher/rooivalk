@@ -215,7 +215,7 @@ class Rooivalk {
           }
 
           try {
-            const threadName = args.name as string | undefined;
+            const threadName = (args.name as string | null) ?? undefined;
             const thread = await this.createRooivalkThread(message, threadName);
             if (thread) {
               return {
