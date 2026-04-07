@@ -21,7 +21,7 @@ import type {
   OpenAIResponse,
 } from '@/types';
 
-import { formatMessageInChain, parseMessageInChain } from './helpers';
+import { parseMessageInChain } from './helpers';
 
 class DiscordService {
   private _discordClient: DiscordClient;
@@ -334,7 +334,7 @@ class DiscordService {
 
   public async buildMessageChainFromMessage(
     currentMessage: Message<boolean>,
-  ): Promise<string | null> {
+  ): Promise<MessageInChain[] | null> {
     // get the message chain for the current message
     const messageChain = await this.getMessageChain(currentMessage);
 
@@ -342,12 +342,12 @@ class DiscordService {
       return null;
     }
 
-    return messageChain.map(formatMessageInChain).join('\n');
+    return messageChain;
   }
 
   public async buildMessageChainFromThreadMessage(
     message: Message<boolean>,
-  ): Promise<string | null> {
+  ): Promise<MessageInChain[] | null> {
     if (message.channel.isThread()) {
       const thread = message.channel;
 
@@ -367,35 +367,31 @@ class DiscordService {
           starterMessage,
           this._discordClient.user?.id,
         );
-        const starterFormatted = starterParsed
-          ? formatMessageInChain(starterParsed)
-          : null;
 
         // Fetch all thread messages
         const threadMessages = await thread.messages.fetch();
         const messages = Array.from(threadMessages.values());
 
         // Process thread messages in chronological order
-        const threadContents: string[] = [];
+        const threadParsed: MessageInChain[] = [];
         messages.reverse().forEach((msg) => {
           const msgInChain = parseMessageInChain(
             msg,
             this._discordClient.user?.id,
           );
           if (msgInChain) {
-            const formatted = formatMessageInChain(msgInChain);
-            threadContents.push(formatted);
+            threadParsed.push(msgInChain);
           }
         });
 
         // Combine all parts: pre-thread context + starter message + thread messages
-        const parts = [
-          preThreadContext,
-          starterFormatted,
-          threadContents.length > 0 ? threadContents.join('\n') : null,
-        ].filter(Boolean);
+        const result: MessageInChain[] = [
+          ...(preThreadContext ?? []),
+          ...(starterParsed ? [starterParsed] : []),
+          ...threadParsed,
+        ];
 
-        return parts.length > 0 ? parts.join('\n') : null;
+        return result.length > 0 ? result : null;
       } catch (error) {
         console.error('Error building thread message chain:', error);
         return null;

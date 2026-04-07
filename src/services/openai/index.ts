@@ -3,13 +3,14 @@ import OpenAI from 'openai';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
+  MessageInChain,
   OpenAIResponse,
+  ToolExecutor,
 } from '@/types';
+import { FUNCTION_TOOLS } from './tools';
 
-const NO_HISTORY_FALLBACK =
-  'No prior sorties logged. Start fresh but stay on-mission.';
-const MAX_HISTORY_LINES = 40;
-const MAX_HISTORY_CHARACTERS = 6000;
+const MAX_HISTORY_MESSAGES = 40;
+const MAX_TOOL_ITERATIONS = 5;
 
 class OpenAIService {
   private _config: InMemoryConfig;
@@ -44,8 +45,9 @@ class OpenAIService {
     author: string | 'rooivalk',
     prompt: string,
     emojis: string[] = [],
-    history: string | null = null,
+    history: MessageInChain[] | null = null,
     attachments: AttachmentForPrompt[] | null = null,
+    toolExecutor?: ToolExecutor,
   ): Promise<OpenAIResponse> {
     try {
       let instructions = this._config.instructions;
@@ -56,21 +58,6 @@ class OpenAIService {
       // inject emojis if available
       if (emojis) {
         instructions = instructions.replace(/{{EMOJIS}}/, emojis.join('\n'));
-      }
-
-      const sanitizedHistory = history?.trim() ?? '';
-      const hasHistory = sanitizedHistory.length > 0;
-      const historyContent = hasHistory
-        ? this.truncateConversationHistory(sanitizedHistory)
-        : NO_HISTORY_FALLBACK;
-
-      if (instructions.includes('{{CONVERSATION_HISTORY}}')) {
-        instructions = instructions.replace(
-          /{{CONVERSATION_HISTORY}}/g,
-          historyContent,
-        );
-      } else if (hasHistory) {
-        instructions += `\n\n### Conversation history:\n${historyContent}`;
       }
 
       const inputContent: OpenAI.Responses.ResponseInputContent[] = [
@@ -109,7 +96,34 @@ class OpenAIService {
         });
       }
 
+      // Build structured conversation input from history
       const responseInput: OpenAI.Responses.ResponseInput = [];
+
+      if (history && history.length > 0) {
+        const truncatedHistory = history.slice(-MAX_HISTORY_MESSAGES);
+
+        for (const msg of truncatedHistory) {
+          if (msg.author === 'rooivalk') {
+            let content = msg.content || '';
+            if (msg.attachmentUrls.length > 0) {
+              content += `\nAttachments: ${msg.attachmentUrls.join(', ')}`;
+            }
+            responseInput.push({
+              role: 'assistant',
+              content: content.trim(),
+            });
+          } else {
+            let content = `${msg.content || ''}`;
+            if (msg.attachmentUrls.length > 0) {
+              content += `\nAttachments: ${msg.attachmentUrls.join(', ')}`;
+            }
+            responseInput.push({
+              role: 'user',
+              content: `[${msg.author}]: ${content.trim()}`,
+            });
+          }
+        }
+      }
 
       if (author !== 'rooivalk') {
         responseInput.push({
@@ -125,18 +139,62 @@ class OpenAIService {
 
       this.logPromptMetrics({
         instructionsLength: instructions.length,
-        hasHistory,
-        historyLength: sanitizedHistory.length,
+        hasHistory: !!history && history.length > 0,
+        historyLength: history?.length ?? 0,
         attachmentsCount: attachments?.length ?? 0,
         promptLength: prompt.length,
       });
 
-      const response = await this._openai.responses.create({
+      const tools = toolExecutor
+        ? [...this._tools, ...FUNCTION_TOOLS]
+        : this._tools;
+
+      let response = await this._openai.responses.create({
         model: this._model,
-        tools: this._tools,
+        tools,
         instructions,
         input: responseInput,
       });
+
+      // Tool execution loop: handle function_call outputs
+      let createdThread: OpenAIResponse['createdThread'];
+
+      if (toolExecutor) {
+        for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+          const functionCalls = response.output.filter(
+            (item) => item.type === 'function_call',
+          );
+
+          if (functionCalls.length === 0) break;
+
+          const toolOutputs: OpenAI.Responses.ResponseInputItem[] = [];
+
+          for (const call of functionCalls) {
+            if (call.type !== 'function_call') continue;
+
+            const args = JSON.parse(call.arguments) as Record<string, unknown>;
+            const result = await toolExecutor(call.name, args);
+
+            if (result.createdThread) {
+              createdThread = result.createdThread;
+            }
+
+            toolOutputs.push({
+              type: 'function_call_output',
+              call_id: call.call_id,
+              output: result.output,
+            });
+          }
+
+          response = await this._openai.responses.create({
+            model: this._model,
+            tools,
+            instructions,
+            previous_response_id: response.id,
+            input: toolOutputs,
+          });
+        }
+      }
 
       const generatedImages = response.output
         .filter((output) => output.type === 'image_generation_call')
@@ -148,6 +206,7 @@ class OpenAIService {
           type: 'image_generation_call',
           content: response.output_text,
           base64Images: generatedImages,
+          createdThread,
         };
       }
 
@@ -155,6 +214,7 @@ class OpenAIService {
         type: 'text',
         content: response.output_text,
         base64Images: [],
+        createdThread,
       };
     } catch (error) {
       console.error('Error with OpenAI:', error);
@@ -164,31 +224,6 @@ class OpenAIService {
 
       throw new Error('Error creating chat completion');
     }
-  }
-
-  private truncateConversationHistory(history: string): string {
-    const lines = history.split('\n');
-    let truncatedLines = lines;
-    const notices: string[] = [];
-
-    if (lines.length > MAX_HISTORY_LINES) {
-      truncatedLines = lines.slice(lines.length - MAX_HISTORY_LINES);
-      notices.push('...prior sorties truncated...');
-    }
-
-    let truncated = truncatedLines.join('\n');
-
-    if (truncated.length > MAX_HISTORY_CHARACTERS) {
-      truncated = truncated.slice(truncated.length - MAX_HISTORY_CHARACTERS);
-      const firstNewline = truncated.indexOf('\n');
-      if (firstNewline > -1) {
-        truncated = truncated.slice(firstNewline + 1);
-      }
-      notices.push('...history clipped for length...');
-    }
-
-    const parts = [...notices, truncated].filter(Boolean);
-    return parts.join('\n').trim();
   }
 
   private logPromptMetrics(metrics: {

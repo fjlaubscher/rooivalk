@@ -135,7 +135,7 @@ describe('OpenAIService', () => {
       );
     });
 
-    it('replaces placeholders when building instructions', async () => {
+    it('replaces date placeholder when building instructions', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2025-01-02T00:00:00Z'));
       responsesCreateMock.mockResolvedValueOnce({
@@ -148,50 +148,74 @@ describe('OpenAIService', () => {
 
         const callArgs = responsesCreateMock.mock.calls[0]![0];
         expect(callArgs.instructions).toContain('2025-01-02');
-        expect(callArgs.instructions).toContain('No prior sorties logged.');
       } finally {
         vi.useRealTimers();
       }
     });
 
-    it('injects conversation history when placeholder missing', async () => {
-      const localService = new OpenAIService({
-        ...MOCK_CONFIG,
-        instructions: 'Base instructions',
-      });
+    it('passes history as structured input messages', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'ok',
         output: [],
       });
 
-      await localService.createResponse(
-        'test user',
-        'hi',
-        [],
-        'line one\nline two',
-      );
+      const history = [
+        {
+          author: 'TestUser',
+          content: 'hello',
+          attachmentUrls: [] as string[],
+        },
+        {
+          author: 'rooivalk' as const,
+          content: 'hi back',
+          attachmentUrls: [] as string[],
+        },
+      ];
+
+      await service.createResponse('test user', 'hi', [], history);
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
-      expect(callArgs.instructions).toContain('### Conversation history');
-      expect(callArgs.instructions).toContain('line one');
-      expect(callArgs.instructions).toContain('line two');
+      // History should NOT be in instructions
+      expect(callArgs.instructions).not.toContain('hello');
+      // History should be in input as structured messages
+      const input = callArgs.input;
+      expect(input[0]).toEqual({
+        role: 'user',
+        content: '[TestUser]: hello',
+      });
+      expect(input[1]).toEqual({
+        role: 'assistant',
+        content: 'hi back',
+      });
     });
 
-    it('truncates long conversation history', async () => {
-      const longHistory = Array.from(
-        { length: 50 },
-        (_, index) => `line ${index + 1}`,
-      ).join('\n');
+    it('truncates history to last 40 messages', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'ok',
         output: [],
       });
 
-      await service.createResponse('test user', 'hi', [], longHistory);
+      const history = Array.from({ length: 50 }, (_, i) => ({
+        author: `User${i}`,
+        content: `message ${i}`,
+        attachmentUrls: [] as string[],
+      }));
+
+      await service.createResponse('test user', 'hi', [], history);
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
-      expect(callArgs.instructions).toContain('...prior sorties truncated...');
-      expect(callArgs.instructions).toContain('line 50');
+      // 40 history messages + 1 system message + 1 user message = 42
+      const input = callArgs.input;
+      const historyMessages = input.filter(
+        (m: any) =>
+          m.role === 'user' &&
+          typeof m.content === 'string' &&
+          m.content.startsWith('[User'),
+      );
+      expect(historyMessages).toHaveLength(40);
+      // Should keep the last 40, so message 10-49
+      expect(historyMessages[0].content).toContain('message 10');
+      expect(historyMessages[39].content).toContain('message 49');
     });
   });
 
