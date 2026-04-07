@@ -23,7 +23,18 @@ export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';
   content: string;
   base64Images: string[];
+  createdThread?: import('discord.js').ThreadChannel;
 };
+
+export type ToolExecutionResult = {
+  output: string;
+  createdThread?: import('discord.js').ThreadChannel;
+};
+
+export type ToolExecutor = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<ToolExecutionResult>;
 
 export type MessageInChain = {
   author: string | 'rooivalk';

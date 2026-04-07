@@ -27,7 +27,12 @@ import PeapixService from '@/services/peapix';
 import WikimediaService from '@/services/wikimedia';
 import YrService from '@/services/yr';
 
-import type { AttachmentForPrompt, InMemoryConfig } from '@/types';
+import { TOOL_NAMES } from '@/services/openai/tools';
+import type {
+  AttachmentForPrompt,
+  InMemoryConfig,
+  ToolExecutionResult,
+} from '@/types';
 
 import {
   isReplyToRooivalk,
@@ -178,10 +183,76 @@ class Rooivalk {
     this._openai.reloadConfig(newConfig);
   }
 
-  public async processMessage(
+  private buildToolExecutor(
     message: Message<boolean>,
-    targetChannel?: ThreadChannel,
-  ) {
+  ): (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<ToolExecutionResult> {
+    return async (
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<ToolExecutionResult> => {
+      switch (name) {
+        case TOOL_NAMES.GET_WEATHER: {
+          const city = args.city as string;
+          const forecast = await this._yr.getForecastByLocation(city);
+          return { output: JSON.stringify(forecast) };
+        }
+        case TOOL_NAMES.GET_ALL_WEATHER: {
+          const forecasts = await this._yr.getAllForecasts();
+          return { output: JSON.stringify(forecasts) };
+        }
+        case TOOL_NAMES.CREATE_THREAD: {
+          try {
+            const threadName = args.name as string | undefined;
+            const thread = await this.createRooivalkThread(message, threadName);
+            if (thread) {
+              return {
+                output: JSON.stringify({
+                  threadId: thread.id,
+                  name: thread.name,
+                }),
+                createdThread: thread,
+              };
+            }
+            return {
+              output: JSON.stringify({ error: 'Failed to create thread' }),
+            };
+          } catch (err) {
+            const errorMessage =
+              err instanceof Error ? err.message : 'Unknown error';
+            return {
+              output: JSON.stringify({ error: errorMessage }),
+            };
+          }
+        }
+        case TOOL_NAMES.GET_GUILD_EVENTS: {
+          const startDate = args.start_date
+            ? new Date(args.start_date as string)
+            : new Date();
+          startDate.setHours(0, 0, 0, 0);
+
+          const endDate = args.end_date
+            ? new Date(args.end_date as string)
+            : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          endDate.setHours(23, 59, 59, 999);
+
+          const events = await this._discord.getGuildEventsBetween(
+            startDate,
+            endDate,
+          );
+          return { output: JSON.stringify(events) };
+        }
+        default:
+          return {
+            output: JSON.stringify({ error: `Unknown tool: ${name}` }),
+          };
+      }
+    };
+  }
+
+  public async processMessage(message: Message<boolean>) {
     try {
       let prompt = message.content
         .replace(this._discord.mentionRegex!, '')
@@ -206,6 +277,8 @@ class Rooivalk {
         .filter((attachment) => this.isAttachmentAllowed(attachment))
         .map((attachment) => this.buildAttachmentForPrompt(attachment));
 
+      const toolExecutor = this.buildToolExecutor(message);
+
       // prompt openai with the enhanced content
       const response = await this._openai.createResponse(
         buildPromptAuthor(message.author),
@@ -213,6 +286,7 @@ class Rooivalk {
         this._discord.allowedEmojis,
         conversationHistory,
         attachments.length > 0 ? attachments : null,
+        toolExecutor,
       );
 
       if (response) {
@@ -220,8 +294,9 @@ class Rooivalk {
           response,
           usersToMention.map((user) => user.id),
         );
-        if (targetChannel) {
-          await targetChannel.send(reply);
+
+        if (response.createdThread) {
+          await response.createdThread.send(reply);
         } else if (message.channel.isThread()) {
           await message.channel.send(reply);
         } else {
@@ -239,9 +314,7 @@ class Rooivalk {
           ? `${errorMessage}\n\`\`\`${error.message}\`\`\``
           : errorMessage;
 
-      if (targetChannel) {
-        await targetChannel.send(reply);
-      } else if (message.channel.isThread()) {
+      if (message.channel.isThread()) {
         await message.channel.send(reply);
       } else {
         await message.reply(reply);
@@ -539,11 +612,19 @@ class Rooivalk {
 
   public async createRooivalkThread(
     message: Message<boolean>,
+    name?: string,
   ): Promise<ThreadChannel | null> {
-    const history = await this._discord.buildMessageChainFromMessage(message);
-    const threadName = await this._openai.generateThreadName(
-      history ?? message.content.trim(),
-    );
+    let threadName: string;
+
+    if (name && name.length > 0) {
+      threadName = name.substring(0, 100);
+    } else {
+      const history = await this._discord.buildMessageChainFromMessage(message);
+      threadName = await this._openai.generateThreadName(
+        history ?? message.content.trim(),
+      );
+    }
+
     const thread = await message.startThread({
       name: threadName,
       autoArchiveDuration: 60,
@@ -588,22 +669,10 @@ class Rooivalk {
         this._discord.client.user?.id,
       );
 
-      if (!isInRooivalkThread && isReply) {
-        // If the message is a reply to Rooivalk, create a thread to continue the discussion
-        const thread = await this.createRooivalkThread(message);
-        if (thread) {
-          // Process the message in the newly created thread
-          await this.processMessage(message, thread);
-        }
+      if (!isMentioned && !isInRooivalkThread && !isReply) {
         return;
       }
 
-      // If not a reply to the bot and not mentioned and not in a bot thread, ignore the message
-      if (!isMentioned && !isInRooivalkThread) {
-        return;
-      }
-
-      // Process the message (thread messages, replies, and mentions are all processed)
       await this.processMessage(message);
     });
 

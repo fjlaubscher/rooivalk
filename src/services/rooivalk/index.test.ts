@@ -132,6 +132,7 @@ describe('Rooivalk', () => {
           [],
           '- User: Hi!\n- Rooivalk: Hello!',
           null,
+          expect.any(Function),
         );
       });
     });
@@ -167,6 +168,7 @@ describe('Rooivalk', () => {
             kind: 'file',
           },
         ],
+        expect.any(Function),
       );
     });
 
@@ -249,6 +251,7 @@ describe('Rooivalk', () => {
           [],
           null,
           null,
+          expect.any(Function),
         );
       });
     });
@@ -1149,6 +1152,7 @@ describe('Rooivalk', () => {
           [],
           'thread conversation history',
           null,
+          expect.any(Function),
         );
       });
 
@@ -1207,6 +1211,7 @@ describe('Rooivalk', () => {
           [],
           'message chain history',
           null,
+          expect.any(Function),
         );
       });
 
@@ -1231,8 +1236,8 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('when creating a new thread from reply', () => {
-      it('should send response to newly created thread instead of original channel', async () => {
+    describe('when response includes a created thread', () => {
+      it('should send response to created thread instead of original channel', async () => {
         const mockThread = {
           send: vi.fn(),
           isThread: vi.fn().mockReturnValue(true),
@@ -1252,45 +1257,19 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Thread response',
         });
+        mockOpenAIClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'Thread response',
+          base64Images: [],
+          createdThread: mockThread,
+        });
 
-        // Test the processMessage method with targetChannel parameter
-        await (rooivalk as any).processMessage(replyMessage, mockThread);
+        await (rooivalk as any).processMessage(replyMessage);
 
-        // Should send to the thread, not reply to original message
+        // Should send to the created thread, not reply to original message
         expect(mockThread.send).toHaveBeenCalledWith({
           content: 'Thread response',
         });
-        expect(replyMessage.reply).not.toHaveBeenCalled();
-        expect((replyMessage.channel as any).send).not.toHaveBeenCalled();
-      });
-
-      it('should handle errors and send to thread when targetChannel is provided', async () => {
-        const mockThread = {
-          send: vi.fn(),
-          isThread: vi.fn().mockReturnValue(true),
-        } as any as ThreadChannel;
-
-        const replyMessage = createMockMessage({
-          content: 'Reply that will cause error',
-          channel: {
-            isThread: vi.fn().mockReturnValue(false),
-            send: vi.fn(),
-          } as any,
-        } as Partial<Message<boolean>>);
-
-        mockOpenAIClient.createResponse.mockRejectedValue(
-          new Error('OpenAI API error'),
-        );
-        mockDiscordService.getRooivalkResponse.mockReturnValue(
-          'Error occurred',
-        );
-
-        await (rooivalk as any).processMessage(replyMessage, mockThread);
-
-        // Should send error to the thread, not reply to original message
-        expect(mockThread.send).toHaveBeenCalledWith(
-          'Error occurred\n```OpenAI API error```',
-        );
         expect(replyMessage.reply).not.toHaveBeenCalled();
         expect((replyMessage.channel as any).send).not.toHaveBeenCalled();
       });

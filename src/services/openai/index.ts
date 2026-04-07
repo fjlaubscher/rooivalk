@@ -4,12 +4,15 @@ import type {
   AttachmentForPrompt,
   InMemoryConfig,
   OpenAIResponse,
+  ToolExecutor,
 } from '@/types';
+import { FUNCTION_TOOLS } from './tools';
 
 const NO_HISTORY_FALLBACK =
   'No prior sorties logged. Start fresh but stay on-mission.';
 const MAX_HISTORY_LINES = 40;
 const MAX_HISTORY_CHARACTERS = 6000;
+const MAX_TOOL_ITERATIONS = 5;
 
 class OpenAIService {
   private _config: InMemoryConfig;
@@ -37,6 +40,7 @@ class OpenAIService {
         model: this._imageModel as `gpt-image-1.5`,
         output_format: 'jpeg',
       },
+      ...FUNCTION_TOOLS,
     ];
   }
 
@@ -46,6 +50,7 @@ class OpenAIService {
     emojis: string[] = [],
     history: string | null = null,
     attachments: AttachmentForPrompt[] | null = null,
+    toolExecutor?: ToolExecutor,
   ): Promise<OpenAIResponse> {
     try {
       let instructions = this._config.instructions;
@@ -131,12 +136,52 @@ class OpenAIService {
         promptLength: prompt.length,
       });
 
-      const response = await this._openai.responses.create({
+      let response = await this._openai.responses.create({
         model: this._model,
         tools: this._tools,
         instructions,
         input: responseInput,
       });
+
+      // Tool execution loop: handle function_call outputs
+      let createdThread: OpenAIResponse['createdThread'];
+
+      if (toolExecutor) {
+        for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+          const functionCalls = response.output.filter(
+            (item) => item.type === 'function_call',
+          );
+
+          if (functionCalls.length === 0) break;
+
+          const toolOutputs: OpenAI.Responses.ResponseInputItem[] = [];
+
+          for (const call of functionCalls) {
+            if (call.type !== 'function_call') continue;
+
+            const args = JSON.parse(call.arguments) as Record<string, unknown>;
+            const result = await toolExecutor(call.name, args);
+
+            if (result.createdThread) {
+              createdThread = result.createdThread;
+            }
+
+            toolOutputs.push({
+              type: 'function_call_output',
+              call_id: call.call_id,
+              output: result.output,
+            });
+          }
+
+          response = await this._openai.responses.create({
+            model: this._model,
+            tools: this._tools,
+            instructions,
+            previous_response_id: response.id,
+            input: toolOutputs,
+          });
+        }
+      }
 
       const generatedImages = response.output
         .filter((output) => output.type === 'image_generation_call')
@@ -148,6 +193,7 @@ class OpenAIService {
           type: 'image_generation_call',
           content: response.output_text,
           base64Images: generatedImages,
+          createdThread,
         };
       }
 
@@ -155,6 +201,7 @@ class OpenAIService {
         type: 'text',
         content: response.output_text,
         base64Images: [],
+        createdThread,
       };
     } catch (error) {
       console.error('Error with OpenAI:', error);
