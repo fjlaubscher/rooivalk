@@ -1,35 +1,12 @@
 import { userMention } from 'discord.js';
 import type { Message, User } from 'discord.js';
 
-export const isRooivalkThread = async (
+export const isRooivalkThread = (
   message: Message<boolean>,
   discordClientId: string | undefined,
-): Promise<boolean> => {
+): boolean => {
   if (message.channel.isThread()) {
-    const thread = message.channel;
-    // Check if this thread was created by the bot by examining the starter message
-    try {
-      const starterMessage = await thread.fetchStarterMessage();
-      if (starterMessage) {
-        // If the starter message is a reply to the bot, then the bot created this thread
-        const repliedToMessage =
-          starterMessage.reference?.messageId &&
-          thread.parent &&
-          'messages' in thread.parent
-            ? await thread.parent.messages
-                .fetch(starterMessage.reference.messageId)
-                .catch(() => null)
-            : null;
-        if (
-          repliedToMessage &&
-          repliedToMessage.author.id === discordClientId
-        ) {
-          return true;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking thread ownership:', error);
-    }
+    return message.channel.ownerId === discordClientId;
   }
 
   return false;

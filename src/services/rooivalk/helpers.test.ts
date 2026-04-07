@@ -8,124 +8,46 @@ describe('rooivalk helpers', () => {
   const mockDiscordClientId = MOCK_ENV.DISCORD_APP_ID;
 
   describe('isRooivalkThread', () => {
-    it('should return true when thread starter message is a reply to the bot', async () => {
-      const mockBotMessage = createMockMessage({
-        id: 'bot-message-id',
-        author: { id: mockDiscordClientId },
-      });
-
-      const mockStarterMessage = createMockMessage({
-        id: 'starter-message-id',
-        reference: {
-          messageId: 'bot-message-id',
-          channelId: 'channel-id',
-          guildId: 'guild-id',
-          type: 0,
-        },
-      });
-
-      const mockParentChannel = {
-        messages: {
-          fetch: vi.fn().mockResolvedValue(mockBotMessage),
-        },
-      } as unknown as TextChannel;
-
+    it('should return true when thread is owned by the bot', () => {
       const mockThread = {
-        fetchStarterMessage: vi.fn().mockResolvedValue(mockStarterMessage),
-        parent: mockParentChannel,
+        ownerId: mockDiscordClientId,
         isThread: () => true,
-        createdTimestamp: Date.now(),
       } as unknown as ThreadChannel;
 
       const mockMessage = createMockMessage({
         channel: mockThread as any,
       });
 
-      const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
+      const result = isRooivalkThread(mockMessage, mockDiscordClientId);
 
       expect(result).toBe(true);
-      expect(mockThread.fetchStarterMessage).toHaveBeenCalled();
-      expect(mockParentChannel.messages.fetch).toHaveBeenCalledWith(
-        'bot-message-id',
-      );
     });
 
-    it('should return false when thread starter message is not a reply to the bot', async () => {
-      const mockOtherMessage = createMockMessage({
-        id: 'other-message-id',
-        author: { id: 'other-user-id' },
-      });
-
-      const mockStarterMessage = createMockMessage({
-        id: 'starter-message-id',
-        reference: {
-          messageId: 'other-message-id',
-          channelId: 'channel-id',
-          guildId: 'guild-id',
-          type: 0,
-        },
-      });
-
-      const mockParentChannel = {
-        messages: {
-          fetch: vi.fn().mockResolvedValue(mockOtherMessage),
-        },
-      } as unknown as TextChannel;
-
+    it('should return false when thread is owned by another user', () => {
       const mockThread = {
-        fetchStarterMessage: vi.fn().mockResolvedValue(mockStarterMessage),
-        parent: mockParentChannel,
+        ownerId: 'other-user-id',
         isThread: () => true,
-        createdTimestamp: Date.now(),
       } as unknown as ThreadChannel;
 
       const mockMessage = createMockMessage({
         channel: mockThread as any,
       });
 
-      const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
+      const result = isRooivalkThread(mockMessage, mockDiscordClientId);
 
       expect(result).toBe(false);
     });
 
-    it('should return false when not in a thread', async () => {
+    it('should return false when not in a thread', () => {
       const mockMessage = createMockMessage({
         channel: {
           isThread: (() => false) as any,
         },
       });
 
-      const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
+      const result = isRooivalkThread(mockMessage, mockDiscordClientId);
 
       expect(result).toBe(false);
-    });
-
-    it('should handle errors gracefully', async () => {
-      const mockThread = {
-        fetchStarterMessage: vi
-          .fn()
-          .mockRejectedValue(new Error('Fetch failed')),
-        isThread: () => true,
-        createdTimestamp: Date.now(),
-      } as unknown as ThreadChannel;
-
-      const mockMessage = createMockMessage({
-        channel: mockThread as any,
-      });
-
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
-      const result = await isRooivalkThread(mockMessage, mockDiscordClientId);
-
-      expect(result).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Error checking thread ownership:',
-        expect.any(Error),
-      );
-
-      consoleSpy.mockRestore();
     });
   });
 

@@ -675,7 +675,7 @@ class Rooivalk {
       const isMentioned = this._discord.mentionRegex
         ? this._discord.mentionRegex.test(message.content)
         : false;
-      const isInRooivalkThread = await isRooivalkThread(
+      const isInRooivalkThread = isRooivalkThread(
         message,
         this._discord.client.user?.id,
       );
