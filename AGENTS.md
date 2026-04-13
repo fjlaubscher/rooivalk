@@ -35,7 +35,6 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 ## Development Commands
 
 - **Start**: `pnpm start` - Runs the bot using native TypeScript execution
-- **Build**: `pnpm build` - Compiles TypeScript to JavaScript
 - **Test**: `pnpm test` - Runs all unit tests with Vitest
 - **Type Check**: `pnpm typecheck` - Runs TypeScript type checking
 - **Format Check**: `pnpm prettier:check` - Checks code formatting
@@ -54,7 +53,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 ## Coding Conventions
 
 - TypeScript 6 strict mode with `nodenext` module resolution
-- All imports use relative paths with `.js` extensions (no path aliases)
+- All imports use relative paths with `.ts` extensions (no path aliases)
 - Class-based services with private properties (`_underscore`)
 - Use dependency injection where applicable
 - Unit tests go alongside service files (e.g. `index.test.ts`)

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Collection } from 'discord.js';
 import type { Attachment } from 'discord.js';
-import { parseMessageInChain, formatMessageInChain } from './helpers.js';
-import { createMockMessage } from '../../test-utils/createMockMessage.js';
-import type { MessageInChain } from '../../types.js';
+import { parseMessageInChain, formatMessageInChain } from './helpers.ts';
+import { createMockMessage } from '../../test-utils/createMockMessage.ts';
+import type { MessageInChain } from '../../types.ts';
 
 describe('discord helpers', () => {
   const mockDiscordClientId = 'bot-user-id';

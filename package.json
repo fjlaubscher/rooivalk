@@ -29,12 +29,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc",
     "start": "node src/index.ts",
     "test": "vitest run",
     "prettier:check": "prettier --check \"src/**/*\" \"src/*\"",
     "format": "prettier --write \"src/**/*\" \"src/*\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "discord.js": "^14.26.2",

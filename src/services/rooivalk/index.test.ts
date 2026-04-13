@@ -16,12 +16,12 @@ import type {
   ThreadChannel,
 } from 'discord.js';
 
-import { YR_COORDINATES } from '../../constants.js';
-import { silenceConsole } from '../../test-utils/consoleMocks.js';
-import { createMockMessage } from '../../test-utils/createMockMessage.js';
-import { MOCK_CONFIG, MOCK_ENV } from '../../test-utils/mock.js';
+import { YR_COORDINATES } from '../../constants.ts';
+import { silenceConsole } from '../../test-utils/consoleMocks.ts';
+import { createMockMessage } from '../../test-utils/createMockMessage.ts';
+import { MOCK_CONFIG, MOCK_ENV } from '../../test-utils/mock.ts';
 
-import { buildPromptAuthor } from './helpers.js';
+import { buildPromptAuthor } from './helpers.ts';
 
 const VALID_CITY_NAMES = Object.values(YR_COORDINATES).map((loc) => loc.name);
 const CITY_COUNT = Object.keys(YR_COORDINATES).length;
@@ -39,7 +39,7 @@ afterAll(() => {
   restoreConsole();
 });
 
-import Rooivalk from './index.js';
+import Rooivalk from './index.ts';
 
 // Create mock instances using vi.mocked
 const mockDiscordService = vi.mocked({

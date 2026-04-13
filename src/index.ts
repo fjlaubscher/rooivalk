@@ -1,10 +1,10 @@
 import 'dotenv/config';
 
-import { REQUIRED_ENV } from './constants.js';
-import { watchConfigs } from './config/watcher.js';
-import { loadConfig } from './config/loader.js';
-import Cron, { DEFAULT_CRON } from './services/cron/index.js';
-import Rooivalk from './services/rooivalk/index.js';
+import { REQUIRED_ENV } from './constants.ts';
+import { watchConfigs } from './config/watcher.ts';
+import { loadConfig } from './config/loader.ts';
+import Cron, { DEFAULT_CRON } from './services/cron/index.ts';
+import Rooivalk from './services/rooivalk/index.ts';
 
 async function main() {
   // Validate required environment variables at startup

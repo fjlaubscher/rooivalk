@@ -1,6 +1,6 @@
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { DiscordCommandParams, WeatherLocation } from './types.js';
+import type { DiscordCommandParams, WeatherLocation } from './types.ts';
 
 export const ALLOWED_ATTACHMENT_CONTENT_TYPES = [
   'image/png',

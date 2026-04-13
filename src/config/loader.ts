@@ -8,8 +8,8 @@ import {
   CONFIG_FILE_DISCORD_LIMIT,
   CONFIG_FILE_INSTRUCTIONS,
   CONFIG_FILE_MOTD,
-} from '../constants.js';
-import type { InMemoryConfig } from '../types.js';
+} from '../constants.ts';
+import type { InMemoryConfig } from '../types.ts';
 
 export const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
