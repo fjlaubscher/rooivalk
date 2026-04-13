@@ -1,5 +1,5 @@
 import type { Message } from 'discord.js';
-import type { MessageInChain } from '@/types';
+import type { MessageInChain } from '../../types.js';
 
 export const parseMessageInChain = (
   message: Message<boolean>,

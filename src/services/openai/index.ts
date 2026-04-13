@@ -6,9 +6,9 @@ import type {
   MessageInChain,
   OpenAIResponse,
   ToolExecutor,
-} from '@/types';
-import { IMAGE_ATTACHMENT_EXTENSIONS } from '@/constants';
-import { FUNCTION_TOOLS } from './tools';
+} from '../../types.js';
+import { IMAGE_ATTACHMENT_EXTENSIONS } from '../../constants.js';
+import { FUNCTION_TOOLS } from './tools.js';
 
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_TOOL_ITERATIONS = 5;

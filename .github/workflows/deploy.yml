@@ -44,7 +44,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.env' \
-            ./src ./config ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc ./ts-paths-loader.ts ./index.ts \
+            ./src ./config ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
       - name: Install and restart on server

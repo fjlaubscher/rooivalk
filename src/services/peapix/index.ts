@@ -1,4 +1,4 @@
-import type { PeapixFeedResponseItem } from '@/types';
+import type { PeapixFeedResponseItem } from '../../types.js';
 
 const PEAPIX_BING_FEED_URL = 'https://peapix.com/bing/feed';
 const PEAPIX_COUNTRY = 'gb';

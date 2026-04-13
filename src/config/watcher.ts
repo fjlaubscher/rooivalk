@@ -1,6 +1,6 @@
 import { existsSync, watch } from 'fs';
 
-import { CONFIG_DIR } from '@/constants';
+import { CONFIG_DIR } from '../constants.js';
 
 export type ConfigReloadCallback = (changedFile: string) => void;
 

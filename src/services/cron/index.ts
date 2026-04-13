@@ -1,5 +1,5 @@
 import nodeCron, { type ScheduledTask } from 'node-cron';
-import type Rooivalk from '@/services/rooivalk';
+import type Rooivalk from '../rooivalk/index.js';
 
 export const DEFAULT_CRON = '0 8 * * *';
 

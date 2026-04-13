@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('node-cron', () => ({ default: { schedule: vi.fn() } }));
 
 import cron from 'node-cron';
-import Cron, { DEFAULT_CRON } from '.';
+import Cron, { DEFAULT_CRON } from './index.js';
 
 describe('Cron', () => {
   beforeEach(() => {

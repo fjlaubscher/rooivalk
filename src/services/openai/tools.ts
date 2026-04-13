@@ -1,6 +1,6 @@
 import type OpenAI from 'openai';
 
-import { YR_COORDINATES } from '@/constants';
+import { YR_COORDINATES } from '../../constants.js';
 
 export const TOOL_NAMES = Object.freeze({
   GET_WEATHER: 'get_weather',

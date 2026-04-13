@@ -1,4 +1,4 @@
-import type { Env, InMemoryConfig } from '@/types';
+import type { Env, InMemoryConfig } from '../types.js';
 
 export const MOCK_ENV: Env = {
   DISCORD_TOKEN: 'test-token',

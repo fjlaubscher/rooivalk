@@ -21,27 +21,27 @@ import {
   DISCORD_COMMANDS,
   IMAGE_ATTACHMENT_EXTENSIONS,
   YR_COORDINATES,
-} from '@/constants';
-import DiscordService from '@/services/discord';
-import OpenAIService from '@/services/openai';
-import PeapixService from '@/services/peapix';
-import WikimediaService from '@/services/wikimedia';
-import YrService from '@/services/yr';
+} from '../../constants.js';
+import DiscordService from '../discord/index.js';
+import OpenAIService from '../openai/index.js';
+import PeapixService from '../peapix/index.js';
+import WikimediaService from '../wikimedia/index.js';
+import YrService from '../yr/index.js';
 
-import { TOOL_NAMES } from '@/services/openai/tools';
+import { TOOL_NAMES } from '../openai/tools.js';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
   MessageInChain,
   ToolExecutionResult,
-} from '@/types';
+} from '../../types.js';
 
-import { formatMessageInChain } from '@/services/discord/helpers';
+import { formatMessageInChain } from '../discord/helpers.js';
 import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
-} from './helpers';
+} from './helpers.js';
 
 function shuffleArray<T>(items: T[]): T[] {
   return items

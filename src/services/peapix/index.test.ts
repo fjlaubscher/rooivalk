@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import PeapixService from '.';
+import PeapixService from './index.js';
 
 describe('PeapixService', () => {
   let peapixService: PeapixService;

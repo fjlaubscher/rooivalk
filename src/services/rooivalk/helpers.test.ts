@@ -1,8 +1,8 @@
 import { vi, describe, it, expect } from 'vitest';
 import type { Message, ThreadChannel, TextChannel } from 'discord.js';
-import { isRooivalkThread, isReplyToRooivalk } from './helpers';
-import { createMockMessage } from '@/test-utils/createMockMessage';
-import { MOCK_CONFIG, MOCK_ENV } from '@/test-utils/mock';
+import { isRooivalkThread, isReplyToRooivalk } from './helpers.js';
+import { createMockMessage } from '../../test-utils/createMockMessage.js';
+import { MOCK_CONFIG, MOCK_ENV } from '../../test-utils/mock.js';
 
 describe('rooivalk helpers', () => {
   const mockDiscordClientId = MOCK_ENV.DISCORD_APP_ID;

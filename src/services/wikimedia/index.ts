@@ -1,4 +1,4 @@
-import type { WeatherLocation } from '@/types';
+import type { WeatherLocation } from '../../types.js';
 
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type WikimediaMimeType = (typeof IMAGE_MIMES)[number];

@@ -11,13 +11,13 @@ import type { MockInstance } from 'vitest';
 import { Collection, Client as DiscordClient, TextChannel } from 'discord.js';
 import type { Message } from 'discord.js';
 
-import { createMockMessage } from '@/test-utils/createMockMessage';
-import { createMockThread } from '@/test-utils/createMockThread';
-import { MOCK_CONFIG } from '@/test-utils/mock';
-import type { ResponseType } from '@/types';
-import { silenceConsole } from '@/test-utils/consoleMocks';
+import { createMockMessage } from '../../test-utils/createMockMessage.js';
+import { createMockThread } from '../../test-utils/createMockThread.js';
+import { MOCK_CONFIG } from '../../test-utils/mock.js';
+import type { ResponseType } from '../../types.js';
+import { silenceConsole } from '../../test-utils/consoleMocks.js';
 
-import DiscordService from '.';
+import DiscordService from './index.js';
 
 vi.mock('discord.js', async (importOriginal) => {
   const actual = await importOriginal();

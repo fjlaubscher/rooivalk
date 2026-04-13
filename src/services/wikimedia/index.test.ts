@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { YR_COORDINATES } from '@/constants';
-import WikimediaService from '.';
+import { YR_COORDINATES } from '../../constants.js';
+import WikimediaService from './index.js';
 
 const TEST_LOCATION = Object.values(YR_COORDINATES)[0];
 

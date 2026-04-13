@@ -1,5 +1,5 @@
-import { YR_COORDINATES, YR_USER_AGENT } from '@/constants';
-import type { WeatherForecast, YrResponse } from '@/types';
+import { YR_COORDINATES, YR_USER_AGENT } from '../../constants.js';
+import type { WeatherForecast, YrResponse } from '../../types.js';
 
 type ValidLocation = keyof typeof YR_COORDINATES;
 

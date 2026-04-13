@@ -9,9 +9,9 @@ import {
   afterEach,
 } from 'vitest';
 
-import OpenAIService from '.';
-import { MOCK_CONFIG } from '@/test-utils/mock';
-import type { AttachmentForPrompt } from '@/types';
+import OpenAIService from './index.js';
+import { MOCK_CONFIG } from '../../test-utils/mock.js';
+import type { AttachmentForPrompt } from '../../types.js';
 
 const responsesCreateMock = vi.fn();
 const imagesGenerateMock = vi.fn();

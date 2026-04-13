@@ -32,18 +32,29 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 
+## Development Commands
+
+- **Start**: `pnpm start` - Runs the bot using native TypeScript execution
+- **Build**: `pnpm build` - Compiles TypeScript to JavaScript
+- **Test**: `pnpm test` - Runs all unit tests with Vitest
+- **Type Check**: `pnpm typecheck` - Runs TypeScript type checking
+- **Format Check**: `pnpm prettier:check` - Checks code formatting
+- **Format Fix**: `pnpm format` - Auto-formats code
+
 ## Entry Point
 
 - `src/index.ts` bootstraps the application, loads environment variables, instantiates services, and starts the Discord client.
+- Start script: `node src/index.ts` — runs TypeScript natively via Node.js 22+ (no build step or custom loader required).
 
 ## Environment
 
-- Environment variables loaded via `.env` (see `.env.example`).
-- Key vars: `DISCORD_TOKEN`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `LOG_LEVEL`
+- Copy `.env.example` to `.env` and configure required credentials.
+- Key vars: `DISCORD_TOKEN`, `OPENAI_API_KEY`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `OPENAI_MODEL`, `LOG_LEVEL`
 
 ## Coding Conventions
 
-- TypeScript only, strict mode enabled
+- TypeScript 6 strict mode with `nodenext` module resolution
+- All imports use relative paths with `.js` extensions (no path aliases)
 - Class-based services with private properties (`_underscore`)
 - Use dependency injection where applicable
 - Unit tests go alongside service files (e.g. `index.test.ts`)

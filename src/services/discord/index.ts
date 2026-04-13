@@ -13,15 +13,15 @@ import type { Message, TextChannel, ClientEvents } from 'discord.js';
 import {
   DISCORD_MESSAGE_LIMIT,
   DISCORD_COMMAND_DEFINITIONS,
-} from '@/constants';
+} from '../../constants.js';
 import type {
   InMemoryConfig,
   ResponseType,
   MessageInChain,
   OpenAIResponse,
-} from '@/types';
+} from '../../types.js';
 
-import { parseMessageInChain } from './helpers';
+import { parseMessageInChain } from './helpers.js';
 
 class DiscordService {
   private _discordClient: DiscordClient;
