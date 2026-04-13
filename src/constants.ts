@@ -53,33 +53,33 @@ export const YR_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 export const YR_COORDINATES: Record<string, WeatherLocation> = {
   BONNIEVALE: {
     name: 'Bonnievale, South Africa',
-    latitude: -33.9159,
-    longitude: 20.0807,
+    latitude: -33.9255,
+    longitude: 20.0827,
   },
   GORDONS_BAY: {
     name: "Gordon's Bay, South Africa",
-    latitude: -34.15,
-    longitude: 18.6667,
+    latitude: -34.1559,
+    longitude: 18.8699,
   },
   LAKESIDE: {
     name: 'Lakeside, South Africa',
-    latitude: -34.0849,
-    longitude: 18.4561,
+    latitude: -34.0867,
+    longitude: 18.4558,
   },
   TABLEVIEW: {
     name: 'Table View, South Africa',
-    latitude: -33.8236,
-    longitude: 18.4903,
+    latitude: -33.8218,
+    longitude: 18.4915,
   },
   DUBAI: {
     name: 'Dubai, United Arab Emirates',
-    latitude: 25.2647,
-    longitude: 55.2924,
+    latitude: 25.2048,
+    longitude: 55.2708,
   },
   TAMARIN: {
     name: 'Tamarin, Mauritius',
-    latitude: -20.3292,
-    longitude: 57.3777,
+    latitude: -20.3378,
+    longitude: 57.3751,
   },
 };
 
