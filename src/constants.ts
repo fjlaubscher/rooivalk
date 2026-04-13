@@ -76,6 +76,11 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     latitude: -20.3292,
     longitude: 57.3777,
   },
+  GORDONS_BAY: {
+    name: "Gordon's Bay, South Africa",
+    latitude: -34.15,
+    longitude: 18.87,
+  },
 };
 
 type DiscordCommand = (typeof DISCORD_COMMANDS)[keyof typeof DISCORD_COMMANDS];
