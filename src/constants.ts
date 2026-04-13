@@ -56,6 +56,11 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     latitude: -33.9159,
     longitude: 20.0807,
   },
+  GORDONS_BAY: {
+    name: "Gordon's Bay, South Africa",
+    latitude: -34.1500,
+    longitude: 18.6667,
+  },
   LAKESIDE: {
     name: 'Lakeside, South Africa',
     latitude: -34.0849,
@@ -75,11 +80,6 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     name: 'Tamarin, Mauritius',
     latitude: -20.3292,
     longitude: 57.3777,
-  },
-  GORDONS_BAY: {
-    name: "Gordon's Bay, South Africa",
-    latitude: -34.15,
-    longitude: 18.87,
   },
 };
 
