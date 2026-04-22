@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 
 import type {
   AttachmentForPrompt,
@@ -12,43 +12,33 @@ import { FUNCTION_TOOLS } from './tools.ts';
 
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_TOOL_ITERATIONS = 5;
+const MAX_OUTPUT_TOKENS = 4096;
 
-class OpenAIService {
+type UserContentBlock =
+  | Anthropic.Messages.TextBlockParam
+  | Anthropic.Messages.ImageBlockParam;
+
+class ClaudeService {
   private _config: InMemoryConfig;
-  private _model: string | undefined;
-  private _imageModel: string;
-  private _openai: OpenAI;
-  private _tools: OpenAI.Responses.Tool[];
+  private _model: string;
+  private _anthropic: Anthropic;
+  private _serverTools: Anthropic.Messages.ToolUnion[];
 
-  constructor(config: InMemoryConfig, model?: string, imageModel?: string) {
+  constructor(config: InMemoryConfig, model?: string) {
     this._config = config;
-    this._openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY!,
+    this._anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY!,
     });
 
-    this._model = model || process.env.OPENAI_MODEL;
-    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
+    this._model = model || process.env.ANTHROPIC_MODEL!;
 
-    this._tools = [
+    this._serverTools = [
       {
-        type: 'web_search_preview',
-        search_context_size: 'low',
-      },
-      {
-        type: 'image_generation',
-        model: this._imageModel as `gpt-image-1.5`,
-        output_format: 'jpeg',
+        type: 'web_search_20250305',
+        name: 'web_search',
+        max_uses: 3,
       },
     ];
-  }
-
-  private requireChatModel(): string {
-    if (!this._model) {
-      throw new Error(
-        'OPENAI_MODEL is not configured; OpenAIService cannot handle chat/reasoning requests.',
-      );
-    }
-    return this._model;
   }
 
   async createResponse(
@@ -65,14 +55,21 @@ class OpenAIService {
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);
 
-      // inject emojis if available
       if (emojis) {
         instructions = instructions.replace(/{{EMOJIS}}/, emojis.join('\n'));
       }
 
-      const inputContent: OpenAI.Responses.ResponseInputContent[] = [
+      const system: Anthropic.Messages.TextBlockParam[] = [
         {
-          type: 'input_text',
+          type: 'text',
+          text: instructions,
+          cache_control: { type: 'ephemeral' },
+        },
+      ];
+
+      const inputContent: UserContentBlock[] = [
+        {
+          type: 'text',
           text: prompt,
         },
       ];
@@ -81,9 +78,11 @@ class OpenAIService {
         attachments.forEach((attachment) => {
           if (attachment.kind === 'image') {
             inputContent.push({
-              type: 'input_image',
-              image_url: attachment.url,
-              detail: 'auto',
+              type: 'image',
+              source: {
+                type: 'url',
+                url: attachment.url,
+              },
             });
             return;
           }
@@ -100,14 +99,13 @@ class OpenAIService {
             metadata.length > 0 ? ` (${metadata.join(', ')})` : '';
 
           inputContent.push({
-            type: 'input_text',
+            type: 'text',
             text: `Attachment${metadataSuffix}: ${attachment.url}`,
           });
         });
       }
 
-      // Build structured conversation input from history
-      const responseInput: OpenAI.Responses.ResponseInput = [];
+      const messages: Anthropic.Messages.MessageParam[] = [];
 
       if (history && history.length > 0) {
         const truncatedHistory = history.slice(-MAX_HISTORY_MESSAGES);
@@ -128,9 +126,13 @@ class OpenAIService {
             if (nonImageUrls.length > 0) {
               content += `\nAttachments: ${nonImageUrls.join(', ')}`;
             }
-            responseInput.push({
+            const trimmed = content.trim();
+            if (!trimmed) {
+              continue;
+            }
+            messages.push({
               role: 'assistant',
-              content: content.trim(),
+              content: trimmed,
             });
           } else {
             let textContent = `${msg.content || ''}`;
@@ -139,26 +141,28 @@ class OpenAIService {
             }
 
             if (imageUrls.length > 0) {
-              const msgContent: OpenAI.Responses.ResponseInputContent[] = [
+              const blocks: UserContentBlock[] = [
                 {
-                  type: 'input_text',
+                  type: 'text',
                   text: `[${msg.author}]: ${textContent.trim()}`,
                 },
                 ...imageUrls.map(
                   (url) =>
                     ({
-                      type: 'input_image',
-                      image_url: url,
-                      detail: 'auto',
-                    }) as OpenAI.Responses.ResponseInputContent,
+                      type: 'image',
+                      source: {
+                        type: 'url',
+                        url,
+                      },
+                    }) as Anthropic.Messages.ImageBlockParam,
                 ),
               ];
-              responseInput.push({
+              messages.push({
                 role: 'user',
-                content: msgContent,
+                content: blocks,
               });
             } else {
-              responseInput.push({
+              messages.push({
                 role: 'user',
                 content: `[${msg.author}]: ${textContent.trim()}`,
               });
@@ -168,13 +172,13 @@ class OpenAIService {
       }
 
       if (author !== 'rooivalk') {
-        responseInput.push({
-          role: 'system',
-          content: `The following prompt is a discord message from ${author}`,
+        inputContent.unshift({
+          type: 'text',
+          text: `(The following Discord message is from ${author}.)`,
         });
       }
 
-      responseInput.push({
+      messages.push({
         role: 'user',
         content: inputContent,
       });
@@ -187,82 +191,102 @@ class OpenAIService {
         promptLength: prompt.length,
       });
 
-      const tools = toolExecutor
-        ? [...this._tools, ...FUNCTION_TOOLS]
-        : this._tools;
+      const tools: Anthropic.Messages.ToolUnion[] = toolExecutor
+        ? [...this._serverTools, ...FUNCTION_TOOLS]
+        : [...this._serverTools];
 
-      const chatModel = this.requireChatModel();
-
-      let response = await this._openai.responses.create({
-        model: chatModel,
+      let response = await this._anthropic.messages.create({
+        model: this._model,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        system,
+        messages,
         tools,
-        instructions,
-        input: responseInput,
       });
 
-      // Tool execution loop: handle function_call outputs
+      const collectedImages: string[] = [];
       let createdThread: OpenAIResponse['createdThread'];
 
       if (toolExecutor) {
         for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-          const functionCalls = response.output.filter(
-            (item) => item.type === 'function_call',
+          if (response.stop_reason !== 'tool_use') break;
+
+          const toolUses = response.content.filter(
+            (block): block is Anthropic.Messages.ToolUseBlock =>
+              block.type === 'tool_use',
           );
 
-          if (functionCalls.length === 0) break;
+          if (toolUses.length === 0) break;
 
-          const toolOutputs: OpenAI.Responses.ResponseInputItem[] = [];
+          messages.push({
+            role: 'assistant',
+            content: response.content,
+          });
 
-          for (const call of functionCalls) {
-            if (call.type !== 'function_call') continue;
+          const toolResults: Anthropic.Messages.ToolResultBlockParam[] = [];
 
-            const args = JSON.parse(call.arguments) as Record<string, unknown>;
-            const result = await toolExecutor(call.name, args);
+          for (const call of toolUses) {
+            const result = await toolExecutor(
+              call.name,
+              (call.input ?? {}) as Record<string, unknown>,
+            );
 
             if (result.createdThread) {
               createdThread = result.createdThread;
             }
 
-            toolOutputs.push({
-              type: 'function_call_output',
-              call_id: call.call_id,
-              output: result.output,
+            if (result.base64Image) {
+              collectedImages.push(result.base64Image);
+            }
+
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: call.id,
+              content: result.output,
             });
           }
 
-          response = await this._openai.responses.create({
-            model: chatModel,
+          messages.push({
+            role: 'user',
+            content: toolResults,
+          });
+
+          response = await this._anthropic.messages.create({
+            model: this._model,
+            max_tokens: MAX_OUTPUT_TOKENS,
+            system,
+            messages,
             tools,
-            instructions,
-            previous_response_id: response.id,
-            input: toolOutputs,
           });
         }
       }
 
-      const generatedImages = response.output
-        .filter((output) => output.type === 'image_generation_call')
-        .map((output) => output.result ?? '')
-        .filter(Boolean);
+      const outputText = response.content
+        .filter(
+          (block): block is Anthropic.Messages.TextBlock =>
+            block.type === 'text',
+        )
+        .map((block) => block.text)
+        .join('\n')
+        .trim();
 
-      if (generatedImages.length > 0) {
+      if (collectedImages.length > 0) {
         return {
           type: 'image_generation_call',
-          content: response.output_text,
-          base64Images: generatedImages,
+          content: outputText,
+          base64Images: collectedImages,
           createdThread,
         };
       }
 
       return {
         type: 'text',
-        content: response.output_text,
+        content: outputText,
         base64Images: [],
         createdThread,
       };
     } catch (error) {
-      console.error('Error with OpenAI:', error);
-      if (error instanceof OpenAI.OpenAIError) {
+      console.error('Error with Anthropic:', error);
+      if (error instanceof Anthropic.APIError) {
         throw new Error(error.message);
       }
 
@@ -281,40 +305,14 @@ class OpenAIService {
       return;
     }
 
-    console.debug('[OpenAIService] prompt metrics', metrics);
+    console.debug('[ClaudeService] prompt metrics', metrics);
   }
 
   public reloadConfig(newConfig: InMemoryConfig): void {
     this._config = newConfig;
   }
 
-  async createImage(prompt: string): Promise<string | null> {
-    try {
-      const result = await this._openai.images.generate({
-        model: this._imageModel,
-        prompt,
-        n: 1,
-        output_format: 'jpeg',
-      });
-
-      const base64Image = result.data?.[0]?.b64_json ?? null;
-      if (base64Image) {
-        return base64Image;
-      }
-
-      console.log('Failed to generate image', JSON.stringify(result));
-      return null;
-    } catch (error) {
-      console.error('Error with OpenAI:', error);
-      if (error instanceof OpenAI.OpenAIError) {
-        throw new Error(error.message);
-      }
-
-      throw new Error('Error creating image');
-    }
-  }
-
-  async generateThreadName(prompt: string) {
+  async generateThreadName(prompt: string): Promise<string> {
     try {
       const instructions = `
         You generate Discord thread titles.
@@ -324,24 +322,35 @@ class OpenAIService {
         If unsure, guess the topic.
       `;
 
-      const response = await this._openai.responses.create({
-        model: this.requireChatModel(),
-        tools: this._tools,
-        instructions,
-        input: prompt,
+      const response = await this._anthropic.messages.create({
+        model: this._model,
+        max_tokens: 128,
+        system: instructions,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
       });
 
-      let threadName = response.output_text.trim();
+      let threadName = response.content
+        .filter(
+          (block): block is Anthropic.Messages.TextBlock =>
+            block.type === 'text',
+        )
+        .map((block) => block.text)
+        .join('')
+        .trim();
 
-      // Ensure the thread name is within the 100-character limit
       if (threadName.length > 100) {
-        threadName = threadName.substring(0, 97) + '...'; // Truncate and add ellipsis
+        threadName = threadName.substring(0, 97) + '...';
       }
 
       return threadName;
     } catch (error) {
-      console.error('Error with OpenAI:', error);
-      if (error instanceof OpenAI.OpenAIError) {
+      console.error('Error with Anthropic:', error);
+      if (error instanceof Anthropic.APIError) {
         throw new Error(error.message);
       }
 
@@ -350,4 +359,4 @@ class OpenAIService {
   }
 }
 
-export default OpenAIService;
+export default ClaudeService;
