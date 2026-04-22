@@ -301,6 +301,58 @@ describe('Rooivalk', () => {
         );
       });
     });
+
+    describe('generate_image tool executor', () => {
+      it('returns base64 image and status on success', async () => {
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> draw a cat`,
+        } as Partial<Message<boolean>>);
+
+        mockOpenAIClient.createImage.mockResolvedValue('BASE64DATA');
+
+        const executor = (rooivalk as any).buildToolExecutor(message);
+        const result = await executor('generate_image', {
+          prompt: 'a fluffy cat',
+        });
+
+        expect(mockOpenAIClient.createImage).toHaveBeenCalledWith(
+          'a fluffy cat',
+        );
+        expect(result.base64Image).toBe('BASE64DATA');
+        const parsed = JSON.parse(result.output);
+        expect(parsed.status).toBe('ok');
+      });
+
+      it('returns an error payload when createImage returns null', async () => {
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> draw a bird`,
+        } as Partial<Message<boolean>>);
+
+        mockOpenAIClient.createImage.mockResolvedValue(null);
+
+        const executor = (rooivalk as any).buildToolExecutor(message);
+        const result = await executor('generate_image', { prompt: 'a bird' });
+
+        expect(result.base64Image).toBeUndefined();
+        const parsed = JSON.parse(result.output);
+        expect(parsed.error).toContain('no data');
+      });
+
+      it('returns an error payload when createImage throws', async () => {
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> draw a dog`,
+        } as Partial<Message<boolean>>);
+
+        mockOpenAIClient.createImage.mockRejectedValue(new Error('blocked'));
+
+        const executor = (rooivalk as any).buildToolExecutor(message);
+        const result = await executor('generate_image', { prompt: 'a dog' });
+
+        expect(result.base64Image).toBeUndefined();
+        const parsed = JSON.parse(result.output);
+        expect(parsed.error).toBe('blocked');
+      });
+    });
   });
 
   describe('when sending a message to the startup channel', () => {

@@ -7,10 +7,10 @@ export type Env = {
   DISCORD_APP_ID: string;
   DISCORD_TOKEN: string;
   OPENAI_API_KEY: string;
-  OPENAI_MODEL: string;
+  OPENAI_MODEL?: string;
   OPENAI_IMAGE_MODEL: string;
-  ANTHROPIC_API_KEY: string;
-  ANTHROPIC_MODEL: string;
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_MODEL?: string;
   ROOIVALK_MOTD_CRON: string;
 };
 

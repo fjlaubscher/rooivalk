@@ -15,7 +15,7 @@ const MAX_TOOL_ITERATIONS = 5;
 
 class OpenAIService {
   private _config: InMemoryConfig;
-  private _model: string;
+  private _model: string | undefined;
   private _imageModel: string;
   private _openai: OpenAI;
   private _tools: OpenAI.Responses.Tool[];
@@ -26,7 +26,7 @@ class OpenAIService {
       apiKey: process.env.OPENAI_API_KEY!,
     });
 
-    this._model = model || process.env.OPENAI_MODEL!;
+    this._model = model || process.env.OPENAI_MODEL;
     this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
 
     this._tools = [
@@ -40,6 +40,15 @@ class OpenAIService {
         output_format: 'jpeg',
       },
     ];
+  }
+
+  private requireChatModel(): string {
+    if (!this._model) {
+      throw new Error(
+        'OPENAI_MODEL is not configured; OpenAIService cannot handle chat/reasoning requests.',
+      );
+    }
+    return this._model;
   }
 
   async createResponse(
@@ -182,8 +191,10 @@ class OpenAIService {
         ? [...this._tools, ...FUNCTION_TOOLS]
         : this._tools;
 
+      const chatModel = this.requireChatModel();
+
       let response = await this._openai.responses.create({
-        model: this._model,
+        model: chatModel,
         tools,
         instructions,
         input: responseInput,
@@ -220,7 +231,7 @@ class OpenAIService {
           }
 
           response = await this._openai.responses.create({
-            model: this._model,
+            model: chatModel,
             tools,
             instructions,
             previous_response_id: response.id,
@@ -314,7 +325,7 @@ class OpenAIService {
       `;
 
       const response = await this._openai.responses.create({
-        model: this._model,
+        model: this.requireChatModel(),
         tools: this._tools,
         instructions,
         input: prompt,
