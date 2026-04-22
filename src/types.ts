@@ -1,3 +1,5 @@
+import type { ThreadChannel } from 'discord.js';
+
 export type Env = {
   DISCORD_STARTUP_CHANNEL_ID: string;
   DISCORD_MOTD_CHANNEL_ID: string;
@@ -7,6 +9,8 @@ export type Env = {
   OPENAI_API_KEY: string;
   OPENAI_MODEL: string;
   OPENAI_IMAGE_MODEL: string;
+  ANTHROPIC_API_KEY: string;
+  ANTHROPIC_MODEL: string;
   ROOIVALK_MOTD_CRON: string;
 };
 
@@ -23,12 +27,13 @@ export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';
   content: string;
   base64Images: string[];
-  createdThread?: import('discord.js').ThreadChannel;
+  createdThread?: ThreadChannel;
 };
 
 export type ToolExecutionResult = {
   output: string;
-  createdThread?: import('discord.js').ThreadChannel;
+  createdThread?: ThreadChannel;
+  base64Image?: string;
 };
 
 export type ToolExecutor = (

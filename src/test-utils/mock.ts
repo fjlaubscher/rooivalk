@@ -9,6 +9,8 @@ export const MOCK_ENV: Env = {
   OPENAI_API_KEY: 'test-openai-key',
   OPENAI_MODEL: 'test-openai-model',
   OPENAI_IMAGE_MODEL: 'test-openai-image-model',
+  ANTHROPIC_API_KEY: 'test-anthropic-key',
+  ANTHROPIC_MODEL: 'test-anthropic-model',
   ROOIVALK_MOTD_CRON: 'test-rooivalk-motd-cron',
 };
 

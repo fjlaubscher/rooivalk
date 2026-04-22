@@ -68,10 +68,17 @@ const mockDiscordService = vi.mocked({
   login: vi.fn(),
 } as any);
 
+const mockChatClient = vi.mocked({
+  createResponse: vi.fn(),
+  generateThreadName: vi.fn(),
+  reloadConfig: vi.fn(),
+} as any);
+
 const mockOpenAIClient = vi.mocked({
   createResponse: vi.fn(),
   createImage: vi.fn(),
   generateThreadName: vi.fn(),
+  reloadConfig: vi.fn(),
 } as any);
 
 const BOT_ID = 'test-bot-id';
@@ -90,9 +97,9 @@ describe('Rooivalk', () => {
     vi.clearAllMocks();
     vi.stubGlobal('process', { env: { ...MOCK_ENV } });
 
-    mockOpenAIClient.createResponse.mockResolvedValue('Mocked AI Response');
+    mockChatClient.createResponse.mockResolvedValue('Mocked AI Response');
+    mockChatClient.generateThreadName.mockResolvedValue('Thread Title');
     mockOpenAIClient.createImage.mockReset();
-    mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Title');
     mockPeapixService.getImage.mockResolvedValue(null);
     mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
@@ -104,7 +111,12 @@ describe('Rooivalk', () => {
       configurable: true,
     });
 
-    rooivalk = new Rooivalk(MOCK_CONFIG, mockDiscordService, mockOpenAIClient);
+    rooivalk = new Rooivalk(
+      MOCK_CONFIG,
+      mockDiscordService,
+      mockChatClient,
+      mockOpenAIClient,
+    );
   });
 
   afterEach(() => {
@@ -130,7 +142,7 @@ describe('Rooivalk', () => {
         ).toHaveBeenCalledWith(userMessage);
 
         const expectedAuthor = buildPromptAuthor(userMessage.author);
-        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hi!',
           [],
@@ -159,7 +171,7 @@ describe('Rooivalk', () => {
 
       const expectedAuthor = buildPromptAuthor(userMessage.author);
 
-      expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+      expect(mockChatClient.createResponse).toHaveBeenCalledWith(
         expectedAuthor,
         'Please review the attached notes',
         [],
@@ -188,6 +200,7 @@ describe('Rooivalk', () => {
         const testRooivalk = new Rooivalk(
           MOCK_CONFIG,
           mockDiscordService,
+          mockChatClient,
           mockOpenAIClient,
         );
 
@@ -219,6 +232,7 @@ describe('Rooivalk', () => {
         const testRooivalk = new Rooivalk(
           MOCK_CONFIG,
           mockDiscordService,
+          mockChatClient,
           mockOpenAIClient,
         );
 
@@ -249,7 +263,7 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(userMessage);
 
         const expectedAuthor = buildPromptAuthor(userMessage.author);
-        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hello bot!',
           [],
@@ -266,7 +280,7 @@ describe('Rooivalk', () => {
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<Message<boolean>>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        mockOpenAIClient.createResponse.mockResolvedValue(null);
+        mockChatClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith('Error!');
       });
@@ -278,7 +292,7 @@ describe('Rooivalk', () => {
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<Message<boolean>>);
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        mockOpenAIClient.createResponse.mockRejectedValue(
+        mockChatClient.createResponse.mockRejectedValue(
           new Error('OpenAI error!'),
         );
         await (rooivalk as any).processMessage(userMessage);
@@ -292,7 +306,7 @@ describe('Rooivalk', () => {
   describe('when sending a message to the startup channel', () => {
     describe('and the channel is available and text-based', () => {
       it('should send OpenAI response to startup channel', async () => {
-        mockOpenAIClient.createResponse.mockResolvedValue('Startup response');
+        mockChatClient.createResponse.mockResolvedValue('Startup response');
         const mockChannel = { isTextBased: () => true, send: vi.fn() };
         // Patch the client getter to return a channels.fetch mock for this test
         Object.defineProperty(mockDiscordService, 'client', {
@@ -330,7 +344,7 @@ describe('Rooivalk', () => {
 
     describe('and the channel is not text-based', () => {
       it('should return null and log error if channel is not text-based', async () => {
-        mockOpenAIClient.createResponse.mockResolvedValue('Startup response');
+        mockChatClient.createResponse.mockResolvedValue('Startup response');
         const mockChannel = { isTextBased: () => false, send: vi.fn() };
         Object.defineProperty(mockDiscordService, 'client', {
           get: () => ({
@@ -416,7 +430,7 @@ describe('Rooivalk', () => {
           .mockResolvedValue({ location: 'DUBAI', minTemp: 25 }),
       } as any;
 
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: 'Sunny in Dubai!',
         base64Images: [],
@@ -425,6 +439,7 @@ describe('Rooivalk', () => {
       const weatherRooivalk = new Rooivalk(
         MOCK_CONFIG,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -453,6 +468,7 @@ describe('Rooivalk', () => {
       const weatherRooivalk = new Rooivalk(
         MOCK_CONFIG,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -483,6 +499,7 @@ describe('Rooivalk', () => {
       const weatherRooivalk = new Rooivalk(
         MOCK_CONFIG,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -530,7 +547,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -560,6 +577,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -610,7 +628,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -638,6 +656,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -682,7 +701,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -699,6 +718,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -738,7 +758,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -760,6 +780,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -805,7 +826,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -827,6 +848,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -868,7 +890,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -892,6 +914,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -938,7 +961,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -957,6 +980,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -998,7 +1022,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: 'Good morning!',
         base64Images: [],
@@ -1014,6 +1038,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -1053,7 +1078,7 @@ describe('Rooivalk', () => {
       });
 
       mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
-      mockOpenAIClient.createResponse.mockResolvedValue({
+      mockChatClient.createResponse.mockResolvedValue({
         type: 'text',
         content: motdContent,
         base64Images: [],
@@ -1079,6 +1104,7 @@ describe('Rooivalk', () => {
       const motdRooivalk = new Rooivalk(
         motdConfig,
         mockDiscordService,
+        mockChatClient,
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
@@ -1157,7 +1183,7 @@ describe('Rooivalk', () => {
         ).not.toHaveBeenCalled();
 
         const expectedAuthor = buildPromptAuthor(threadMessage.author);
-        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hello in thread',
           [],
@@ -1219,7 +1245,7 @@ describe('Rooivalk', () => {
         ).not.toHaveBeenCalled();
 
         const expectedAuthor = buildPromptAuthor(regularMessage.author);
-        expect(mockOpenAIClient.createResponse).toHaveBeenCalledWith(
+        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hello outside thread',
           [],
@@ -1275,7 +1301,7 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Thread response',
         });
-        mockOpenAIClient.createResponse.mockResolvedValue({
+        mockChatClient.createResponse.mockResolvedValue({
           type: 'text',
           content: 'Thread response',
           base64Images: [],
@@ -1317,14 +1343,14 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
           mockHistory,
         );
-        mockOpenAIClient.generateThreadName.mockResolvedValue(
+        mockChatClient.generateThreadName.mockResolvedValue(
           'Discussion Thread',
         );
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
 
         expect(result).toBe(mockThread);
-        expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
+        expect(mockChatClient.generateThreadName).toHaveBeenCalledWith(
           '- user: Original question\n- rooivalk: Previous response',
         );
         expect(replyMessage.startThread).toHaveBeenCalledWith({
@@ -1347,12 +1373,12 @@ describe('Rooivalk', () => {
         } as unknown as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        mockOpenAIClient.generateThreadName.mockResolvedValue('New Discussion');
+        mockChatClient.generateThreadName.mockResolvedValue('New Discussion');
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
 
         expect(result).toBe(mockThread);
-        expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
+        expect(mockChatClient.generateThreadName).toHaveBeenCalledWith(
           'First message',
         );
       });
@@ -1369,7 +1395,7 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
           { author: 'user', content: 'some history', attachmentUrls: [] },
         ]);
-        mockOpenAIClient.generateThreadName.mockResolvedValue('Thread Name');
+        mockChatClient.generateThreadName.mockResolvedValue('Thread Name');
 
         await expect(
           rooivalk.createRooivalkThread(replyMessage),
@@ -1389,14 +1415,14 @@ describe('Rooivalk', () => {
         } as unknown as Partial<Message<boolean>>);
 
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        mockOpenAIClient.generateThreadName.mockResolvedValue(
+        mockChatClient.generateThreadName.mockResolvedValue(
           'Generated Thread Name',
         );
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
 
         expect(result).toBe(mockThread);
-        expect(mockOpenAIClient.generateThreadName).toHaveBeenCalledWith(
+        expect(mockChatClient.generateThreadName).toHaveBeenCalledWith(
           'Question about something',
         );
       });

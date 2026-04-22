@@ -2,11 +2,11 @@
 
 ## Overview
 
-This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The bot integrates with Discord and OpenAI to:
+This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The bot integrates with Discord, Anthropic's Claude, and OpenAI to:
 
 - Listen for mentions and replies
-- Generate responses via OpenAI's API
-- Generate images via OpenAI gpt-image-1 model
+- Generate responses via the active chat provider (Anthropic Claude by default, OpenAI as a drop-in alternative — see `src/services/chat/AGENTS.md`)
+- Generate images via OpenAI gpt-image-1 model (always OpenAI, regardless of chat provider)
 - Create and manage Discord threads for conversations
 - Post responses back to Discord
 - Maintain some internal state via class-based services with private fields
@@ -15,9 +15,11 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 
 ## Project Structure
 
+- `src/services/chat/` – ChatService interface + provider factory - [See AGENTS.md](src/services/chat/AGENTS.md)
+- `src/services/claude/` – ClaudeService (Anthropic chat provider) - [See AGENTS.md](src/services/claude/AGENTS.md)
 - `src/services/discord/` – DiscordService (Discord integration) - [See AGENTS.md](src/services/discord/AGENTS.md)
   - `helpers.ts` – Message parsing and formatting utilities
-- `src/services/openai/` – OpenAIService (OpenAI API integration) - [See AGENTS.md](src/services/openai/AGENTS.md)
+- `src/services/openai/` – OpenAIService (OpenAI chat provider + image generation) - [See AGENTS.md](src/services/openai/AGENTS.md)
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
   - `helpers.ts` – Thread detection and reply handling utilities
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
@@ -48,7 +50,8 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 ## Environment
 
 - Copy `.env.example` to `.env` and configure required credentials.
-- Key vars: `DISCORD_TOKEN`, `OPENAI_API_KEY`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `OPENAI_MODEL`, `LOG_LEVEL`
+- Key vars: `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL`, `LOG_LEVEL`
+- Chat provider: set either `ANTHROPIC_MODEL` (+ `ANTHROPIC_API_KEY`) to use Claude, or `OPENAI_MODEL` to use OpenAI. If both are set, Anthropic wins.
 
 ## Coding Conventions
 
@@ -85,6 +88,8 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 |------------------------------|------------------------------------------|---------------------------------------------|
 | Add Discord command          | `services/discord/index.ts`              | Extend message/interaction handlers         |
 | Add OpenAI model support     | `services/openai/index.ts`               | Add model ID, update API payload/env vars   |
+| Add Claude model support     | `services/claude/index.ts`               | Add model ID, update API payload/env vars   |
+| Add new chat tool            | `services/chat/tool-names.ts` + each provider's `tools.ts` | Add tool name constant, then define tool shape per provider, then add executor case in `services/rooivalk/index.ts` |
 | Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
 | Modify thread behavior       | `services/rooivalk/helpers.ts`           | Update `isRooivalkThread`, `isReplyToRooivalk` functions |
 | Add Discord message parsing  | `services/discord/helpers.ts`            | Extend `parseMessageInChain`, `formatMessageInChain` utilities |

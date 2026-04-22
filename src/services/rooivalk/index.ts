@@ -22,13 +22,14 @@ import {
   IMAGE_ATTACHMENT_EXTENSIONS,
   YR_COORDINATES,
 } from '../../constants.ts';
+import { createChatService } from '../chat/index.ts';
+import type { ChatService } from '../chat/index.ts';
+import { TOOL_NAMES } from '../chat/tool-names.ts';
 import DiscordService from '../discord/index.ts';
 import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
 import WikimediaService from '../wikimedia/index.ts';
 import YrService from '../yr/index.ts';
-
-import { TOOL_NAMES } from '../openai/tools.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
@@ -55,6 +56,7 @@ const MOTD_IMAGE_ATTACHMENT_NAME = 'rooivalk_motd.jpg';
 class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
+  protected _chat: ChatService;
   protected _openai: OpenAIService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
@@ -64,6 +66,7 @@ class Rooivalk {
   constructor(
     config: InMemoryConfig,
     discordService?: DiscordService,
+    chatService?: ChatService,
     openaiService?: OpenAIService,
     yrService?: YrService,
     peapixService?: PeapixService,
@@ -72,6 +75,7 @@ class Rooivalk {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? new OpenAIService(this._config);
+    this._chat = chatService ?? createChatService(this._config, this._openai);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._wikimedia = wikimediaService ?? new WikimediaService();
@@ -182,6 +186,7 @@ class Rooivalk {
   reloadConfig(newConfig: InMemoryConfig) {
     this._config = newConfig;
     this._discord.reloadConfig(newConfig);
+    this._chat.reloadConfig(newConfig);
     this._openai.reloadConfig(newConfig);
   }
 
@@ -228,6 +233,32 @@ class Rooivalk {
             }
             return {
               output: JSON.stringify({ error: 'Failed to create thread' }),
+            };
+          } catch (err) {
+            const errorMessage =
+              err instanceof Error ? err.message : 'Unknown error';
+            return {
+              output: JSON.stringify({ error: errorMessage }),
+            };
+          }
+        }
+        case TOOL_NAMES.GENERATE_IMAGE: {
+          try {
+            const imagePrompt = args.prompt as string;
+            const base64Image = await this._openai.createImage(imagePrompt);
+            if (base64Image) {
+              return {
+                output: JSON.stringify({
+                  status: 'ok',
+                  note: 'Image generated and attached to the reply.',
+                }),
+                base64Image,
+              };
+            }
+            return {
+              output: JSON.stringify({
+                error: 'Image generation returned no data',
+              }),
             };
           } catch (err) {
             const errorMessage =
@@ -289,8 +320,7 @@ class Rooivalk {
 
       const toolExecutor = this.buildToolExecutor(message);
 
-      // prompt openai with the enhanced content
-      const response = await this._openai.createResponse(
+      const response = await this._chat.createResponse(
         buildPromptAuthor(message.author),
         prompt,
         this._discord.allowedEmojis,
@@ -358,7 +388,7 @@ class Rooivalk {
     motd = motd.replace(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
     try {
-      const response = await this._openai.createResponse(
+      const response = await this._chat.createResponse(
         'rooivalk',
         motd,
         this._discord.allowedEmojis,
@@ -505,7 +535,7 @@ class Rooivalk {
     }
 
     try {
-      const response = await this._openai.createResponse(
+      const response = await this._chat.createResponse(
         'rooivalk',
         prompt,
         this._discord.allowedEmojis,
@@ -601,7 +631,7 @@ class Rooivalk {
         \`\`\`
       `;
 
-      const response = await this._openai.createResponse(
+      const response = await this._chat.createResponse(
         interaction.user.displayName,
         prompt,
         this._discord.allowedEmojis,
@@ -635,7 +665,7 @@ class Rooivalk {
       const historyText = history
         ? history.map(formatMessageInChain).join('\n')
         : null;
-      threadName = await this._openai.generateThreadName(
+      threadName = await this._chat.generateThreadName(
         historyText ?? message.content.trim(),
       );
     }
