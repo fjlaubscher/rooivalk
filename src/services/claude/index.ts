@@ -18,19 +18,31 @@ type UserContentBlock =
   | Anthropic.Messages.TextBlockParam
   | Anthropic.Messages.ImageBlockParam;
 
+export type ClaudeInstructionsSelector = (config: InMemoryConfig) => string;
+
+const defaultInstructionsSelector: ClaudeInstructionsSelector = (config) =>
+  config.instructions;
+
 class ClaudeService {
   private _config: InMemoryConfig;
   private _model: string;
   private _anthropic: Anthropic;
   private _serverTools: Anthropic.Messages.ToolUnion[];
+  private _instructionsSelector: ClaudeInstructionsSelector;
 
-  constructor(config: InMemoryConfig, model?: string) {
+  constructor(
+    config: InMemoryConfig,
+    model?: string,
+    instructionsSelector?: ClaudeInstructionsSelector,
+  ) {
     this._config = config;
     this._anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY!,
     });
 
     this._model = model || process.env.ANTHROPIC_MODEL!;
+    this._instructionsSelector =
+      instructionsSelector ?? defaultInstructionsSelector;
 
     this._serverTools = [
       {
@@ -50,7 +62,8 @@ class ClaudeService {
     toolExecutor?: ToolExecutor,
   ): Promise<OpenAIResponse> {
     try {
-      let instructions = this._config.instructions;
+      let instructions =
+        this._instructionsSelector(this._config) || this._config.instructions;
 
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);

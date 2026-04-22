@@ -59,20 +59,36 @@ export function createElevatedChatService(
   config: InMemoryConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): ChatService | undefined {
-  const elevatedModel = env.ANTHROPIC_MODEL_FIELD_HOSPITAL;
   const roleId = env.DISCORD_FIELD_HOSPITAL_ROLE_ID;
   const channelId = env.DISCORD_FIELD_HOSPITAL_CHANNEL_ID;
 
-  if (!elevatedModel || !roleId || !channelId) {
+  if (!roleId || !channelId) {
     return undefined;
   }
 
-  // Elevated routing is Anthropic-only. If the base provider is OpenAI,
-  // skip silently — the feature requires a configured Claude stack.
-  if (resolveChatProvider(env) !== 'anthropic') {
+  if (!config.fieldHospitalInstructions) {
     return undefined;
   }
 
-  console.log('[chat] Elevated Anthropic chat provider active');
-  return new ClaudeService(config, elevatedModel);
+  const provider = resolveChatProvider(env);
+  const selector = (c: InMemoryConfig) =>
+    c.fieldHospitalInstructions ?? c.instructions;
+
+  if (provider === 'anthropic') {
+    const elevatedModel = env.ANTHROPIC_MODEL_FIELD_HOSPITAL;
+    if (!elevatedModel) {
+      return undefined;
+    }
+
+    console.log('[chat] Elevated Anthropic chat provider active');
+    return new ClaudeService(config, elevatedModel, selector);
+  }
+
+  const elevatedModel = env.OPENAI_MODEL_FIELD_HOSPITAL;
+  if (!elevatedModel) {
+    return undefined;
+  }
+
+  console.log('[chat] Elevated OpenAI chat provider active');
+  return new OpenAIService(config, elevatedModel, undefined, selector);
 }

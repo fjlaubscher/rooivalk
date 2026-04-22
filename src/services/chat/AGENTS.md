@@ -40,12 +40,15 @@ To switch chat providers at runtime, change the model env var — no code change
 
 ## Elevated Chat Routing
 
-`createElevatedChatService()` returns a second `ChatService` instance (a `ClaudeService` built with `ANTHROPIC_MODEL_FIELD_HOSPITAL`) when **all** of the following are set:
+`createElevatedChatService()` returns a second `ChatService` instance built with an elevated model whenever **all** of the following are set:
 
-- `ANTHROPIC_MODEL_FIELD_HOSPITAL`
 - `DISCORD_FIELD_HOSPITAL_ROLE_ID`
 - `DISCORD_FIELD_HOSPITAL_CHANNEL_ID`
+- `config/instructions_field_hospital.md` (loaded as `config.fieldHospitalInstructions`)
+- The elevated model env var matching the **base** provider:
+  - Base is Anthropic → `ANTHROPIC_MODEL_FIELD_HOSPITAL`
+  - Base is OpenAI → `OPENAI_MODEL_FIELD_HOSPITAL`
 
-…and the base provider resolves to `anthropic`. Any missing piece disables the feature silently.
+Any missing piece disables the feature silently. The elevated instance swaps in the field-hospital instruction set via the provider's `instructionsSelector` constructor option, so both providers follow the same shape.
 
 `RooivalkService` selects between the default and elevated instances per incoming message via `shouldUseFieldHospitalModel` (role + channel match, with thread inheritance through `channel.parentId`). The `ChatService` interface is unchanged — there is no per-call model override.

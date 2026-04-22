@@ -7,6 +7,7 @@ import {
   CONFIG_FILE_GREETINGS,
   CONFIG_FILE_DISCORD_LIMIT,
   CONFIG_FILE_INSTRUCTIONS,
+  CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL,
   CONFIG_FILE_MOTD,
 } from '../constants.ts';
 import type { InMemoryConfig } from '../types.ts';
@@ -79,18 +80,34 @@ export const loadInstructions = async (filename: string): Promise<string> => {
   }
 };
 
+const loadOptionalInstructions = async (
+  filename: string,
+): Promise<string | undefined> => {
+  try {
+    return await loadInstructions(filename);
+  } catch (err) {
+    const message = (err as Error).message ?? '';
+    if (message.includes('ENOENT')) {
+      return undefined;
+    }
+    throw err;
+  }
+};
+
 export const loadConfig = async (): Promise<InMemoryConfig> => {
   const [
     errorMessages,
     greetingMessages,
     discordLimitMessages,
     instructions,
+    fieldHospitalInstructions,
     motd,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
     loadMessageList(CONFIG_FILE_GREETINGS),
     loadMessageList(CONFIG_FILE_DISCORD_LIMIT),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS),
+    loadOptionalInstructions(CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL),
     loadInstructions(CONFIG_FILE_MOTD),
   ]);
 
@@ -99,6 +116,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     greetingMessages,
     discordLimitMessages,
     instructions,
+    fieldHospitalInstructions,
     motd,
   };
 

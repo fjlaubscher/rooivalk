@@ -13,14 +13,25 @@ import { FUNCTION_TOOLS } from './tools.ts';
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_TOOL_ITERATIONS = 5;
 
+export type OpenAIInstructionsSelector = (config: InMemoryConfig) => string;
+
+const defaultInstructionsSelector: OpenAIInstructionsSelector = (config) =>
+  config.instructions;
+
 class OpenAIService {
   private _config: InMemoryConfig;
   private _model: string | undefined;
   private _imageModel: string;
   private _openai: OpenAI;
   private _tools: OpenAI.Responses.Tool[];
+  private _instructionsSelector: OpenAIInstructionsSelector;
 
-  constructor(config: InMemoryConfig, model?: string, imageModel?: string) {
+  constructor(
+    config: InMemoryConfig,
+    model?: string,
+    imageModel?: string,
+    instructionsSelector?: OpenAIInstructionsSelector,
+  ) {
     this._config = config;
     this._openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY!,
@@ -28,6 +39,8 @@ class OpenAIService {
 
     this._model = model || process.env.OPENAI_MODEL;
     this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
+    this._instructionsSelector =
+      instructionsSelector ?? defaultInstructionsSelector;
 
     this._tools = [
       {
@@ -60,7 +73,8 @@ class OpenAIService {
     toolExecutor?: ToolExecutor,
   ): Promise<OpenAIResponse> {
     try {
-      let instructions = this._config.instructions;
+      let instructions =
+        this._instructionsSelector(this._config) || this._config.instructions;
 
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);
