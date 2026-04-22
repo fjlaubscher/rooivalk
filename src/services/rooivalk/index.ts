@@ -22,7 +22,10 @@ import {
   IMAGE_ATTACHMENT_EXTENSIONS,
   YR_COORDINATES,
 } from '../../constants.ts';
-import { createChatService, createElevatedChatService } from '../chat/index.ts';
+import {
+  createChatService,
+  createFieldHospitalChatService,
+} from '../chat/index.ts';
 import type { ChatService } from '../chat/index.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 import DiscordService from '../discord/index.ts';
@@ -58,7 +61,7 @@ class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _chat: ChatService;
-  protected _chatElevated?: ChatService;
+  protected _chatFieldHospital?: ChatService;
   protected _openai: OpenAIService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
@@ -73,14 +76,14 @@ class Rooivalk {
     yrService?: YrService,
     peapixService?: PeapixService,
     wikimediaService?: WikimediaService,
-    elevatedChatService?: ChatService,
+    fieldHospitalChatService?: ChatService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? new OpenAIService(this._config);
     this._chat = chatService ?? createChatService(this._config, this._openai);
-    this._chatElevated =
-      elevatedChatService ?? createElevatedChatService(this._config);
+    this._chatFieldHospital =
+      fieldHospitalChatService ?? createFieldHospitalChatService(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._wikimedia = wikimediaService ?? new WikimediaService();
@@ -192,22 +195,22 @@ class Rooivalk {
     this._config = newConfig;
     this._discord.reloadConfig(newConfig);
     this._chat.reloadConfig(newConfig);
-    this._chatElevated?.reloadConfig(newConfig);
+    this._chatFieldHospital?.reloadConfig(newConfig);
     this._openai.reloadConfig(newConfig);
   }
 
   private selectChatService(message: Message<boolean>): ChatService {
-    if (!this._chatElevated) {
+    if (!this._chatFieldHospital) {
       return this._chat;
     }
 
-    const useElevated = shouldUseFieldHospitalModel(
+    const useFieldHospital = shouldUseFieldHospitalModel(
       message,
       process.env.DISCORD_FIELD_HOSPITAL_ROLE_ID,
       process.env.DISCORD_FIELD_HOSPITAL_CHANNEL_ID,
     );
 
-    return useElevated ? this._chatElevated : this._chat;
+    return useFieldHospital ? this._chatFieldHospital : this._chat;
   }
 
   private buildToolExecutor(

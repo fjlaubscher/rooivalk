@@ -55,14 +55,18 @@ export function createChatService(
   return openaiService ?? new OpenAIService(config);
 }
 
-export function createElevatedChatService(
+export function createFieldHospitalChatService(
   config: InMemoryConfig,
   env: NodeJS.ProcessEnv = process.env,
 ): ChatService | undefined {
+  // Field hospital mode is pinned to OpenAI regardless of the base chat
+  // provider — Claude's read on the target use case has been less
+  // reliable in side-by-side comparison.
+  const model = env.OPENAI_MODEL_FIELD_HOSPITAL;
   const roleId = env.DISCORD_FIELD_HOSPITAL_ROLE_ID;
   const channelId = env.DISCORD_FIELD_HOSPITAL_CHANNEL_ID;
 
-  if (!roleId || !channelId) {
+  if (!model || !roleId || !channelId) {
     return undefined;
   }
 
@@ -70,25 +74,11 @@ export function createElevatedChatService(
     return undefined;
   }
 
-  const provider = resolveChatProvider(env);
-  const selector = (c: InMemoryConfig) =>
-    c.fieldHospitalInstructions ?? c.instructions;
-
-  if (provider === 'anthropic') {
-    const elevatedModel = env.ANTHROPIC_MODEL_FIELD_HOSPITAL;
-    if (!elevatedModel) {
-      return undefined;
-    }
-
-    console.log('[chat] Elevated Anthropic chat provider active');
-    return new ClaudeService(config, elevatedModel, selector);
-  }
-
-  const elevatedModel = env.OPENAI_MODEL_FIELD_HOSPITAL;
-  if (!elevatedModel) {
-    return undefined;
-  }
-
-  console.log('[chat] Elevated OpenAI chat provider active');
-  return new OpenAIService(config, elevatedModel, undefined, selector);
+  console.log('[chat] Field hospital chat provider active (OpenAI)');
+  return new OpenAIService(
+    config,
+    model,
+    undefined,
+    (c) => c.fieldHospitalInstructions ?? c.instructions,
+  );
 }

@@ -38,17 +38,17 @@ When adding a new tool:
 
 To switch chat providers at runtime, change the model env var — no code changes required. The image-generation path is always handled by `OpenAIService` regardless.
 
-## Elevated Chat Routing
+## Field Hospital Chat Routing
 
-`createElevatedChatService()` returns a second `ChatService` instance built with an elevated model whenever **all** of the following are set:
+`createFieldHospitalChatService()` returns a second `ChatService` instance pinned to **OpenAI** (regardless of the base chat provider) whenever **all** of the following are set:
 
+- `OPENAI_MODEL_FIELD_HOSPITAL`
 - `DISCORD_FIELD_HOSPITAL_ROLE_ID`
 - `DISCORD_FIELD_HOSPITAL_CHANNEL_ID`
 - `config/instructions_field_hospital.md` (loaded as `config.fieldHospitalInstructions`)
-- The elevated model env var matching the **base** provider:
-  - Base is Anthropic → `ANTHROPIC_MODEL_FIELD_HOSPITAL`
-  - Base is OpenAI → `OPENAI_MODEL_FIELD_HOSPITAL`
 
-Any missing piece disables the feature silently. The elevated instance swaps in the field-hospital instruction set via the provider's `instructionsSelector` constructor option, so both providers follow the same shape.
+Any missing piece disables the feature silently. The field-hospital instance swaps in its own instruction set via `OpenAIService`'s `instructionsSelector` constructor option.
 
-`RooivalkService` selects between the default and elevated instances per incoming message via `shouldUseFieldHospitalModel` (role + channel match, with thread inheritance through `channel.parentId`). The `ChatService` interface is unchanged — there is no per-call model override.
+`RooivalkService` selects between the default and field-hospital instances per incoming message via `shouldUseFieldHospitalModel` (role + channel match, with thread inheritance through `channel.parentId`). The `ChatService` interface is unchanged — there is no per-call model override.
+
+The provider is pinned to OpenAI for now because Claude's read on the target use case was less reliable in side-by-side comparison. If that changes, extend the factory rather than introducing a new config knob.

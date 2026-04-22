@@ -302,11 +302,11 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and elevated chat routing is configured', () => {
+    describe('and field hospital chat routing is configured', () => {
       const FH_ROLE_ID = 'fh-role-id';
       const FH_CHANNEL_ID = 'fh-channel-id';
 
-      const mockElevatedChat = vi.mocked({
+      const mockFieldHospitalChat = vi.mocked({
         createResponse: vi.fn(),
         generateThreadName: vi.fn(),
         reloadConfig: vi.fn(),
@@ -330,8 +330,12 @@ describe('Rooivalk', () => {
         } as Partial<Message<boolean>>);
 
       beforeEach(() => {
-        mockElevatedChat.createResponse.mockResolvedValue('Elevated response');
-        mockElevatedChat.generateThreadName.mockResolvedValue('Elevated Title');
+        mockFieldHospitalChat.createResponse.mockResolvedValue(
+          'Field hospital response',
+        );
+        mockFieldHospitalChat.generateThreadName.mockResolvedValue(
+          'Field Hospital Title',
+        );
         vi.stubGlobal('process', {
           env: {
             ...MOCK_ENV,
@@ -342,8 +346,8 @@ describe('Rooivalk', () => {
         mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
       });
 
-      it('routes to the elevated chat service when role and channel match', async () => {
-        const elevatedRooivalk = new Rooivalk(
+      it('routes to the field hospital chat service when role and channel match', async () => {
+        const fieldHospitalRooivalk = new Rooivalk(
           MOCK_CONFIG,
           mockDiscordService,
           mockChatClient,
@@ -351,18 +355,18 @@ describe('Rooivalk', () => {
           undefined,
           undefined,
           undefined,
-          mockElevatedChat,
+          mockFieldHospitalChat,
         );
 
         const msg = buildFieldHospitalMessage([FH_ROLE_ID], FH_CHANNEL_ID);
-        await (elevatedRooivalk as any).processMessage(msg);
+        await (fieldHospitalRooivalk as any).processMessage(msg);
 
-        expect(mockElevatedChat.createResponse).toHaveBeenCalledTimes(1);
+        expect(mockFieldHospitalChat.createResponse).toHaveBeenCalledTimes(1);
         expect(mockChatClient.createResponse).not.toHaveBeenCalled();
       });
 
       it('falls back to the default chat service when role or channel does not match', async () => {
-        const elevatedRooivalk = new Rooivalk(
+        const fieldHospitalRooivalk = new Rooivalk(
           MOCK_CONFIG,
           mockDiscordService,
           mockChatClient,
@@ -370,14 +374,14 @@ describe('Rooivalk', () => {
           undefined,
           undefined,
           undefined,
-          mockElevatedChat,
+          mockFieldHospitalChat,
         );
 
         const msg = buildFieldHospitalMessage([FH_ROLE_ID], 'other-channel');
-        await (elevatedRooivalk as any).processMessage(msg);
+        await (fieldHospitalRooivalk as any).processMessage(msg);
 
         expect(mockChatClient.createResponse).toHaveBeenCalledTimes(1);
-        expect(mockElevatedChat.createResponse).not.toHaveBeenCalled();
+        expect(mockFieldHospitalChat.createResponse).not.toHaveBeenCalled();
       });
     });
 
