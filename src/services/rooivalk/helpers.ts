@@ -38,3 +38,28 @@ export const isReplyToRooivalk = async (
 
 export const buildPromptAuthor = (author: User) =>
   `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag)`;
+
+export const shouldUseFieldHospitalModel = (
+  message: Message<boolean>,
+  roleId: string | undefined,
+  channelId: string | undefined,
+): boolean => {
+  if (!roleId || !channelId) {
+    return false;
+  }
+
+  const hasRole = message.member?.roles?.cache?.has(roleId) ?? false;
+  if (!hasRole) {
+    return false;
+  }
+
+  if (message.channelId === channelId) {
+    return true;
+  }
+
+  if (message.channel.isThread() && message.channel.parentId === channelId) {
+    return true;
+  }
+
+  return false;
+};

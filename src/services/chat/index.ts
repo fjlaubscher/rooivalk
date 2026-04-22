@@ -54,3 +54,25 @@ export function createChatService(
   // image-generation service and chat service share a single client.
   return openaiService ?? new OpenAIService(config);
 }
+
+export function createElevatedChatService(
+  config: InMemoryConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ChatService | undefined {
+  const elevatedModel = env.ANTHROPIC_MODEL_FIELD_HOSPITAL;
+  const roleId = env.DISCORD_FIELD_HOSPITAL_ROLE_ID;
+  const channelId = env.DISCORD_FIELD_HOSPITAL_CHANNEL_ID;
+
+  if (!elevatedModel || !roleId || !channelId) {
+    return undefined;
+  }
+
+  // Elevated routing is Anthropic-only. If the base provider is OpenAI,
+  // skip silently — the feature requires a configured Claude stack.
+  if (resolveChatProvider(env) !== 'anthropic') {
+    return undefined;
+  }
+
+  console.log('[chat] Elevated Anthropic chat provider active');
+  return new ClaudeService(config, elevatedModel);
+}

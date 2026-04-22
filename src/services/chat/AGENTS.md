@@ -37,3 +37,15 @@ When adding a new tool:
 ## Swapping Providers
 
 To switch chat providers at runtime, change the model env var — no code changes required. The image-generation path is always handled by `OpenAIService` regardless.
+
+## Elevated Chat Routing
+
+`createElevatedChatService()` returns a second `ChatService` instance (a `ClaudeService` built with `ANTHROPIC_MODEL_FIELD_HOSPITAL`) when **all** of the following are set:
+
+- `ANTHROPIC_MODEL_FIELD_HOSPITAL`
+- `DISCORD_FIELD_HOSPITAL_ROLE_ID`
+- `DISCORD_FIELD_HOSPITAL_CHANNEL_ID`
+
+…and the base provider resolves to `anthropic`. Any missing piece disables the feature silently.
+
+`RooivalkService` selects between the default and elevated instances per incoming message via `shouldUseFieldHospitalModel` (role + channel match, with thread inheritance through `channel.parentId`). The `ChatService` interface is unchanged — there is no per-call model override.

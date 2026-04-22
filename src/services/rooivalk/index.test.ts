@@ -302,6 +302,85 @@ describe('Rooivalk', () => {
       });
     });
 
+    describe('and elevated chat routing is configured', () => {
+      const FH_ROLE_ID = 'fh-role-id';
+      const FH_CHANNEL_ID = 'fh-channel-id';
+
+      const mockElevatedChat = vi.mocked({
+        createResponse: vi.fn(),
+        generateThreadName: vi.fn(),
+        reloadConfig: vi.fn(),
+      } as any);
+
+      const buildFieldHospitalMessage = (
+        roleIds: string[],
+        channelId: string,
+      ) =>
+        createMockMessage({
+          content: `<@${BOT_ID}> xray please`,
+          channelId,
+          member: {
+            roles: { cache: { has: (id: string) => roleIds.includes(id) } },
+          },
+          channel: {
+            id: channelId,
+            isThread: () => false,
+            parentId: null,
+          },
+        } as Partial<Message<boolean>>);
+
+      beforeEach(() => {
+        mockElevatedChat.createResponse.mockResolvedValue('Elevated response');
+        mockElevatedChat.generateThreadName.mockResolvedValue('Elevated Title');
+        vi.stubGlobal('process', {
+          env: {
+            ...MOCK_ENV,
+            DISCORD_FIELD_HOSPITAL_ROLE_ID: FH_ROLE_ID,
+            DISCORD_FIELD_HOSPITAL_CHANNEL_ID: FH_CHANNEL_ID,
+          },
+        });
+        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
+      });
+
+      it('routes to the elevated chat service when role and channel match', async () => {
+        const elevatedRooivalk = new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+          undefined,
+          undefined,
+          undefined,
+          mockElevatedChat,
+        );
+
+        const msg = buildFieldHospitalMessage([FH_ROLE_ID], FH_CHANNEL_ID);
+        await (elevatedRooivalk as any).processMessage(msg);
+
+        expect(mockElevatedChat.createResponse).toHaveBeenCalledTimes(1);
+        expect(mockChatClient.createResponse).not.toHaveBeenCalled();
+      });
+
+      it('falls back to the default chat service when role or channel does not match', async () => {
+        const elevatedRooivalk = new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+          undefined,
+          undefined,
+          undefined,
+          mockElevatedChat,
+        );
+
+        const msg = buildFieldHospitalMessage([FH_ROLE_ID], 'other-channel');
+        await (elevatedRooivalk as any).processMessage(msg);
+
+        expect(mockChatClient.createResponse).toHaveBeenCalledTimes(1);
+        expect(mockElevatedChat.createResponse).not.toHaveBeenCalled();
+      });
+    });
+
     describe('generate_image tool executor', () => {
       it('returns base64 image and status on success', async () => {
         const message = createMockMessage({

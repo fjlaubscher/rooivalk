@@ -22,7 +22,7 @@ import {
   IMAGE_ATTACHMENT_EXTENSIONS,
   YR_COORDINATES,
 } from '../../constants.ts';
-import { createChatService } from '../chat/index.ts';
+import { createChatService, createElevatedChatService } from '../chat/index.ts';
 import type { ChatService } from '../chat/index.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 import DiscordService from '../discord/index.ts';
@@ -42,6 +42,7 @@ import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
+  shouldUseFieldHospitalModel,
 } from './helpers.ts';
 
 function shuffleArray<T>(items: T[]): T[] {
@@ -57,6 +58,7 @@ class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _chat: ChatService;
+  protected _chatElevated?: ChatService;
   protected _openai: OpenAIService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
@@ -71,11 +73,14 @@ class Rooivalk {
     yrService?: YrService,
     peapixService?: PeapixService,
     wikimediaService?: WikimediaService,
+    elevatedChatService?: ChatService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? new OpenAIService(this._config);
     this._chat = chatService ?? createChatService(this._config, this._openai);
+    this._chatElevated =
+      elevatedChatService ?? createElevatedChatService(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._wikimedia = wikimediaService ?? new WikimediaService();
@@ -187,7 +192,22 @@ class Rooivalk {
     this._config = newConfig;
     this._discord.reloadConfig(newConfig);
     this._chat.reloadConfig(newConfig);
+    this._chatElevated?.reloadConfig(newConfig);
     this._openai.reloadConfig(newConfig);
+  }
+
+  private selectChatService(message: Message<boolean>): ChatService {
+    if (!this._chatElevated) {
+      return this._chat;
+    }
+
+    const useElevated = shouldUseFieldHospitalModel(
+      message,
+      process.env.DISCORD_FIELD_HOSPITAL_ROLE_ID,
+      process.env.DISCORD_FIELD_HOSPITAL_CHANNEL_ID,
+    );
+
+    return useElevated ? this._chatElevated : this._chat;
   }
 
   private buildToolExecutor(
@@ -319,8 +339,9 @@ class Rooivalk {
         .map((attachment) => this.buildAttachmentForPrompt(attachment));
 
       const toolExecutor = this.buildToolExecutor(message);
+      const chat = this.selectChatService(message);
 
-      const response = await this._chat.createResponse(
+      const response = await chat.createResponse(
         buildPromptAuthor(message.author),
         prompt,
         this._discord.allowedEmojis,
@@ -665,7 +686,8 @@ class Rooivalk {
       const historyText = history
         ? history.map(formatMessageInChain).join('\n')
         : null;
-      threadName = await this._chat.generateThreadName(
+      const chat = this.selectChatService(message);
+      threadName = await chat.generateThreadName(
         historyText ?? message.content.trim(),
       );
     }
