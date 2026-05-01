@@ -5,4 +5,10 @@ export const TOOL_NAMES = Object.freeze({
   GET_GUILD_EVENTS: 'get_guild_events',
   GENERATE_IMAGE: 'generate_image',
   SEND_SMS: 'send_sms',
+  REMEMBER: 'remember',
+  RECALL: 'recall',
+  FORGET_MEMORY: 'forget_memory',
+  QUERY_MEMORY: 'query_memory',
+  REGISTER_PHONE_NUMBER: 'register_phone_number',
+  FORGET_PHONE_NUMBER: 'forget_phone_number',
 });

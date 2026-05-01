@@ -9,22 +9,13 @@ export type ClickatellSendResult = {
 
 class ClickatellService {
   private _apiKey: string | undefined;
-  private _allowedNumbers: string[];
 
-  constructor(apiKey?: string, allowedNumbersEnv?: string) {
+  constructor(apiKey?: string) {
     this._apiKey = apiKey;
-    this._allowedNumbers = (allowedNumbersEnv ?? '')
-      .split(',')
-      .map((n) => n.trim().replace(/^\+/, '').replace(/[\s-]/g, ''))
-      .filter((n) => n.length > 0);
   }
 
   public get isConfigured(): boolean {
     return Boolean(this._apiKey);
-  }
-
-  public get allowedNumbers(): readonly string[] {
-    return this._allowedNumbers;
   }
 
   public async sendSms(
@@ -39,18 +30,6 @@ class ClickatellService {
     if (!/^\d{6,15}$/.test(normalizedTo)) {
       throw new Error(
         `Invalid recipient number: ${to}. Use international format (digits only, no +).`,
-      );
-    }
-
-    if (this._allowedNumbers.length === 0) {
-      throw new Error(
-        'CLICKATELL_ALLOWED_NUMBERS is not configured; refusing to send SMS.',
-      );
-    }
-
-    if (!this._allowedNumbers.includes(normalizedTo)) {
-      throw new Error(
-        `Recipient ${normalizedTo} is not on the CLICKATELL_ALLOWED_NUMBERS allowlist.`,
       );
     }
 

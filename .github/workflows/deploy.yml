@@ -20,10 +20,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Set up Node.js v22
+      - name: Set up Node.js v24
         uses: actions/setup-node@v4
         with:
-          node-version: '22.18.0'
+          node-version: '24.12.0'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -44,6 +44,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.env' \
+            --exclude='data/' \
             ./src ./config ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
