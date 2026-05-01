@@ -142,9 +142,8 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
       }
       case TOOL_NAMES.RECALL: {
         try {
-          const subjectId = args.discord_user_id as string;
           const limit = typeof args.limit === 'number' ? args.limit : undefined;
-          const rows = memory.recall(subjectId, limit);
+          const rows = memory.recall(message.author.id, limit);
           return { output: JSON.stringify({ memories: rows }) };
         } catch (err) {
           return errorOutput(err);
@@ -155,15 +154,6 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           const memoryId = Number(args.memory_id);
           const result = memory.forgetMemory(memoryId, message.author.id);
           return { output: JSON.stringify(result) };
-        } catch (err) {
-          return errorOutput(err);
-        }
-      }
-      case TOOL_NAMES.QUERY_MEMORY: {
-        try {
-          const sql = args.sql as string;
-          const rows = memory.querySelect(sql);
-          return { output: JSON.stringify({ rows }) };
         } catch (err) {
           return errorOutput(err);
         }

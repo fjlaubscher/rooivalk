@@ -8,7 +8,6 @@ export const TOOL_NAMES = Object.freeze({
   REMEMBER: 'remember',
   RECALL: 'recall',
   FORGET_MEMORY: 'forget_memory',
-  QUERY_MEMORY: 'query_memory',
   REGISTER_PHONE_NUMBER: 'register_phone_number',
   FORGET_PHONE_NUMBER: 'forget_phone_number',
 });

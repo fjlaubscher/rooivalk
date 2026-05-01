@@ -101,22 +101,17 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.RECALL,
     description:
-      'Look up recent memories about a Discord user. Returns up to `limit` rows ordered most recent first.',
+      "Look up recent memories about the user currently talking to you. Always scoped to the speaker — you cannot recall another user's memories. Returns up to `limit` rows ordered most recent first.",
     strict: true,
     parameters: {
       type: 'object',
       properties: {
-        discord_user_id: {
-          type: 'string',
-          description:
-            'Discord user ID (snowflake) whose memories to retrieve. Extract from <@123...> mentions.',
-        },
         limit: {
           type: ['number', 'null'],
           description: 'Max rows to return (1-100). Null = default of 10.',
         },
       },
-      required: ['discord_user_id', 'limit'],
+      required: ['limit'],
       additionalProperties: false,
     },
   },
@@ -135,24 +130,6 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
         },
       },
       required: ['memory_id'],
-      additionalProperties: false,
-    },
-  },
-  {
-    type: 'function',
-    name: TOOL_NAMES.QUERY_MEMORY,
-    description:
-      'Run a read-only SQL SELECT against the bot memory database. Tables: `memories(id, discord_user_id, content, created_at)` and `phone_numbers(discord_user_id, phone_number, registered_at)`. Only SELECT and WITH ... SELECT are allowed; multi-statement SQL is rejected.',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        sql: {
-          type: 'string',
-          description: 'A single SQL SELECT statement.',
-        },
-      },
-      required: ['sql'],
       additionalProperties: false,
     },
   },

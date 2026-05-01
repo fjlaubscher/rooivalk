@@ -91,27 +91,6 @@ class MemoryService {
     return { deleted: result.changes > 0 };
   }
 
-  public querySelect(sql: string): unknown[] {
-    const trimmed = sql.trim().replace(/;+\s*$/, '');
-    if (!trimmed) {
-      throw new Error('SQL query cannot be empty');
-    }
-
-    if (trimmed.includes(';')) {
-      throw new Error('Multiple statements are not allowed');
-    }
-
-    const opening = trimmed.toLowerCase().slice(0, 6);
-    if (!opening.startsWith('select') && !opening.startsWith('with')) {
-      throw new Error(
-        'Only SELECT (or WITH ... SELECT) statements are allowed',
-      );
-    }
-
-    const stmt = this._readDb.prepare(trimmed);
-    return stmt.all();
-  }
-
   public registerPhoneNumber(
     discordUserId: string,
     phoneNumber: string,

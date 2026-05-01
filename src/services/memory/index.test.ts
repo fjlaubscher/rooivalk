@@ -89,62 +89,8 @@ describe('MemoryService', () => {
     });
   });
 
-  describe('querySelect', () => {
-    it('runs a SELECT and returns rows', () => {
-      memory.remember('user-1', 'hello');
-      const rows = memory.querySelect(
-        "SELECT content FROM memories WHERE discord_user_id = 'user-1'",
-      ) as Array<{ content: string }>;
-      expect(rows).toEqual([{ content: 'hello' }]);
-    });
-
-    it('allows WITH ... SELECT', () => {
-      memory.remember('user-1', 'a');
-      const rows = memory.querySelect(
-        'WITH x AS (SELECT content FROM memories) SELECT * FROM x',
-      ) as Array<{ content: string }>;
-      expect(rows.map((r) => r.content)).toEqual(['a']);
-    });
-
-    it('rejects empty SQL', () => {
-      expect(() => memory.querySelect('   ')).toThrow(/cannot be empty/);
-    });
-
-    it('rejects non-SELECT statements', () => {
-      expect(() => memory.querySelect('DELETE FROM memories')).toThrow(
-        /Only SELECT/,
-      );
-      expect(() =>
-        memory.querySelect('UPDATE memories SET content = 1'),
-      ).toThrow(/Only SELECT/);
-      expect(() => memory.querySelect('DROP TABLE memories')).toThrow(
-        /Only SELECT/,
-      );
-      expect(() => memory.querySelect('PRAGMA table_info(memories)')).toThrow(
-        /Only SELECT/,
-      );
-      expect(() => memory.querySelect('ATTACH DATABASE "x" AS y')).toThrow(
-        /Only SELECT/,
-      );
-    });
-
-    it('rejects multi-statement SQL', () => {
-      expect(() =>
-        memory.querySelect('SELECT 1; DELETE FROM memories'),
-      ).toThrow(/Multiple statements/);
-    });
-
-    it('tolerates a single trailing semicolon', () => {
-      memory.remember('user-1', 'x');
-      expect(() =>
-        memory.querySelect('SELECT content FROM memories;'),
-      ).not.toThrow();
-    });
-
-    it('writes through the read-only handle fail at the SQLite level', () => {
-      // sneaky: a SELECT that smuggles a write would still be blocked because
-      // the read connection itself is read-only. Force it via the readDb
-      // privately — verifies the structural guarantee, not just the parser.
+  describe('read-only handle', () => {
+    it('rejects writes at the SQLite level', () => {
       const readDb = (
         memory as unknown as { _readDb: { exec: (sql: string) => void } }
       )._readDb;

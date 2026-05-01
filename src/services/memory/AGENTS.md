@@ -7,7 +7,7 @@
 1. **Memories** — free-form notes the model decides to keep about a user.
 2. **Phone numbers** — opt-in registry used to gate SMS sending via `ClickatellService`.
 
-The service holds two connections to the same DB file: a writable one for mutations and a `readOnly: true` one used for `querySelect` (the model's SQL escape hatch). Read-only is enforced **at the SQLite level**, not just the parser.
+The service holds two connections to the same DB file: a writable one for mutations and a `readOnly: true` one used for reads (`recall`, `forgetMemory` lookup, `getPhoneNumberFor`). Read-only is enforced **at the SQLite level**, so even a programming bug that issues a write through the read handle fails in the engine.
 
 ## Schema
 
@@ -18,13 +18,7 @@ The service holds two connections to the same DB file: a writable one for mutati
 
 ## Authority Model
 
-Writes are stamped with `message.author.id` at the **executor** in `RooivalkService`, never trusted from tool args. The model can ask to `remember(content)` but cannot pretend to be someone else. The same applies to `register_phone_number`, `forget_phone_number`, and `forget_memory` (the executor checks the requester matches the row owner before deleting).
-
-## `querySelect` Safety
-
-- Read-only SQLite handle (`SQLITE_OPEN_READONLY`) — writes fail at the engine level.
-- Parser-level checks reject anything not starting with `SELECT` / `WITH`, multi-statement SQL, `PRAGMA`, `ATTACH`, etc.
-- Single trailing `;` is tolerated; embedded `;` is rejected.
+Every memory/phone tool resolves the subject from `message.author.id` at the **executor**, never from tool args. The model can ask to `remember(content)` or `recall()`, but the executor pins the user to the speaker — there is no way to read or write another user's rows. `forget_memory` additionally checks that the row owner matches the requester before deleting.
 
 ## Configuration
 
@@ -35,7 +29,7 @@ Writes are stamped with `message.author.id` at the **executor** in `RooivalkServ
 ## Testing
 
 - Tests use a temp directory (`mkdtempSync` in `os.tmpdir()`). `:memory:` won't work because two connections to it are independent DBs.
-- `index.test.ts` covers: writes, scoped recall, limit clamping, cross-user delete refusal, parser rejections, structural read-only enforcement, upsert, normalization, persistence across reopens.
+- `index.test.ts` covers: writes, scoped recall, limit clamping, cross-user delete refusal, structural read-only enforcement, upsert, normalization, persistence across reopens.
 
 ## Out of Scope (for now)
 
