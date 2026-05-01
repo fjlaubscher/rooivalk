@@ -28,6 +28,7 @@ import {
 } from '../chat/index.ts';
 import type { ChatService } from '../chat/index.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
+import ClickatellService from '../clickatell/index.ts';
 import DiscordService from '../discord/index.ts';
 import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
@@ -66,6 +67,7 @@ class Rooivalk {
   protected _yr: YrService;
   protected _peapix: PeapixService;
   protected _wikimedia: WikimediaService;
+  protected _clickatell: ClickatellService;
   private _allowedAppIds: string[];
 
   constructor(
@@ -77,6 +79,7 @@ class Rooivalk {
     peapixService?: PeapixService,
     wikimediaService?: WikimediaService,
     fieldHospitalChatService?: ChatService,
+    clickatellService?: ClickatellService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -87,6 +90,12 @@ class Rooivalk {
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._wikimedia = wikimediaService ?? new WikimediaService();
+    this._clickatell =
+      clickatellService ??
+      new ClickatellService(
+        process.env.CLICKATELL_API_KEY,
+        process.env.CLICKATELL_ALLOWED_NUMBERS,
+      );
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -281,6 +290,44 @@ class Rooivalk {
             return {
               output: JSON.stringify({
                 error: 'Image generation returned no data',
+              }),
+            };
+          } catch (err) {
+            const errorMessage =
+              err instanceof Error ? err.message : 'Unknown error';
+            return {
+              output: JSON.stringify({ error: errorMessage }),
+            };
+          }
+        }
+        case TOOL_NAMES.SEND_SMS: {
+          if (!this._clickatell.isConfigured) {
+            return {
+              output: JSON.stringify({
+                error:
+                  'SMS sending is not configured (CLICKATELL_API_KEY missing)',
+              }),
+            };
+          }
+
+          if (this._clickatell.allowedNumbers.length === 0) {
+            return {
+              output: JSON.stringify({
+                error:
+                  'SMS sending is not configured (CLICKATELL_ALLOWED_NUMBERS missing)',
+              }),
+            };
+          }
+
+          try {
+            const to = args.to as string;
+            const content = args.content as string;
+            const result = await this._clickatell.sendSms(to, content);
+            return {
+              output: JSON.stringify({
+                status: 'ok',
+                httpStatus: result.status,
+                response: result.body,
               }),
             };
           } catch (err) {

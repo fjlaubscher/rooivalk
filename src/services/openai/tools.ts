@@ -58,6 +58,29 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
+    name: TOOL_NAMES.SEND_SMS,
+    description:
+      'Send an SMS via Clickatell. Use only when the user explicitly asks you to send an SMS or text message. Confirm the recipient number and message content before calling.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        to: {
+          type: 'string',
+          description:
+            'Recipient phone number in international format, digits only (e.g. "27821234567"). No leading +, spaces, or dashes.',
+        },
+        content: {
+          type: 'string',
+          description: 'The SMS message body. Keep it concise.',
+        },
+      },
+      required: ['to', 'content'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
     name: TOOL_NAMES.GET_GUILD_EVENTS,
     description:
       'Get scheduled Discord server events, optionally filtered by date range.',
