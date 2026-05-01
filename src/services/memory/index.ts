@@ -61,7 +61,7 @@ class MemoryService {
   public recall(discordUserId: string, limit = 10): MemoryRow[] {
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
     const stmt = this._readDb.prepare(
-      'SELECT id, discord_user_id, content, created_at FROM memories WHERE discord_user_id = ? ORDER BY created_at DESC LIMIT ?',
+      'SELECT id, discord_user_id, content, created_at FROM memories WHERE discord_user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?',
     );
     return stmt.all(discordUserId, safeLimit) as MemoryRow[];
   }
