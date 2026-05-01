@@ -27,9 +27,9 @@ import {
   createFieldHospitalChatService,
 } from '../chat/index.ts';
 import type { ChatService } from '../chat/index.ts';
-import { TOOL_NAMES } from '../chat/tool-names.ts';
 import ClickatellService from '../clickatell/index.ts';
 import DiscordService from '../discord/index.ts';
+import MemoryService from '../memory/index.ts';
 import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
 import WikimediaService from '../wikimedia/index.ts';
@@ -38,7 +38,6 @@ import type {
   AttachmentForPrompt,
   InMemoryConfig,
   MessageInChain,
-  ToolExecutionResult,
 } from '../../types.ts';
 
 import { formatMessageInChain } from '../discord/helpers.ts';
@@ -48,6 +47,8 @@ import {
   buildPromptAuthor,
   shouldUseFieldHospitalModel,
 } from './helpers.ts';
+import { buildToolExecutor } from './tool-executor.ts';
+import type { ToolExecutor } from './tool-executor.ts';
 
 function shuffleArray<T>(items: T[]): T[] {
   return items
@@ -68,6 +69,7 @@ class Rooivalk {
   protected _peapix: PeapixService;
   protected _wikimedia: WikimediaService;
   protected _clickatell: ClickatellService;
+  protected _memory: MemoryService;
   private _allowedAppIds: string[];
 
   constructor(
@@ -80,6 +82,7 @@ class Rooivalk {
     wikimediaService?: WikimediaService,
     fieldHospitalChatService?: ChatService,
     clickatellService?: ClickatellService,
+    memoryService?: MemoryService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -92,10 +95,10 @@ class Rooivalk {
     this._wikimedia = wikimediaService ?? new WikimediaService();
     this._clickatell =
       clickatellService ??
-      new ClickatellService(
-        process.env.CLICKATELL_API_KEY,
-        process.env.CLICKATELL_ALLOWED_NUMBERS,
-      );
+      new ClickatellService(process.env.CLICKATELL_API_KEY);
+    this._memory =
+      memoryService ??
+      new MemoryService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -222,145 +225,16 @@ class Rooivalk {
     return useFieldHospital ? this._chatFieldHospital : this._chat;
   }
 
-  private buildToolExecutor(
-    message: Message<boolean>,
-  ): (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<ToolExecutionResult> {
-    return async (
-      name: string,
-      args: Record<string, unknown>,
-    ): Promise<ToolExecutionResult> => {
-      switch (name) {
-        case TOOL_NAMES.GET_WEATHER: {
-          const city = args.city as string;
-          const forecast = await this._yr.getForecastByLocation(city);
-          return { output: JSON.stringify(forecast) };
-        }
-        case TOOL_NAMES.GET_ALL_WEATHER: {
-          const forecasts = await this._yr.getAllForecasts();
-          return { output: JSON.stringify(forecasts) };
-        }
-        case TOOL_NAMES.CREATE_THREAD: {
-          if (message.channel.isThread()) {
-            return {
-              output: JSON.stringify({
-                error: 'Cannot create a thread inside an existing thread',
-              }),
-            };
-          }
-
-          try {
-            const threadName = (args.name as string | null) ?? undefined;
-            const thread = await this.createRooivalkThread(message, threadName);
-            if (thread) {
-              return {
-                output: JSON.stringify({
-                  threadId: thread.id,
-                  name: thread.name,
-                }),
-                createdThread: thread,
-              };
-            }
-            return {
-              output: JSON.stringify({ error: 'Failed to create thread' }),
-            };
-          } catch (err) {
-            const errorMessage =
-              err instanceof Error ? err.message : 'Unknown error';
-            return {
-              output: JSON.stringify({ error: errorMessage }),
-            };
-          }
-        }
-        case TOOL_NAMES.GENERATE_IMAGE: {
-          try {
-            const imagePrompt = args.prompt as string;
-            const base64Image = await this._openai.createImage(imagePrompt);
-            if (base64Image) {
-              return {
-                output: JSON.stringify({
-                  status: 'ok',
-                  note: 'Image generated and attached to the reply.',
-                }),
-                base64Image,
-              };
-            }
-            return {
-              output: JSON.stringify({
-                error: 'Image generation returned no data',
-              }),
-            };
-          } catch (err) {
-            const errorMessage =
-              err instanceof Error ? err.message : 'Unknown error';
-            return {
-              output: JSON.stringify({ error: errorMessage }),
-            };
-          }
-        }
-        case TOOL_NAMES.SEND_SMS: {
-          if (!this._clickatell.isConfigured) {
-            return {
-              output: JSON.stringify({
-                error:
-                  'SMS sending is not configured (CLICKATELL_API_KEY missing)',
-              }),
-            };
-          }
-
-          if (this._clickatell.allowedNumbers.length === 0) {
-            return {
-              output: JSON.stringify({
-                error:
-                  'SMS sending is not configured (CLICKATELL_ALLOWED_NUMBERS missing)',
-              }),
-            };
-          }
-
-          try {
-            const to = args.to as string;
-            const content = args.content as string;
-            const result = await this._clickatell.sendSms(to, content);
-            return {
-              output: JSON.stringify({
-                status: 'ok',
-                httpStatus: result.status,
-                response: result.body,
-              }),
-            };
-          } catch (err) {
-            const errorMessage =
-              err instanceof Error ? err.message : 'Unknown error';
-            return {
-              output: JSON.stringify({ error: errorMessage }),
-            };
-          }
-        }
-        case TOOL_NAMES.GET_GUILD_EVENTS: {
-          const startDate = args.start_date
-            ? new Date(args.start_date as string)
-            : new Date();
-          startDate.setHours(0, 0, 0, 0);
-
-          const endDate = args.end_date
-            ? new Date(args.end_date as string)
-            : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-          endDate.setHours(23, 59, 59, 999);
-
-          const events = await this._discord.getGuildEventsBetween(
-            startDate,
-            endDate,
-          );
-          return { output: JSON.stringify(events) };
-        }
-        default:
-          return {
-            output: JSON.stringify({ error: `Unknown tool: ${name}` }),
-          };
-      }
-    };
+  private createToolExecutor(message: Message<boolean>): ToolExecutor {
+    return buildToolExecutor({
+      message,
+      yr: this._yr,
+      discord: this._discord,
+      openai: this._openai,
+      clickatell: this._clickatell,
+      memory: this._memory,
+      createThread: (msg, name) => this.createRooivalkThread(msg, name),
+    });
   }
 
   public async processMessage(message: Message<boolean>) {
@@ -388,7 +262,7 @@ class Rooivalk {
         .filter((attachment) => this.isAttachmentAllowed(attachment))
         .map((attachment) => this.buildAttachmentForPrompt(attachment));
 
-      const toolExecutor = this.buildToolExecutor(message);
+      const toolExecutor = this.createToolExecutor(message);
       const chat = this.selectChatService(message);
 
       const response = await chat.createResponse(

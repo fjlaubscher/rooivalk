@@ -1,0 +1,216 @@
+import type { Message, ThreadChannel } from 'discord.js';
+
+import { TOOL_NAMES } from '../chat/tool-names.ts';
+import type ClickatellService from '../clickatell/index.ts';
+import type DiscordService from '../discord/index.ts';
+import type MemoryService from '../memory/index.ts';
+import type OpenAIService from '../openai/index.ts';
+import type YrService from '../yr/index.ts';
+import type { ToolExecutionResult } from '../../types.ts';
+
+export type ToolExecutorContext = {
+  message: Message<boolean>;
+  yr: YrService;
+  discord: DiscordService;
+  openai: OpenAIService;
+  clickatell: ClickatellService;
+  memory: MemoryService;
+  createThread: (
+    message: Message<boolean>,
+    name?: string,
+  ) => Promise<ThreadChannel | null>;
+};
+
+export type ToolExecutor = (
+  name: string,
+  args: Record<string, unknown>,
+) => Promise<ToolExecutionResult>;
+
+function errorOutput(err: unknown): ToolExecutionResult {
+  const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+  return { output: JSON.stringify({ error: errorMessage }) };
+}
+
+export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
+  const { message, yr, discord, openai, clickatell, memory, createThread } =
+    ctx;
+
+  return async (name, args) => {
+    switch (name) {
+      case TOOL_NAMES.GET_WEATHER: {
+        const city = args.city as string;
+        const forecast = await yr.getForecastByLocation(city);
+        return { output: JSON.stringify(forecast) };
+      }
+      case TOOL_NAMES.GET_ALL_WEATHER: {
+        const forecasts = await yr.getAllForecasts();
+        return { output: JSON.stringify(forecasts) };
+      }
+      case TOOL_NAMES.CREATE_THREAD: {
+        if (message.channel.isThread()) {
+          return {
+            output: JSON.stringify({
+              error: 'Cannot create a thread inside an existing thread',
+            }),
+          };
+        }
+
+        try {
+          const threadName = (args.name as string | null) ?? undefined;
+          const thread = await createThread(message, threadName);
+          if (thread) {
+            return {
+              output: JSON.stringify({
+                threadId: thread.id,
+                name: thread.name,
+              }),
+              createdThread: thread,
+            };
+          }
+          return {
+            output: JSON.stringify({ error: 'Failed to create thread' }),
+          };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.GENERATE_IMAGE: {
+        try {
+          const imagePrompt = args.prompt as string;
+          const base64Image = await openai.createImage(imagePrompt);
+          if (base64Image) {
+            return {
+              output: JSON.stringify({
+                status: 'ok',
+                note: 'Image generated and attached to the reply.',
+              }),
+              base64Image,
+            };
+          }
+          return {
+            output: JSON.stringify({
+              error: 'Image generation returned no data',
+            }),
+          };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.SEND_SMS: {
+        if (!clickatell.isConfigured) {
+          return {
+            output: JSON.stringify({
+              error:
+                'SMS sending is not configured (CLICKATELL_API_KEY missing)',
+            }),
+          };
+        }
+
+        try {
+          const recipientId = args.discord_user_id as string;
+          const content = args.content as string;
+          const phoneNumber = memory.getPhoneNumberFor(recipientId);
+          if (!phoneNumber) {
+            return {
+              output: JSON.stringify({
+                error: `User ${recipientId} has not registered a phone number.`,
+              }),
+            };
+          }
+          const result = await clickatell.sendSms(phoneNumber, content);
+          return {
+            output: JSON.stringify({
+              status: 'ok',
+              httpStatus: result.status,
+              response: result.body,
+            }),
+          };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.REMEMBER: {
+        try {
+          const content = args.content as string;
+          const { id } = memory.remember(message.author.id, content);
+          return {
+            output: JSON.stringify({ status: 'ok', memory_id: id }),
+          };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.RECALL: {
+        try {
+          const subjectId = args.discord_user_id as string;
+          const limit = typeof args.limit === 'number' ? args.limit : undefined;
+          const rows = memory.recall(subjectId, limit);
+          return { output: JSON.stringify({ memories: rows }) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.FORGET_MEMORY: {
+        try {
+          const memoryId = Number(args.memory_id);
+          const result = memory.forgetMemory(memoryId, message.author.id);
+          return { output: JSON.stringify(result) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.QUERY_MEMORY: {
+        try {
+          const sql = args.sql as string;
+          const rows = memory.querySelect(sql);
+          return { output: JSON.stringify({ rows }) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.REGISTER_PHONE_NUMBER: {
+        try {
+          const phoneNumber = args.phone_number as string;
+          const result = memory.registerPhoneNumber(
+            message.author.id,
+            phoneNumber,
+          );
+          return {
+            output: JSON.stringify({
+              status: 'ok',
+              phone_number: result.phoneNumber,
+            }),
+          };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.FORGET_PHONE_NUMBER: {
+        try {
+          const result = memory.forgetPhoneNumber(message.author.id);
+          return { output: JSON.stringify(result) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.GET_GUILD_EVENTS: {
+        const startDate = args.start_date
+          ? new Date(args.start_date as string)
+          : new Date();
+        startDate.setHours(0, 0, 0, 0);
+
+        const endDate = args.end_date
+          ? new Date(args.end_date as string)
+          : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        endDate.setHours(23, 59, 59, 999);
+
+        const events = await discord.getGuildEventsBetween(startDate, endDate);
+        return { output: JSON.stringify(events) };
+      }
+      default:
+        return {
+          output: JSON.stringify({ error: `Unknown tool: ${name}` }),
+        };
+    }
+  };
+}

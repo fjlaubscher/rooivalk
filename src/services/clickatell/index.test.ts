@@ -21,7 +21,7 @@ describe('ClickatellService', () => {
       text: async () => 'accepted',
     } as Response);
 
-    const service = new ClickatellService('test-key', '27821234567');
+    const service = new ClickatellService('test-key');
     const result = await service.sendSms('27821234567', 'hello world');
 
     expect(result.ok).toBe(true);
@@ -45,7 +45,7 @@ describe('ClickatellService', () => {
       text: async () => 'accepted',
     } as Response);
 
-    const service = new ClickatellService('test-key', '27821234567');
+    const service = new ClickatellService('test-key');
     await service.sendSms(' +27 82 123 4567 ', 'hi');
 
     const calledUrl = new URL(fetchSpy.mock.calls[0]![0] as string);
@@ -53,7 +53,7 @@ describe('ClickatellService', () => {
   });
 
   it('throws when API key is missing', async () => {
-    const service = new ClickatellService(undefined, '27821234567');
+    const service = new ClickatellService(undefined);
     await expect(service.sendSms('27821234567', 'hi')).rejects.toThrow(
       /CLICKATELL_API_KEY/,
     );
@@ -61,7 +61,7 @@ describe('ClickatellService', () => {
   });
 
   it('throws on invalid recipient', async () => {
-    const service = new ClickatellService('test-key', '27821234567');
+    const service = new ClickatellService('test-key');
     await expect(service.sendSms('not-a-number', 'hi')).rejects.toThrow(
       /Invalid recipient/,
     );
@@ -69,7 +69,7 @@ describe('ClickatellService', () => {
   });
 
   it('throws on empty content', async () => {
-    const service = new ClickatellService('test-key', '27821234567');
+    const service = new ClickatellService('test-key');
     await expect(service.sendSms('27821234567', '   ')).rejects.toThrow(
       /content cannot be empty/,
     );
@@ -84,46 +84,10 @@ describe('ClickatellService', () => {
       text: async () => 'bad key',
     } as Response);
 
-    const service = new ClickatellService('test-key', '27821234567');
+    const service = new ClickatellService('test-key');
     await expect(service.sendSms('27821234567', 'hi')).rejects.toThrow(
       /Clickatell send failed: 401/,
     );
-  });
-
-  it('throws when allowlist is empty', async () => {
-    const service = new ClickatellService('test-key', undefined);
-    await expect(service.sendSms('27821234567', 'hi')).rejects.toThrow(
-      /CLICKATELL_ALLOWED_NUMBERS is not configured/,
-    );
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it('throws when recipient is not on the allowlist', async () => {
-    const service = new ClickatellService(
-      'test-key',
-      '27820000001,27820000002',
-    );
-    await expect(service.sendSms('27821234567', 'hi')).rejects.toThrow(
-      /not on the CLICKATELL_ALLOWED_NUMBERS allowlist/,
-    );
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it('parses allowlist with leading + and whitespace', async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: async () => 'accepted',
-    } as Response);
-
-    const service = new ClickatellService(
-      'test-key',
-      ' +27 82 123 4567 , +27820000002 ',
-    );
-    expect(service.allowedNumbers).toEqual(['27821234567', '27820000002']);
-    await service.sendSms('27821234567', 'hi');
-    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it('isConfigured reflects whether an API key is set', () => {

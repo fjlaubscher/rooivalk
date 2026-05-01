@@ -23,7 +23,8 @@ The `URL`/`URLSearchParams` API handles encoding — do not hand-roll query stri
 ## Configuration
 
 - `CLICKATELL_API_KEY` — required for the tool to function. If unset, `isConfigured` returns `false` and the executor reports a friendly error rather than calling out.
-- `CLICKATELL_ALLOWED_NUMBERS` — required allowlist. Comma-separated international numbers (digits only; leading `+` and whitespace/dashes are stripped on parse). If empty/unset, `sendSms` refuses to send. Recipients not on the list are rejected before the HTTP call.
+
+Recipient allowlisting is owned by `MemoryService` (the SQLite `phone_numbers` table). `RooivalkService` resolves the recipient's phone number by Discord user ID before calling `sendSms`; users self-register via the `register_phone_number` tool.
 
 ## Common Tasks
 

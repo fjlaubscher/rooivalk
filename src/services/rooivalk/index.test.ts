@@ -393,7 +393,7 @@ describe('Rooivalk', () => {
 
         mockOpenAIClient.createImage.mockResolvedValue('BASE64DATA');
 
-        const executor = (rooivalk as any).buildToolExecutor(message);
+        const executor = (rooivalk as any).createToolExecutor(message);
         const result = await executor('generate_image', {
           prompt: 'a fluffy cat',
         });
@@ -413,7 +413,7 @@ describe('Rooivalk', () => {
 
         mockOpenAIClient.createImage.mockResolvedValue(null);
 
-        const executor = (rooivalk as any).buildToolExecutor(message);
+        const executor = (rooivalk as any).createToolExecutor(message);
         const result = await executor('generate_image', { prompt: 'a bird' });
 
         expect(result.base64Image).toBeUndefined();
@@ -428,7 +428,7 @@ describe('Rooivalk', () => {
 
         mockOpenAIClient.createImage.mockRejectedValue(new Error('blocked'));
 
-        const executor = (rooivalk as any).buildToolExecutor(message);
+        const executor = (rooivalk as any).createToolExecutor(message);
         const result = await executor('generate_image', { prompt: 'a dog' });
 
         expect(result.base64Image).toBeUndefined();

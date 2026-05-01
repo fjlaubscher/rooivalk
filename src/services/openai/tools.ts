@@ -60,22 +60,131 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.SEND_SMS,
     description:
-      'Send an SMS via Clickatell. Use only when the user explicitly asks you to send an SMS or text message. Confirm the recipient number and message content before calling.',
+      'Send an SMS to a Discord user who has registered their phone number. Pass the recipient as their Discord user ID (the snowflake inside <@...> mentions). Refuses if the user has not registered a number.',
     strict: true,
     parameters: {
       type: 'object',
       properties: {
-        to: {
+        discord_user_id: {
           type: 'string',
           description:
-            'Recipient phone number in international format, digits only (e.g. "27821234567"). No leading +, spaces, or dashes.',
+            'Discord user ID (snowflake) of the recipient. Extract from <@123...> mentions in the prompt.',
         },
         content: {
           type: 'string',
           description: 'The SMS message body. Keep it concise.',
         },
       },
-      required: ['to', 'content'],
+      required: ['discord_user_id', 'content'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.REMEMBER,
+    description:
+      'Store a memory about the user who is currently talking to you. Use sparingly — only for durably useful facts (preferences, context, things they explicitly asked you to remember). Do NOT store conversational fluff.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The fact or note to remember. One short sentence.',
+        },
+      },
+      required: ['content'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.RECALL,
+    description:
+      'Look up recent memories about a Discord user. Returns up to `limit` rows ordered most recent first.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        discord_user_id: {
+          type: 'string',
+          description:
+            'Discord user ID (snowflake) whose memories to retrieve. Extract from <@123...> mentions.',
+        },
+        limit: {
+          type: ['number', 'null'],
+          description: 'Max rows to return (1-100). Null = default of 10.',
+        },
+      },
+      required: ['discord_user_id', 'limit'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.FORGET_MEMORY,
+    description:
+      'Delete a specific memory by id. Only the user the memory is about can delete it. Use when the speaker explicitly asks you to forget something — call `recall` first to find the id.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        memory_id: {
+          type: 'number',
+          description: 'The id of the memory row to delete.',
+        },
+      },
+      required: ['memory_id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.QUERY_MEMORY,
+    description:
+      'Run a read-only SQL SELECT against the bot memory database. Tables: `memories(id, discord_user_id, content, created_at)` and `phone_numbers(discord_user_id, phone_number, registered_at)`. Only SELECT and WITH ... SELECT are allowed; multi-statement SQL is rejected.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        sql: {
+          type: 'string',
+          description: 'A single SQL SELECT statement.',
+        },
+      },
+      required: ['sql'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.REGISTER_PHONE_NUMBER,
+    description:
+      "Register the speaker's own phone number so they can receive SMS. Always registers for the user currently talking to you — they cannot register a number for someone else. Use only when the user explicitly asks.",
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        phone_number: {
+          type: 'string',
+          description:
+            'Phone number in international format. Digits only is best, but leading + and whitespace are tolerated.',
+        },
+      },
+      required: ['phone_number'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.FORGET_PHONE_NUMBER,
+    description:
+      "Delete the speaker's registered phone number. Use when the user explicitly asks to be removed from SMS.",
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
       additionalProperties: false,
     },
   },
