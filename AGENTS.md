@@ -44,6 +44,8 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 - **Format Check**: `pnpm prettier:check` - Checks code formatting
 - **Format Fix**: `pnpm format` - Auto-formats code
 
+**Before committing**, always run `pnpm format` followed by `pnpm test`. CI enforces both `prettier:check` and the test suite — commits that skip formatting will fail the pipeline.
+
 ## Entry Point
 
 - `src/index.ts` bootstraps the application, loads environment variables, instantiates services, and starts the Discord client.

@@ -226,9 +226,23 @@ describe('OpenAIService', () => {
         output: [],
       });
 
-      await service.createResponse('test user', 'hi', [], null, null, undefined, [
-        { id: 1, discord_user_id: 'u', content: 'call me Francois', kind: 'preference', created_at: 0 },
-      ]);
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        [
+          {
+            id: 1,
+            discord_user_id: 'u',
+            content: 'call me Francois',
+            kind: 'preference',
+            created_at: 0,
+          },
+        ],
+      );
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
       expect(callArgs.instructions).toContain('[Speaker preferences]');
@@ -241,7 +255,15 @@ describe('OpenAIService', () => {
         output: [],
       });
 
-      await service.createResponse('test user', 'hi', [], null, null, undefined, null);
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        null,
+      );
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
       expect(callArgs.instructions).not.toContain('[Speaker preferences]');
@@ -253,7 +275,15 @@ describe('OpenAIService', () => {
         output: [],
       });
 
-      await service.createResponse('test user', 'hi', [], null, null, undefined, []);
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        [],
+      );
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
       expect(callArgs.instructions).not.toContain('[Speaker preferences]');

@@ -115,7 +115,11 @@ describe('MemoryService', () => {
     });
 
     it('forgetMemory deletes preference rows', () => {
-      const { id } = memory.remember('user-1', 'call me Francois', 'preference');
+      const { id } = memory.remember(
+        'user-1',
+        'call me Francois',
+        'preference',
+      );
       const result = memory.forgetMemory(id, 'user-1');
       expect(result.deleted).toBe(true);
       expect(memory.getPreferences('user-1')).toHaveLength(0);

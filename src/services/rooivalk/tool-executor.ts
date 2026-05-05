@@ -133,7 +133,8 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
       case TOOL_NAMES.REMEMBER: {
         try {
           const content = args.content as string;
-          const kind: MemoryKind = args.kind === 'preference' ? 'preference' : 'memory';
+          const kind: MemoryKind =
+            args.kind === 'preference' ? 'preference' : 'memory';
           const { id } = memory.remember(message.author.id, content, kind);
           return {
             output: JSON.stringify({ status: 'ok', memory_id: id }),

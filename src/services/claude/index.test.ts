@@ -321,10 +321,30 @@ describe('ClaudeService', () => {
         content: [{ type: 'text', text: 'ok' }],
       });
 
-      await service.createResponse('test user', 'hi', [], null, null, undefined, [
-        { id: 1, discord_user_id: 'u', content: 'call me Francois', kind: 'preference', created_at: 0 },
-        { id: 2, discord_user_id: 'u', content: 'reply in Afrikaans', kind: 'preference', created_at: 1 },
-      ]);
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        [
+          {
+            id: 1,
+            discord_user_id: 'u',
+            content: 'call me Francois',
+            kind: 'preference',
+            created_at: 0,
+          },
+          {
+            id: 2,
+            discord_user_id: 'u',
+            content: 'reply in Afrikaans',
+            kind: 'preference',
+            created_at: 1,
+          },
+        ],
+      );
 
       const callArgs = messagesCreateMock.mock.calls[0]![0];
       expect(callArgs.system).toHaveLength(2);
@@ -340,7 +360,15 @@ describe('ClaudeService', () => {
         content: [{ type: 'text', text: 'ok' }],
       });
 
-      await service.createResponse('test user', 'hi', [], null, null, undefined, null);
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        null,
+      );
 
       const callArgs = messagesCreateMock.mock.calls[0]![0];
       expect(callArgs.system).toHaveLength(1);
@@ -352,7 +380,15 @@ describe('ClaudeService', () => {
         content: [{ type: 'text', text: 'ok' }],
       });
 
-      await service.createResponse('test user', 'hi', [], null, null, undefined, []);
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        [],
+      );
 
       const callArgs = messagesCreateMock.mock.calls[0]![0];
       expect(callArgs.system).toHaveLength(1);
