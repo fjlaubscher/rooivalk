@@ -4,6 +4,7 @@ import { TOOL_NAMES } from '../chat/tool-names.ts';
 import type ClickatellService from '../clickatell/index.ts';
 import type DiscordService from '../discord/index.ts';
 import type MemoryService from '../memory/index.ts';
+import type { MemoryKind } from '../memory/index.ts';
 import type OpenAIService from '../openai/index.ts';
 import type YrService from '../yr/index.ts';
 import type { ToolExecutionResult } from '../../types.ts';
@@ -132,7 +133,8 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
       case TOOL_NAMES.REMEMBER: {
         try {
           const content = args.content as string;
-          const { id } = memory.remember(message.author.id, content);
+          const kind: MemoryKind = args.kind === 'preference' ? 'preference' : 'memory';
+          const { id } = memory.remember(message.author.id, content, kind);
           return {
             output: JSON.stringify({ status: 'ok', memory_id: id }),
           };

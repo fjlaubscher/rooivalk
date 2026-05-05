@@ -4,10 +4,13 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { SCHEMA_SQL } from './schema.ts';
 
+export type MemoryKind = 'memory' | 'preference';
+
 export type MemoryRow = {
   id: number;
   discord_user_id: string;
   content: string;
+  kind: MemoryKind;
   created_at: number;
 };
 
@@ -18,6 +21,8 @@ export type PhoneNumberRow = {
 };
 
 export const PHONE_NUMBER_PATTERN = /^\d{6,15}$/;
+
+const MAX_PREFERENCES = 5;
 
 export function normalizePhoneNumber(input: string): string {
   return input.trim().replace(/^\+/, '').replace(/[\s-]/g, '');
@@ -41,17 +46,31 @@ class MemoryService {
   public remember(
     discordUserId: string,
     content: string,
+    kind: MemoryKind = 'memory',
   ): { id: number; createdAt: number } {
     const trimmed = content?.trim();
     if (!trimmed) {
       throw new Error('Memory content cannot be empty');
     }
 
+    if (kind === 'preference') {
+      const row = this._readDb
+        .prepare(
+          'SELECT COUNT(*) as count FROM memories WHERE discord_user_id = ? AND kind = ?',
+        )
+        .get(discordUserId, 'preference') as { count: number };
+      if (row.count >= MAX_PREFERENCES) {
+        throw new Error(
+          `Preference cap reached (${MAX_PREFERENCES}). Forget one first.`,
+        );
+      }
+    }
+
     const createdAt = Date.now();
     const stmt = this._writeDb.prepare(
-      'INSERT INTO memories (discord_user_id, content, created_at) VALUES (?, ?, ?)',
+      'INSERT INTO memories (discord_user_id, content, kind, created_at) VALUES (?, ?, ?, ?)',
     );
-    const result = stmt.run(discordUserId, trimmed, createdAt);
+    const result = stmt.run(discordUserId, trimmed, kind, createdAt);
     return {
       id: Number(result.lastInsertRowid),
       createdAt,
@@ -61,9 +80,16 @@ class MemoryService {
   public recall(discordUserId: string, limit = 10): MemoryRow[] {
     const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
     const stmt = this._readDb.prepare(
-      'SELECT id, discord_user_id, content, created_at FROM memories WHERE discord_user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?',
+      'SELECT id, discord_user_id, content, kind, created_at FROM memories WHERE discord_user_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT ?',
     );
-    return stmt.all(discordUserId, safeLimit) as MemoryRow[];
+    return stmt.all(discordUserId, 'memory', safeLimit) as MemoryRow[];
+  }
+
+  public getPreferences(discordUserId: string): MemoryRow[] {
+    const stmt = this._readDb.prepare(
+      'SELECT id, discord_user_id, content, kind, created_at FROM memories WHERE discord_user_id = ? AND kind = ? ORDER BY created_at DESC, id DESC',
+    );
+    return stmt.all(discordUserId, 'preference') as MemoryRow[];
   }
 
   public forgetMemory(

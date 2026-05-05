@@ -38,6 +38,46 @@ describe('MemoryService', () => {
       expect(rows[0]!.discord_user_id).toBe('user-1');
     });
 
+    it('defaults kind to memory when omitted', () => {
+      memory.remember('user-1', 'loves Tabasco');
+      const rows = memory.recall('user-1');
+      expect(rows[0]!.kind).toBe('memory');
+    });
+
+    it('stores a preference row when kind is preference', () => {
+      memory.remember('user-1', 'call me Francois', 'preference');
+      const prefs = memory.getPreferences('user-1');
+      expect(prefs).toHaveLength(1);
+      expect(prefs[0]!.kind).toBe('preference');
+      expect(prefs[0]!.content).toBe('call me Francois');
+    });
+
+    it('recall only returns memory rows even when preferences exist', () => {
+      memory.remember('user-1', 'a fact', 'memory');
+      memory.remember('user-1', 'a pref', 'preference');
+      const recalled = memory.recall('user-1');
+      expect(recalled).toHaveLength(1);
+      expect(recalled[0]!.content).toBe('a fact');
+    });
+
+    it('getPreferences only returns preference rows, scoped to user', () => {
+      memory.remember('user-1', 'u1 pref', 'preference');
+      memory.remember('user-2', 'u2 pref', 'preference');
+      memory.remember('user-1', 'u1 fact', 'memory');
+      const prefs = memory.getPreferences('user-1');
+      expect(prefs).toHaveLength(1);
+      expect(prefs[0]!.content).toBe('u1 pref');
+    });
+
+    it('allows up to 5 preferences and rejects the 6th', () => {
+      for (let i = 0; i < 5; i++) {
+        memory.remember('user-1', `pref ${i}`, 'preference');
+      }
+      expect(() =>
+        memory.remember('user-1', 'one too many', 'preference'),
+      ).toThrow(/Preference cap reached \(5\)/);
+    });
+
     it('recall is scoped to a single user', () => {
       memory.remember('user-1', 'a');
       memory.remember('user-2', 'b');
@@ -74,6 +114,13 @@ describe('MemoryService', () => {
       expect(memory.recall('user-1')).toHaveLength(0);
     });
 
+    it('forgetMemory deletes preference rows', () => {
+      const { id } = memory.remember('user-1', 'call me Francois', 'preference');
+      const result = memory.forgetMemory(id, 'user-1');
+      expect(result.deleted).toBe(true);
+      expect(memory.getPreferences('user-1')).toHaveLength(0);
+    });
+
     it('forgetMemory refuses cross-user deletes', () => {
       const { id } = memory.remember('user-1', 'secret');
       const result = memory.forgetMemory(id, 'user-2');
@@ -95,7 +142,7 @@ describe('MemoryService', () => {
         memory as unknown as { _readDb: { exec: (sql: string) => void } }
       )._readDb;
       expect(() =>
-        readDb.exec("INSERT INTO memories VALUES (1, 'x', 'y', 0)"),
+        readDb.exec("INSERT INTO memories VALUES (1, 'x', 'y', 'memory', 0)"),
       ).toThrow();
     });
   });

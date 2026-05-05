@@ -149,6 +149,7 @@ describe('Rooivalk', () => {
           mockHistory,
           null,
           expect.any(Function),
+          expect.any(Array),
         );
       });
     });
@@ -185,6 +186,7 @@ describe('Rooivalk', () => {
           },
         ],
         expect.any(Function),
+        expect.any(Array),
       );
     });
 
@@ -270,8 +272,42 @@ describe('Rooivalk', () => {
           null,
           null,
           expect.any(Function),
+          expect.any(Array),
         );
       });
+    });
+
+    it('fetches preferences for the author and passes them to createResponse', async () => {
+      const mockGetPreferences = vi.fn().mockReturnValue([
+        { id: 1, discord_user_id: 'mock-user-id', content: 'call me Francois', kind: 'preference', created_at: 0 },
+      ]);
+      const mockMemory = { getPreferences: mockGetPreferences } as any;
+
+      const rooivalkWithMemory = new Rooivalk(
+        MOCK_CONFIG,
+        mockDiscordService,
+        mockChatClient,
+        mockOpenAIClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        mockMemory,
+      );
+
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> Hi!`,
+      } as Partial<Message<boolean>>);
+      mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
+
+      await (rooivalkWithMemory as any).processMessage(userMessage);
+
+      expect(mockGetPreferences).toHaveBeenCalledWith(userMessage.author.id);
+      const callArgs = mockChatClient.createResponse.mock.calls[0]!;
+      expect(callArgs[6]).toEqual([
+        { id: 1, discord_user_id: 'mock-user-id', content: 'call me Francois', kind: 'preference', created_at: 0 },
+      ]);
     });
 
     describe('and OpenAI returns null', () => {
@@ -1325,6 +1361,7 @@ describe('Rooivalk', () => {
           mockThreadHistory,
           null,
           expect.any(Function),
+          expect.any(Array),
         );
       });
 
@@ -1387,6 +1424,7 @@ describe('Rooivalk', () => {
           mockChainHistory,
           null,
           expect.any(Function),
+          expect.any(Array),
         );
       });
 

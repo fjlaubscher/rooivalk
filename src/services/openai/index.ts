@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 
+import type { MemoryRow } from '../memory/index.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
@@ -9,6 +10,10 @@ import type {
 } from '../../types.ts';
 import { IMAGE_ATTACHMENT_EXTENSIONS } from '../../constants.ts';
 import { FUNCTION_TOOLS } from './tools.ts';
+
+function renderPreferences(preferences: MemoryRow[]): string {
+  return `\n\n[Speaker preferences]\n${preferences.map((p) => `- ${p.content}`).join('\n')}`;
+}
 
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_TOOL_ITERATIONS = 5;
@@ -71,6 +76,7 @@ class OpenAIService {
     history: MessageInChain[] | null = null,
     attachments: AttachmentForPrompt[] | null = null,
     toolExecutor?: ToolExecutor,
+    preferences: MemoryRow[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
       let instructions =
@@ -82,6 +88,10 @@ class OpenAIService {
       // inject emojis if available
       if (emojis) {
         instructions = instructions.replace(/{{EMOJIS}}/, emojis.join('\n'));
+      }
+
+      if (preferences && preferences.length > 0) {
+        instructions += renderPreferences(preferences);
       }
 
       const inputContent: OpenAI.Responses.ResponseInputContent[] = [

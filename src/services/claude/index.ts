@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 
+import type { MemoryRow } from '../memory/index.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
@@ -9,6 +10,10 @@ import type {
 } from '../../types.ts';
 import { IMAGE_ATTACHMENT_EXTENSIONS } from '../../constants.ts';
 import { FUNCTION_TOOLS } from './tools.ts';
+
+function renderPreferences(preferences: MemoryRow[]): string {
+  return `[Speaker preferences]\n${preferences.map((p) => `- ${p.content}`).join('\n')}`;
+}
 
 const MAX_HISTORY_MESSAGES = 40;
 const MAX_TOOL_ITERATIONS = 5;
@@ -60,6 +65,7 @@ class ClaudeService {
     history: MessageInChain[] | null = null,
     attachments: AttachmentForPrompt[] | null = null,
     toolExecutor?: ToolExecutor,
+    preferences: MemoryRow[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
       let instructions =
@@ -79,6 +85,10 @@ class ClaudeService {
           cache_control: { type: 'ephemeral' },
         },
       ];
+
+      if (preferences && preferences.length > 0) {
+        system.push({ type: 'text', text: renderPreferences(preferences) });
+      }
 
       const inputContent: UserContentBlock[] = [
         {
