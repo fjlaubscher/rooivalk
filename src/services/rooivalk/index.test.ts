@@ -278,17 +278,15 @@ describe('Rooivalk', () => {
     });
 
     it('fetches preferences for the author and passes them to createResponse', async () => {
-      const mockGetPreferences = vi
-        .fn()
-        .mockReturnValue([
-          {
-            id: 1,
-            discord_user_id: 'mock-user-id',
-            content: 'call me Francois',
-            kind: 'preference',
-            created_at: 0,
-          },
-        ]);
+      const mockGetPreferences = vi.fn().mockReturnValue([
+        {
+          id: 1,
+          discord_user_id: 'mock-user-id',
+          content: 'call me Francois',
+          kind: 'preference',
+          created_at: 0,
+        },
+      ]);
       const mockMemory = { getPreferences: mockGetPreferences } as any;
 
       const rooivalkWithMemory = new Rooivalk(
