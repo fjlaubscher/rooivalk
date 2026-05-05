@@ -53,20 +53,37 @@ class MemoryService {
       throw new Error('Memory content cannot be empty');
     }
 
+    const createdAt = Date.now();
+
     if (kind === 'preference') {
-      const row = this._readDb
-        .prepare(
-          'SELECT COUNT(*) as count FROM memories WHERE discord_user_id = ? AND kind = ?',
-        )
-        .get(discordUserId, 'preference') as { count: number };
-      if (row.count >= MAX_PREFERENCES) {
-        throw new Error(
-          `Preference cap reached (${MAX_PREFERENCES}). Forget one first.`,
-        );
+      this._writeDb.exec('BEGIN IMMEDIATE');
+      let committed = false;
+      try {
+        const row = this._writeDb
+          .prepare(
+            'SELECT COUNT(*) as count FROM memories WHERE discord_user_id = ? AND kind = ?',
+          )
+          .get(discordUserId, 'preference') as { count: number };
+        if (row.count >= MAX_PREFERENCES) {
+          throw new Error(
+            `Preference cap reached (${MAX_PREFERENCES}). Forget one first.`,
+          );
+        }
+        const result = this._writeDb
+          .prepare(
+            'INSERT INTO memories (discord_user_id, content, kind, created_at) VALUES (?, ?, ?, ?)',
+          )
+          .run(discordUserId, trimmed, kind, createdAt);
+        this._writeDb.exec('COMMIT');
+        committed = true;
+        return { id: Number(result.lastInsertRowid), createdAt };
+      } finally {
+        if (!committed) {
+          this._writeDb.exec('ROLLBACK');
+        }
       }
     }
 
-    const createdAt = Date.now();
     const stmt = this._writeDb.prepare(
       'INSERT INTO memories (discord_user_id, content, kind, created_at) VALUES (?, ?, ?, ?)',
     );

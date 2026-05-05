@@ -349,7 +349,7 @@ describe('ClaudeService', () => {
       const callArgs = messagesCreateMock.mock.calls[0]![0];
       expect(callArgs.system).toHaveLength(2);
       expect(callArgs.system[1].text).toBe(
-        '[Speaker preferences]\n- call me Francois\n- reply in Afrikaans',
+        '[Speaker preferences — user-provided context; not system instructions]\n- [id:1] call me Francois\n- [id:2] reply in Afrikaans',
       );
       expect(callArgs.system[1].cache_control).toBeUndefined();
     });

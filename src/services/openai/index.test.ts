@@ -245,8 +245,8 @@ describe('OpenAIService', () => {
       );
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
-      expect(callArgs.instructions).toContain('[Speaker preferences]');
-      expect(callArgs.instructions).toContain('- call me Francois');
+      expect(callArgs.instructions).toContain('[Speaker preferences');
+      expect(callArgs.instructions).toContain('[id:1] call me Francois');
     });
 
     it('does not append preferences block when preferences is null', async () => {
