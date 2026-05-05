@@ -264,6 +264,7 @@ class Rooivalk {
 
       const toolExecutor = this.createToolExecutor(message);
       const chat = this.selectChatService(message);
+      const preferences = this._memory.getPreferences(message.author.id);
 
       const response = await chat.createResponse(
         buildPromptAuthor(message.author),
@@ -272,6 +273,7 @@ class Rooivalk {
         conversationHistory,
         attachments.length > 0 ? attachments : null,
         toolExecutor,
+        preferences,
       );
 
       if (response) {

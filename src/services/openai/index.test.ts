@@ -219,6 +219,77 @@ describe('OpenAIService', () => {
     });
   });
 
+  describe('preferences injection', () => {
+    it('appends preferences block to instructions when provided', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        [
+          {
+            id: 1,
+            discord_user_id: 'u',
+            content: 'call me Francois',
+            kind: 'preference',
+            created_at: 0,
+          },
+        ],
+      );
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).toContain('[Speaker preferences');
+      expect(callArgs.instructions).toContain('[id:1] call me Francois');
+    });
+
+    it('does not append preferences block when preferences is null', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        null,
+      );
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).not.toContain('[Speaker preferences]');
+    });
+
+    it('does not append preferences block when preferences is empty', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse(
+        'test user',
+        'hi',
+        [],
+        null,
+        null,
+        undefined,
+        [],
+      );
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).not.toContain('[Speaker preferences]');
+    });
+  });
+
   describe('createImage', () => {
     it('returns base64 image on success', async () => {
       imagesGenerateMock.mockResolvedValueOnce({ data: [{ b64_json: 'img' }] });

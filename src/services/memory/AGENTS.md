@@ -13,8 +13,15 @@ The service holds two connections to the same DB file: a writable one for mutati
 
 `schema.ts` is the source of truth. `IF NOT EXISTS` makes constructor calls idempotent — no migration framework yet.
 
-- `memories(id, discord_user_id, content, created_at)` — index on `discord_user_id`.
+- `memories(id, discord_user_id, content, kind, created_at)` — composite index on `(discord_user_id, kind)`. `kind` is `'memory'` or `'preference'`, enforced by a CHECK constraint.
 - `phone_numbers(discord_user_id PK, phone_number, registered_at)` — one number per user, upsert via `ON CONFLICT`.
+
+## Memory kinds
+
+- `memory` — on-demand facts, events, one-off context. Returned by `recall`; never by `getPreferences`.
+- `preference` — stable traits injected into every turn via `getPreferences`. Hard cap of 5 per user, enforced on write. Never returned by `recall`.
+
+`forgetMemory` works on both kinds. The cap is intentionally tight — preferences should be reserved for things that belong in every single reply.
 
 ## Authority Model
 

@@ -1,5 +1,6 @@
 import ClaudeService from '../claude/index.ts';
 import OpenAIService from '../openai/index.ts';
+import type { MemoryRow } from '../memory/index.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
@@ -16,6 +17,7 @@ export interface ChatService {
     history?: MessageInChain[] | null,
     attachments?: AttachmentForPrompt[] | null,
     toolExecutor?: ToolExecutor,
+    preferences?: MemoryRow[] | null,
   ): Promise<OpenAIResponse>;
   generateThreadName(prompt: string): Promise<string>;
   reloadConfig(newConfig: InMemoryConfig): void;

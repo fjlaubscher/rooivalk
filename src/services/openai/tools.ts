@@ -92,8 +92,13 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
           type: 'string',
           description: 'The fact or note to remember. One short sentence.',
         },
+        kind: {
+          type: ['string', 'null'],
+          description:
+            '`memory` (default, or null) for facts, events, one-off context fetched via `recall`. `preference` for stable traits that shape every reply (name, tone, hard nos). Use `preference` sparingly — injected on every turn. Cap: 5.',
+        },
       },
-      required: ['content'],
+      required: ['content', 'kind'],
       additionalProperties: false,
     },
   },
@@ -101,7 +106,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.RECALL,
     description:
-      "Look up recent memories about the user currently talking to you. Always scoped to the speaker — you cannot recall another user's memories. Returns up to `limit` rows ordered most recent first.",
+      "Look up recent memories about the user currently talking to you. Always scoped to the speaker — you cannot recall another user's memories. Returns up to `limit` rows ordered most recent first. Only returns `memory` kind — preferences are already in context.",
     strict: true,
     parameters: {
       type: 'object',
@@ -119,7 +124,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.FORGET_MEMORY,
     description:
-      'Delete a specific memory by id. Only the user the memory is about can delete it. Use when the speaker explicitly asks you to forget something — call `recall` first to find the id.',
+      'Delete a specific memory by id. Works for both `memory` and `preference` kind. Only the user the memory is about can delete it. Use when the speaker explicitly asks you to forget something — call `recall` first to find the id for memories; preferences are visible in context.',
     strict: true,
     parameters: {
       type: 'object',
