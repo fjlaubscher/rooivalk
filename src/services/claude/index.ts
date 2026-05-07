@@ -293,6 +293,13 @@ class ClaudeService {
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
+      if (!outputText) {
+        console.warn('[ClaudeService] model returned empty text output', {
+          stop_reason: response.stop_reason,
+          block_types: response.content.map((b) => b.type),
+        });
+      }
+
       if (collectedImages.length > 0) {
         return {
           type: 'image_generation_call',

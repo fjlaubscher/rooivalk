@@ -135,6 +135,15 @@ class DiscordService {
         },
       };
     } else if (response.type === 'text' && !exceedsDiscordLimit) {
+      if (!response.content.trim()) {
+        console.warn('[DiscordService] buildMessageReply: empty text content, substituting fallback');
+        return {
+          content: '[no response generated]',
+          allowedMentions: {
+            users: allowedMentions,
+          },
+        };
+      }
       return {
         content: response.content,
         allowedMentions: {

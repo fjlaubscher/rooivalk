@@ -269,6 +269,12 @@ class OpenAIService {
         .map((output) => output.result ?? '')
         .filter(Boolean);
 
+      if (!response.output_text.trim()) {
+        console.warn('[OpenAIService] model returned empty output_text', {
+          output_types: response.output.map((o) => o.type),
+        });
+      }
+
       if (generatedImages.length > 0) {
         return {
           type: 'image_generation_call',
