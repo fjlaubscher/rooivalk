@@ -181,4 +181,20 @@ export const FUNCTION_TOOLS: Anthropic.Messages.Tool[] = [
       required: [],
     },
   },
+  {
+    name: TOOL_NAMES.RUN_BASH,
+    description:
+      'Run a read-only shell command on the server. Use to inspect source files, grep the codebase, or read PM2 logs when diagnosing issues. Sandboxed to the project directory — relative paths only for file commands.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        command: {
+          type: 'string',
+          description:
+            'The command to run. Allowed prefixes: ls, cat, grep, find, head, tail, wc (relative paths only), pm2 logs rooivalk, pm2 status, pm2 show rooivalk.',
+        },
+      },
+      required: ['command'],
+    },
+  },
 ];

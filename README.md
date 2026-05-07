@@ -2,14 +2,16 @@
 > Artwork by [Pieter Jordaan](https://www.thisisender.com/)
 
 # Rooivalk
-Rooivalk is a Discord bot that leverages OpenAI's API to generate responses when mentioned in a Discord server.<br/>
-It is written in TypeScript and designed for easy customization and extension.
+Rooivalk is a Discord bot powered by Anthropic Claude or OpenAI. It responds to mentions and replies, manages threaded conversations, and exposes a set of tools the model can invoke directly.
 
 ## Features
-- **AI-powered responses**: Integrates with OpenAI for chat completions and image generation using gpt-image-1
+- **AI-powered responses**: Supports Anthropic Claude and OpenAI as interchangeable chat providers; image generation always uses OpenAI gpt-image-1
 - **Smart conversation handling**: Responds to mentions, replies to bot messages, and automatically creates threads
 - **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity and initial context preservation
+- **Persistent memory**: Per-user memory and preference storage backed by SQLite; the model can remember, recall, and forget facts across conversations
 - **Weather integration**: Fetches weather data from Yr.no for enhanced contextual responses and daily MOTD
+- **SMS**: Sends SMS to registered users via Clickatell
+- **Shell inspection**: The model can read server logs and inspect its own source files via a sandboxed `run_bash` tool
 - **Scheduled tasks**: Configurable MOTD (Message of the Day) via cron jobs
 - **Hot-reloadable configuration**: Runtime configuration updates via `config/*.md` files
 - **Robust testing**: Comprehensive test suite with dedicated utilities for mocking Discord interactions and service dependencies
@@ -21,10 +23,12 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 ## Setup
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v22 or newer recommended)
-- [pnpm](https://pnpm.io/) (v10.x recommended)
+- [Node.js](https://nodejs.org/) (v22 or newer)
+- [pnpm](https://pnpm.io/) (v10.x)
 - A Discord bot token ([guide](https://discord.com/developers/applications))
 - An OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
+- An Anthropic API key ([guide](https://console.anthropic.com/)) — optional if using OpenAI as the chat provider
+
 ### Installation
 
 1. Clone the repository:
@@ -36,42 +40,48 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    ```sh
    pnpm install
    ```
-3. Create a `.env` file in the root directory with the following contents:
-   ```env
-   DISCORD_STARTUP_CHANNEL_ID=channelidforstartup
-   DISCORD_MOTD_CHANNEL_ID=channelidformotd
-   DISCORD_TOKEN=discord_app_token
-   DISCORD_GUILD_ID=discord_server_id
-   DISCORD_APP_ID=discord_app_id
-   DISCORD_ALLOWED_APPS=comma,separated,app,ids
-   OPENAI_API_KEY=openai_key
-   OPENAI_MODEL=gpt-4.1-mini-2025-04-14
-   OPENAI_IMAGE_MODEL=gpt-image-1
-   ROOIVALK_MOTD_CRON="0 8 * * *"
+3. Copy `.env.example` to `.env` and fill in your credentials:
+   ```sh
+   cp .env.example .env
    ```
-4. Start the bot (uses native TypeScript execution):
+   Key variables:
+   | Variable | Description |
+   |---|---|
+   | `DISCORD_TOKEN` | Discord bot token |
+   | `DISCORD_GUILD_ID` | Discord server ID |
+   | `DISCORD_APP_ID` | Discord application ID |
+   | `DISCORD_STARTUP_CHANNEL_ID` | Channel the bot announces startup in |
+   | `DISCORD_MOTD_CHANNEL_ID` | Channel for daily MOTD posts |
+   | `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` | Use Claude as the chat provider (takes priority if both are set) |
+   | `OPENAI_API_KEY` + `OPENAI_MODEL` | Use OpenAI as the chat provider |
+   | `OPENAI_IMAGE_MODEL` | Model used for image generation (always OpenAI) |
+   | `ROOIVALK_MOTD_CRON` | Cron expression for the MOTD job (e.g. `"0 8 * * *"`) |
+   | `ROOIVALK_DB_PATH` | Path to the SQLite database (default: `./data/rooivalk.db`) |
+   | `CLICKATELL_API_KEY` | Clickatell API key for SMS (optional) |
+
+4. Start the bot (uses native TypeScript execution — no build step):
    ```sh
    pnpm start
    ```
 
-### Detailed Project Structure
+### Project structure
 
-For a detailed breakdown of the project structure, please refer to [AGENTS.md](./AGENTS.md).
+For a full breakdown of the architecture and coding conventions, see [AGENTS.md](./AGENTS.md).
 
-### Customization
+### Services
 
-The bot uses a modular service-based architecture with helper utilities. Each service has its own AGENTS.md file with specific guidance:
+Each service has its own `AGENTS.md` with specific guidance:
 
+- **ClaudeService** (`src/services/claude/`): Anthropic Claude chat provider
+- **OpenAIService** (`src/services/openai/`): OpenAI chat provider and image generation
+- **RooivalkService** (`src/services/rooivalk/`): Core business logic, message processing, and tool dispatch
 - **DiscordService** (`src/services/discord/`): Discord API integration and thread management
-  - `helpers.ts`: Message parsing and formatting utilities
-- **OpenAIService** (`src/services/openai/`): OpenAI API integration for chat and image generation
-- **RooivalkService** (`src/services/rooivalk/`): Core business logic and message processing
-  - `helpers.ts`: Thread detection and reply handling utilities
-- **YrService** (`src/services/yr/`): Weather data integration from Yr.no
-- **CronService** (`src/services/cron/`): Scheduled tasks and background jobs
-- **Config System** (`src/config/`): Hot-reloadable configuration loading and watching
-
-See [AGENTS.md](./AGENTS.md) for comprehensive architecture and development guidelines.
+- **MemoryService** (`src/services/memory/`): SQLite-backed per-user memory and phone number registry
+- **BashService** (`src/services/bash/`): Sandboxed shell execution for log inspection and source reading
+- **YrService** (`src/services/yr/`): Weather data from Yr.no
+- **ClickatellService** (`src/services/clickatell/`): SMS via Clickatell HTTP API
+- **CronService** (`src/services/cron/`): Scheduled background jobs
+- **Config system** (`src/config/`): Hot-reloadable markdown configuration
 
 ### Prompt & Persona Tuning
 
@@ -79,23 +89,21 @@ See [AGENTS.md](./AGENTS.md) for comprehensive architecture and development guid
 - Available placeholders:
   - `{{CURRENT_DATE}}` – replaced with the current ISO date before sending prompts.
   - `{{EMOJIS}}` – populated with the server's allowed custom emojis (one per line).
-  - `{{CONVERSATION_HISTORY}}` – replaced with the most recent sortie log (or a fallback line when no history exists). History is automatically truncated to keep prompts lean.
-- Set `LOG_LEVEL=debug` to emit prompt-metric debug logs (instructions length, presence of history, attachment count) ahead of each OpenAI request.
+  - `{{CONVERSATION_HISTORY}}` – replaced with the most recent conversation history (or a fallback line when no history exists). History is automatically truncated to keep prompts lean.
+- Set `LOG_LEVEL=debug` to emit prompt-metric debug logs (instructions length, presence of history, attachment count) ahead of each request.
 
 ### Continuous Integration
 
-This project uses GitHub Actions to automatically run tests and deploy the bot. The workflows are located in `.github/workflows/`:
-- `test.yml`: Runs tests on every push and pull request to the `main` branch.
-- `deploy.yml`: Handles deployment tasks.
-
-No additional setup is required—tests and deployments will run automatically if you push changes or open a pull request.
+GitHub Actions workflows live in `.github/workflows/`:
+- `test.yml`: Runs on every push and pull request to `main` — Prettier check + full test suite.
+- `deploy.yml`: Deploys automatically after tests pass on `main` — rsyncs source to the server and restarts the PM2 process.
 
 ---
 
 ## Notes
 
-- The codebase is written in modern TypeScript, using strict mode and modular architecture.
-- All tests are written using [Vitest](https://vitest.dev/), with comprehensive test utilities in `src/test-utils/` for mocking Discord interactions, environment variables, and common configurations.
+- TypeScript strict mode with native execution via Node.js 22+ — no build step required.
+- All tests use [Vitest](https://vitest.dev/), with shared utilities in `src/test-utils/` for mocking Discord interactions, environment variables, and service dependencies.
 
 ## License
 MIT

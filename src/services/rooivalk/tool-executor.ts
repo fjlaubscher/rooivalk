@@ -1,5 +1,6 @@
 import type { Message, ThreadChannel } from 'discord.js';
 
+import { runBash } from '../bash/index.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 import type ClickatellService from '../clickatell/index.ts';
 import type DiscordService from '../discord/index.ts';
@@ -199,6 +200,13 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
 
         const events = await discord.getGuildEventsBetween(startDate, endDate);
         return { output: JSON.stringify(events) };
+      }
+      case TOOL_NAMES.RUN_BASH: {
+        const result = await runBash(args.command as string);
+        if (!result.ok) {
+          return { output: JSON.stringify({ error: result.error }) };
+        }
+        return { output: result.output };
       }
       default:
         return {
