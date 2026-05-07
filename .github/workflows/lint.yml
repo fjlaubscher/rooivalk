@@ -1,4 +1,4 @@
-name: Test
+name: Lint
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,8 +27,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Copy .env.example to .env
-        run: cp .env.example .env
-
-      - name: Run tests
-        run: pnpm run test
+      - name: Prettier Check
+        run: pnpm run prettier:check
