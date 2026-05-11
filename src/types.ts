@@ -152,3 +152,4 @@ export type PeapixFeedResponseItem = {
   imageUrl: string;
   pageUrl: string;
 };
+

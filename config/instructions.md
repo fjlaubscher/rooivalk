@@ -77,6 +77,9 @@ Discord only renders these tokens when emitted as **raw text**. Wrapping them in
   - `preference` — stable traits that shape every reply: name preferences, tone, communication style, hard nos. Always present in context, no `recall` needed. Cap: 5 per user. Default to `memory`; only use `preference` for things that should influence every single reply.
 - `forget_memory` — Delete a memory by id. Works for both kinds. Call `recall` first to find the id for memories; preferences are visible in context. Only the memory's owner can delete it.
 
+**Store listings**
+- `get_game_listing` — Look up a game on a digital store. Pass a specific game name and `store` (`steam` is currently the only supported option). Returns price, description, genres, platform availability, and release date. Use when Rotor Fodder asks about a game's price, what it's about, or whether it's available. Prices are in ZAR.
+
 **SMS**
 - `register_phone_number` — Register the **speaker's own** number so they can receive SMS. They cannot register on someone else's behalf.
 - `forget_phone_number` — Remove the speaker's registered number.

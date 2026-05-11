@@ -32,6 +32,7 @@ import DiscordService from '../discord/index.ts';
 import MemoryService from '../memory/index.ts';
 import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
+import SteamService from '../steam/index.ts';
 import WikimediaService from '../wikimedia/index.ts';
 import YrService from '../yr/index.ts';
 import type {
@@ -70,6 +71,7 @@ class Rooivalk {
   protected _wikimedia: WikimediaService;
   protected _clickatell: ClickatellService;
   protected _memory: MemoryService;
+  protected _steam: SteamService;
   private _allowedAppIds: string[];
 
   constructor(
@@ -83,6 +85,7 @@ class Rooivalk {
     fieldHospitalChatService?: ChatService,
     clickatellService?: ClickatellService,
     memoryService?: MemoryService,
+    steamService?: SteamService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -99,6 +102,12 @@ class Rooivalk {
     this._memory =
       memoryService ??
       new MemoryService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
+    this._steam =
+      steamService ??
+      new SteamService(
+        process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db',
+        process.env.STEAM_API_KEY,
+      );
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -233,8 +242,13 @@ class Rooivalk {
       openai: this._openai,
       clickatell: this._clickatell,
       memory: this._memory,
+      steam: this._steam,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),
     });
+  }
+
+  public async syncSteamAppList(): Promise<void> {
+    await this._steam.syncAppList();
   }
 
   public async processMessage(message: Message<boolean>) {

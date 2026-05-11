@@ -52,6 +52,10 @@ export const CONFIG_DIR = join(__dirname, '..', 'config');
 // Yr related constants
 export const YR_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 
+// Steam related constants
+export const STEAM_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
+export const STEAM_CC = 'ZA';
+
 export const YR_COORDINATES: Record<string, WeatherLocation> = {
   BONNIEVALE: {
     name: 'Bonnievale, South Africa',
