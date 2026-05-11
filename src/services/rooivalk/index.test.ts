@@ -484,6 +484,159 @@ describe('Rooivalk', () => {
         expect(parsed.error).toBe('blocked');
       });
     });
+
+    describe('get_game_listing tool executor', () => {
+      const mockSteamService = vi.mocked({
+        findGame: vi.fn(),
+        getGameDetails: vi.fn(),
+        syncAppList: vi.fn(),
+        close: vi.fn(),
+      } as any);
+
+      let rooivalkWithSteam: Rooivalk;
+
+      beforeEach(() => {
+        vi.clearAllMocks();
+        rooivalkWithSteam = new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          mockSteamService,
+        );
+      });
+
+      it('returns an error payload for unsupported stores', async () => {
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> price of X`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalkWithSteam as any).createToolExecutor(message);
+        const result = await executor('get_game_listing', {
+          query: 'X',
+          store: 'psn',
+        });
+
+        const parsed = JSON.parse(result.output);
+        expect(parsed.error).toContain('not yet supported');
+      });
+
+      it('returns an error payload when the game is not found', async () => {
+        mockSteamService.findGame.mockReturnValue(null);
+
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> price of Unknown Game`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalkWithSteam as any).createToolExecutor(message);
+        const result = await executor('get_game_listing', {
+          query: 'Unknown Game',
+          store: 'steam',
+        });
+
+        const parsed = JSON.parse(result.output);
+        expect(parsed.error).toContain('Game not found');
+      });
+
+      it('returns an error payload when getGameDetails returns null', async () => {
+        mockSteamService.findGame.mockReturnValue({
+          appid: 1245620,
+          name: 'Elden Ring',
+        });
+        mockSteamService.getGameDetails.mockResolvedValue(null);
+
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> info on Elden Ring`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalkWithSteam as any).createToolExecutor(message);
+        const result = await executor('get_game_listing', {
+          query: 'Elden Ring',
+          store: 'steam',
+        });
+
+        const parsed = JSON.parse(result.output);
+        expect(parsed.error).toContain('Could not retrieve game details');
+      });
+
+      it('returns serialised game details on success', async () => {
+        const details = {
+          appid: 1245620,
+          name: 'Elden Ring',
+          is_free: false,
+          short_description: 'An open world action RPG.',
+          developers: ['FromSoftware'],
+          publishers: ['Bandai Namco'],
+          price: {
+            currency: 'ZAR',
+            initial_formatted: 'R1,049',
+            final_formatted: 'R999',
+            discount_percent: 5,
+          },
+          genres: ['Action', 'RPG'],
+          categories: ['Single-player'],
+          release_date: '25 Feb, 2022',
+          header_image: 'https://cdn.steam.com/header.jpg',
+          platforms: { windows: true, mac: false, linux: false },
+          achievements_total: 42,
+          recommendations_total: 100000,
+          supported_languages: 'English',
+        };
+
+        mockSteamService.findGame.mockReturnValue({
+          appid: 1245620,
+          name: 'Elden Ring',
+        });
+        mockSteamService.getGameDetails.mockResolvedValue(details);
+
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> info on Elden Ring`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalkWithSteam as any).createToolExecutor(message);
+        const result = await executor('get_game_listing', {
+          query: 'Elden Ring',
+          store: 'steam',
+        });
+
+        const parsed = JSON.parse(result.output);
+        expect(parsed.appid).toBe(1245620);
+        expect(parsed.name).toBe('Elden Ring');
+        expect(parsed.price.currency).toBe('ZAR');
+        expect(parsed.genres).toEqual(['Action', 'RPG']);
+        expect(mockSteamService.findGame).toHaveBeenCalledWith('Elden Ring');
+        expect(mockSteamService.getGameDetails).toHaveBeenCalledWith(1245620);
+      });
+
+      it('returns an error payload when getGameDetails throws', async () => {
+        mockSteamService.findGame.mockReturnValue({
+          appid: 1,
+          name: 'Elden Ring',
+        });
+        mockSteamService.getGameDetails.mockRejectedValue(
+          new Error('Network error'),
+        );
+
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> price of Elden Ring`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalkWithSteam as any).createToolExecutor(message);
+        const result = await executor('get_game_listing', {
+          query: 'Elden Ring',
+          store: 'steam',
+        });
+
+        const parsed = JSON.parse(result.output);
+        expect(parsed.error).toBe('Network error');
+      });
+    });
   });
 
   describe('when sending a message to the startup channel', () => {

@@ -154,6 +154,10 @@ class SteamService {
       supported_languages: d.supported_languages ?? '',
     };
   }
+  public close(): void {
+    this._writeDb.close();
+    this._readDb.close();
+  }
 }
 
 export default SteamService;
