@@ -59,7 +59,7 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    | `ROOIVALK_MOTD_CRON` | Cron expression for the MOTD job (e.g. `"0 8 * * *"`) |
    | `ROOIVALK_DB_PATH` | Path to the SQLite database (default: `./data/rooivalk.db`) |
    | `CLICKATELL_API_KEY` | Clickatell API key for SMS (optional) |
-   | `STEAM_API_KEY` | Steam Web API key for nightly app list sync (optional — sync and `get_game_listing` tool still work without it until the first sync) |
+   | `STEAM_API_KEY` | Steam Web API key for nightly app list sync. Required to populate the local app catalogue; `get_game_listing` lookups depend on a previously-synced catalogue and will return "not found" until the first successful sync. |
 
 4. Start the bot (uses native TypeScript execution — no build step):
    ```sh

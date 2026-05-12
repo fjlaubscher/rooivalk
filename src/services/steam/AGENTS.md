@@ -15,7 +15,7 @@ SteamService fetches and caches Steam app data for use by the `get_game_listing`
 
 - Uses `DatabaseSync` from `node:sqlite` (Node.js built-in) — same pattern as `MemoryService`
 - Opens separate write and readOnly connections to the shared `ROOIVALK_DB_PATH` database
-- All raw API response types live in `types.ts`; the public return type `SteamGameDetails` lives in `src/types.ts`
+- All types (raw API response types and the public `SteamGameDetails` return type) live in `src/services/steam/types.ts`
 - `STEAM_API_KEY` is required for syncing (`GetAppList`); `appdetails` fetches require no key
 
 ## Sync Schedule
@@ -28,6 +28,6 @@ SteamService fetches and caches Steam app data for use by the `get_game_listing`
 | Task                       | File(s)                                                           | Notes                                                          |
 | -------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
 | Add a new store (e.g. PSN) | `tool-executor.ts`, `tool-names.ts`, both `tools.ts`              | Add a new service class; extend the `store` enum               |
-| Adjust returned fields     | `src/services/steam/index.ts` (`getGameDetails`) + `src/types.ts` | Keep `SteamGameDetails` minimal                                |
+| Adjust returned fields     | `src/services/steam/index.ts` (`getGameDetails`) + `src/services/steam/types.ts` | Keep `SteamGameDetails` minimal                                |
 | Change sync frequency      | `src/index.ts`                                                    | Modify the cron expression                                     |
 | Add price-change tracking  | `src/services/steam/index.ts`, `schema.ts`                        | `price_change_number` is already stored — compare on each sync |

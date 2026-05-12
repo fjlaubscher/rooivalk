@@ -11,7 +11,6 @@ import type {
 } from './types.ts';
 
 const META_LAST_SYNCED = 'last_synced';
-const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 class SteamService {
   private _writeDb: DatabaseSync;
@@ -74,17 +73,28 @@ class SteamService {
       const { apps, have_more_results, last_appid } = data.response;
 
       this._writeDb.exec('BEGIN');
-      for (const app of apps) {
-        upsert.run(
-          app.appid,
-          app.name,
-          app.last_modified ?? null,
-          app.price_change_number ?? null,
-        );
+      try {
+        for (const app of apps) {
+          upsert.run(
+            app.appid,
+            app.name,
+            app.last_modified ?? null,
+            app.price_change_number ?? null,
+          );
+        }
+        this._writeDb.exec('COMMIT');
+      } catch (err) {
+        this._writeDb.exec('ROLLBACK');
+        throw err;
       }
-      this._writeDb.exec('COMMIT');
 
       totalSynced += apps.length;
+
+      if (have_more_results && last_appid == null) {
+        throw new Error(
+          '[SteamService] have_more_results is true but last_appid is missing — aborting sync',
+        );
+      }
       lastAppId = have_more_results ? last_appid : undefined;
     } while (lastAppId !== undefined);
 
@@ -96,14 +106,15 @@ class SteamService {
   }
 
   public findGame(query: string): { appid: number; name: string } | null {
+    const escaped = query.replace(/[%_\\]/g, '\\$&');
     const row = this._readDb
       .prepare(
         `SELECT appid, name FROM steam_apps
-         WHERE name LIKE ?
+         WHERE name LIKE ? ESCAPE '\\'
          ORDER BY CASE WHEN LOWER(name) = LOWER(?) THEN 0 ELSE 1 END, name
          LIMIT 1`,
       )
-      .get(`%${query}%`, query) as { appid: number; name: string } | undefined;
+      .get(`%${escaped}%`, query) as { appid: number; name: string } | undefined;
 
     return row ?? null;
   }

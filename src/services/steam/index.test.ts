@@ -159,7 +159,7 @@ describe('SteamService', () => {
           success: true,
           data: {
             name: 'Counter-Strike 2',
-            steam_appid: 730,
+            steam_appid: appId,
             is_free: true,
             short_description: 'Free to play.',
             platforms: { windows: true, mac: false, linux: true },
