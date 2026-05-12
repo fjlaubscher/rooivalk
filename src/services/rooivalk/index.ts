@@ -518,6 +518,31 @@ class Rooivalk {
     }
   }
 
+  private async handleSyncSteamCommand(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    if (!process.env.STEAM_API_KEY) {
+      await interaction.reply({
+        content: '`STEAM_API_KEY` is not configured — sync is unavailable.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await interaction.deferReply();
+
+    try {
+      await this._steam.syncAppList();
+      await interaction.editReply({ content: 'Steam app list sync complete.' });
+    } catch (error) {
+      console.error('Error syncing Steam app list:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      await interaction.editReply({
+        content: `Steam sync failed.\n\n\`\`\`${message}\`\`\``,
+      });
+    }
+  }
+
   private async handleImageCommand(
     interaction: ChatInputCommandInteraction,
   ): Promise<void> {
@@ -698,6 +723,9 @@ class Rooivalk {
             break;
           case DISCORD_COMMANDS.WEATHER:
             await this.handleWeatherCommand(interaction);
+            break;
+          case DISCORD_COMMANDS.SYNC_STEAM:
+            await this.handleSyncSteamCommand(interaction);
             break;
           default:
             console.error(

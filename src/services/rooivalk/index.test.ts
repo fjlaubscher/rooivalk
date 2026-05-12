@@ -851,6 +851,93 @@ describe('Rooivalk', () => {
     });
   });
 
+  describe('when handling a sync-steam command', () => {
+    const mockSteamService = vi.mocked({
+      findGame: vi.fn(),
+      getGameDetails: vi.fn(),
+      syncAppList: vi.fn(),
+      close: vi.fn(),
+    } as any);
+
+    let rooivalkWithSteam: Rooivalk;
+
+    beforeEach(() => {
+      rooivalkWithSteam = new Rooivalk(
+        MOCK_CONFIG,
+        mockDiscordService,
+        mockChatClient,
+        mockOpenAIClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        mockSteamService,
+      );
+    });
+
+    it('replies ephemerally without calling sync when STEAM_API_KEY is not set', async () => {
+      const interaction = {
+        reply: vi.fn(),
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      await (rooivalkWithSteam as any).handleSyncSteamCommand(interaction);
+
+      expect(interaction.reply).toHaveBeenCalledWith({
+        content: expect.stringContaining('STEAM_API_KEY'),
+        ephemeral: true,
+      });
+      expect(interaction.deferReply).not.toHaveBeenCalled();
+      expect(mockSteamService.syncAppList).not.toHaveBeenCalled();
+    });
+
+    it('defers, calls syncAppList, and confirms completion when STEAM_API_KEY is set', async () => {
+      vi.stubGlobal('process', {
+        env: { ...MOCK_ENV, STEAM_API_KEY: 'test-steam-key' },
+      });
+      mockSteamService.syncAppList.mockResolvedValue(undefined);
+
+      const interaction = {
+        reply: vi.fn(),
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      await (rooivalkWithSteam as any).handleSyncSteamCommand(interaction);
+
+      expect(interaction.deferReply).toHaveBeenCalled();
+      expect(mockSteamService.syncAppList).toHaveBeenCalled();
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        content: 'Steam app list sync complete.',
+      });
+    });
+
+    it('replies with the error message when syncAppList throws', async () => {
+      vi.stubGlobal('process', {
+        env: { ...MOCK_ENV, STEAM_API_KEY: 'test-steam-key' },
+      });
+      mockSteamService.syncAppList.mockRejectedValue(new Error('API timeout'));
+
+      const interaction = {
+        reply: vi.fn(),
+        deferReply: vi.fn(),
+        editReply: vi.fn(),
+      } as unknown as ChatInputCommandInteraction;
+
+      await (rooivalkWithSteam as any).handleSyncSteamCommand(interaction);
+
+      expect(interaction.deferReply).toHaveBeenCalled();
+      expect(interaction.editReply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining('API timeout'),
+        }),
+      );
+    });
+  });
+
   describe('when sending a MOTD with weather image', () => {
     it('adds an image attachment when a feed image is available', async () => {
       const motdConfig = {
