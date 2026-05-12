@@ -12,4 +12,5 @@ export const TOOL_NAMES = Object.freeze({
   FORGET_PHONE_NUMBER: 'forget_phone_number',
   RUN_BASH: 'run_bash',
   GET_GAME_LISTING: 'get_game_listing',
+  GET_EMOJIS: 'get_emojis',
 });

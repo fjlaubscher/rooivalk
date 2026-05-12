@@ -254,6 +254,15 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           return errorOutput(err);
         }
       }
+      case TOOL_NAMES.GET_EMOJIS: {
+        const emojis = discord.allowedEmojis;
+        return {
+          output:
+            emojis.length > 0
+              ? emojis.join('\n')
+              : JSON.stringify({ note: 'No custom emojis available.' }),
+        };
+      }
       default:
         return {
           output: JSON.stringify({ error: `Unknown tool: ${name}` }),

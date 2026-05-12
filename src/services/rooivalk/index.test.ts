@@ -145,7 +145,6 @@ describe('Rooivalk', () => {
         expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hi!',
-          [],
           mockHistory,
           null,
           expect.any(Function),
@@ -175,7 +174,6 @@ describe('Rooivalk', () => {
       expect(mockChatClient.createResponse).toHaveBeenCalledWith(
         expectedAuthor,
         'Please review the attached notes',
-        [],
         null,
         [
           {
@@ -268,7 +266,6 @@ describe('Rooivalk', () => {
         expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hello bot!',
-          [],
           null,
           null,
           expect.any(Function),
@@ -311,7 +308,7 @@ describe('Rooivalk', () => {
 
       expect(mockGetPreferences).toHaveBeenCalledWith(userMessage.author.id);
       const callArgs = mockChatClient.createResponse.mock.calls[0]!;
-      expect(callArgs[6]).toEqual([
+      expect(callArgs[5]).toEqual([
         {
           id: 1,
           discord_user_id: 'mock-user-id',
@@ -430,6 +427,42 @@ describe('Rooivalk', () => {
 
         expect(mockChatClient.createResponse).toHaveBeenCalledTimes(1);
         expect(mockFieldHospitalChat.createResponse).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('get_emojis tool executor', () => {
+      it('returns the cached emoji list when emojis are available', async () => {
+        Object.defineProperty(mockDiscordService, 'allowedEmojis', {
+          get: () => [':foo: → <:foo:111>', ':bar: → <:bar:222>'],
+          configurable: true,
+        });
+
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> what emojis do we have`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalk as any).createToolExecutor(message);
+        const result = await executor('get_emojis', {});
+
+        expect(result.output).toContain(':foo: → <:foo:111>');
+        expect(result.output).toContain(':bar: → <:bar:222>');
+      });
+
+      it('returns a note when no emojis are cached', async () => {
+        Object.defineProperty(mockDiscordService, 'allowedEmojis', {
+          get: () => [],
+          configurable: true,
+        });
+
+        const message = createMockMessage({
+          content: `<@${BOT_ID}> emojis?`,
+        } as Partial<Message<boolean>>);
+
+        const executor = (rooivalk as any).createToolExecutor(message);
+        const result = await executor('get_emojis', {});
+
+        const parsed = JSON.parse(result.output);
+        expect(parsed.note).toContain('No custom emojis');
       });
     });
 
@@ -1609,7 +1642,6 @@ describe('Rooivalk', () => {
         expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hello in thread',
-          [],
           mockThreadHistory,
           null,
           expect.any(Function),
@@ -1672,7 +1704,6 @@ describe('Rooivalk', () => {
         expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hello outside thread',
-          [],
           mockChainHistory,
           null,
           expect.any(Function),

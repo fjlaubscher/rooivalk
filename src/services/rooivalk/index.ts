@@ -283,7 +283,6 @@ class Rooivalk {
       const response = await chat.createResponse(
         buildPromptAuthor(message.author),
         prompt,
-        this._discord.allowedEmojis,
         conversationHistory,
         attachments.length > 0 ? attachments : null,
         toolExecutor,
@@ -349,12 +348,7 @@ class Rooivalk {
     motd = motd.replace(/{{EVENTS_JSON}}/, JSON.stringify(events || []));
 
     try {
-      const response = await this._chat.createResponse(
-        'rooivalk',
-        motd,
-        this._discord.allowedEmojis,
-        undefined,
-      );
+      const response = await this._chat.createResponse('rooivalk', motd);
 
       const rawMotdContent = response.content?.trim();
       if (!rawMotdContent) {
@@ -496,12 +490,7 @@ class Rooivalk {
     }
 
     try {
-      const response = await this._chat.createResponse(
-        'rooivalk',
-        prompt,
-        this._discord.allowedEmojis,
-        undefined,
-      );
+      const response = await this._chat.createResponse('rooivalk', prompt);
 
       const channel = await this._discord.client.channels.fetch(channelId);
       if (channel && channel.isTextBased()) {
@@ -620,7 +609,6 @@ class Rooivalk {
       const response = await this._chat.createResponse(
         interaction.user.displayName,
         prompt,
-        this._discord.allowedEmojis,
       );
       await interaction.editReply({
         content: response.content,
