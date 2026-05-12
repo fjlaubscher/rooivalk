@@ -25,9 +25,9 @@ SteamService fetches and caches Steam app data for use by the `get_game_listing`
 
 ## Common Tasks
 
-| Task                       | File(s)                                                           | Notes                                                          |
-| -------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| Add a new store (e.g. PSN) | `tool-executor.ts`, `tool-names.ts`, both `tools.ts`              | Add a new service class; extend the `store` enum               |
+| Task                       | File(s)                                                                          | Notes                                                          |
+| -------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Add a new store (e.g. PSN) | `tool-executor.ts`, `tool-names.ts`, both `tools.ts`                             | Add a new service class; extend the `store` enum               |
 | Adjust returned fields     | `src/services/steam/index.ts` (`getGameDetails`) + `src/services/steam/types.ts` | Keep `SteamGameDetails` minimal                                |
-| Change sync frequency      | `src/index.ts`                                                    | Modify the cron expression                                     |
-| Add price-change tracking  | `src/services/steam/index.ts`, `schema.ts`                        | `price_change_number` is already stored — compare on each sync |
+| Change sync frequency      | `src/index.ts`                                                                   | Modify the cron expression                                     |
+| Add price-change tracking  | `src/services/steam/index.ts`, `schema.ts`                                       | `price_change_number` is already stored — compare on each sync |

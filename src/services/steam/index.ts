@@ -114,7 +114,9 @@ class SteamService {
          ORDER BY CASE WHEN LOWER(name) = LOWER(?) THEN 0 ELSE 1 END, name
          LIMIT 1`,
       )
-      .get(`%${escaped}%`, query) as { appid: number; name: string } | undefined;
+      .get(`%${escaped}%`, query) as
+      | { appid: number; name: string }
+      | undefined;
 
     return row ?? null;
   }
