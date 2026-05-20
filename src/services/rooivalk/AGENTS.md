@@ -23,15 +23,19 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 ### Thread Handling
 
-- Automatically responds to ALL messages in bot-created threads (no mentions needed)
-- Manages thread context and conversation continuity
-- Handles thread-specific logic and state management
+- Automatically responds to ALL messages in bot-created threads (no mentions needed).
+- Thread names are generated one-shot from the current message content via `OpenAIService.generateThreadName`.
+
+### Conversation Continuity
+
+- `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to `OpenAIService.createResponse`.
+- After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn).
+- When `OpenAIService` reports `contextLost: true`, the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
 
 ### Context Integration
 
-- Integrates weather data from YrService for MOTD and enhanced responses
-- Manages conversation context and history
-- Handles system prompts and instructions
+- Weather data from `YrService` for the daily MOTD prompt.
+- Per-user preferences from `MemoryService` are passed to every chat turn.
 
 ### MOTD Image Generation
 

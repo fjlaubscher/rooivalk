@@ -2,20 +2,18 @@
 > Artwork by [Pieter Jordaan](https://www.thisisender.com/)
 
 # Rooivalk
-Rooivalk is a Discord bot powered by OpenAI. It responds to mentions and replies, manages threaded conversations, and exposes a set of tools the model can invoke directly.
+
+A Discord bot powered by OpenAI. Responds to mentions and replies, threads its own conversations, and exposes tools the model can invoke directly.
 
 ## Features
-- **AI-powered responses**: Backed by the OpenAI Responses API with server-side conversation chaining via `previous_response_id`; image generation always uses OpenAI gpt-image-1
-- **Smart conversation handling**: Responds to mentions, replies to bot messages, and automatically creates threads
-- **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity and initial context preservation
-- **Persistent memory**: Per-user memory and preference storage backed by SQLite; the model can remember, recall, and forget facts across conversations
-- **Weather integration**: Fetches weather data from Yr.no for enhanced contextual responses and daily MOTD
-- **Steam store lookups**: The model can look up any game's price, description, genres, and platform availability via the `get_game_listing` tool; the full app catalogue is synced nightly into SQLite
-- **SMS**: Sends SMS to registered users via Clickatell
-- **Shell inspection**: The model can read server logs and inspect its own source files via a sandboxed `run_bash` tool
-- **Scheduled tasks**: MOTD (Message of the Day) with AI-generated city artwork in varied art styles, and Steam app list sync via cron jobs
-- **Hot-reloadable configuration**: Runtime configuration updates via `config/*.md` files
-- **Robust testing**: Comprehensive test suite with dedicated utilities for mocking Discord interactions and service dependencies
+
+- **Chat & reasoning** via the OpenAI Responses API. Conversation continuity is handled server-side through `previous_response_id`; per-conversation ids live in SQLite (`conversation_responses`).
+- **Image generation** via OpenAI `gpt-image-1`, exposed both as a slash command and as a native tool inside chat.
+- **Threads**: replying to a bot message auto-creates a thread; the bot responds to everything inside threads it owns.
+- **Per-user memory** in SQLite — the model can `remember`, `recall`, and `forget` facts. Capped preference set is injected on every turn.
+- **Tools**: weather (Yr.no), Steam store lookups, SMS (Clickatell), sandboxed `run_bash` for log/source inspection, server-event lookup.
+- **Daily MOTD** with AI-generated city artwork; Wikimedia + Peapix as fallbacks.
+- **Hot-reloadable config** — edit `config/*.md` and changes take effect without redeploying.
 
 ### Rooivalk in action
 
@@ -24,89 +22,66 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 ## Setup
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v22 or newer)
-- [pnpm](https://pnpm.io/) (v10.x)
-- A Discord bot token ([guide](https://discord.com/developers/applications))
-- An OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
+
+- [Node.js](https://nodejs.org/) v22+
+- [pnpm](https://pnpm.io/) v10.x
+- Discord bot token ([guide](https://discord.com/developers/applications))
+- OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
 
 ### Installation
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/fjlaubscher/rooivalk.git
-   cd rooivalk
-   ```
-2. Install dependencies:
-   ```sh
-   pnpm install
-   ```
-3. Copy `.env.example` to `.env` and fill in your credentials:
-   ```sh
-   cp .env.example .env
-   ```
-   Key variables:
-   | Variable | Description |
-   |---|---|
-   | `DISCORD_TOKEN` | Discord bot token |
-   | `DISCORD_GUILD_ID` | Discord server ID |
-   | `DISCORD_APP_ID` | Discord application ID |
-   | `DISCORD_STARTUP_CHANNEL_ID` | Channel the bot announces startup in |
-   | `DISCORD_MOTD_CHANNEL_ID` | Channel for daily MOTD posts |
-   | `OPENAI_API_KEY` + `OPENAI_MODEL` | Chat / reasoning credentials and model |
-   | `OPENAI_IMAGE_MODEL` | Model used for image generation |
-   | `ROOIVALK_MOTD_CRON` | Cron expression for the MOTD job (e.g. `"0 8 * * *"`) |
-   | `ROOIVALK_DB_PATH` | Path to the SQLite database (default: `./data/rooivalk.db`) |
-   | `CLICKATELL_API_KEY` | Clickatell API key for SMS (optional) |
-   | `STEAM_API_KEY` | Steam Web API key for nightly app list sync. Required to populate the local app catalogue; `get_game_listing` lookups depend on a previously-synced catalogue and will return "not found" until the first successful sync. |
+```sh
+git clone https://github.com/fjlaubscher/rooivalk.git
+cd rooivalk
+pnpm install
+cp .env.example .env   # fill in credentials
+pnpm start
+```
 
-4. Start the bot (uses native TypeScript execution — no build step):
-   ```sh
-   pnpm start
-   ```
+Key env vars:
 
-### Project structure
-
-For a full breakdown of the architecture and coding conventions, see [AGENTS.md](./AGENTS.md).
+| Variable | Description |
+|---|---|
+| `DISCORD_TOKEN` / `DISCORD_GUILD_ID` / `DISCORD_APP_ID` | Discord bot credentials |
+| `DISCORD_STARTUP_CHANNEL_ID` / `DISCORD_MOTD_CHANNEL_ID` | Startup announcement and MOTD post target |
+| `OPENAI_API_KEY` + `OPENAI_MODEL` | Chat / reasoning credentials and model |
+| `OPENAI_IMAGE_MODEL` | Image generation model |
+| `ROOIVALK_MOTD_CRON` | Cron expression for the daily MOTD (e.g. `"0 8 * * *"`) |
+| `ROOIVALK_DB_PATH` | SQLite path (default `./data/rooivalk.db`) |
+| `CLICKATELL_API_KEY` | Optional; enables SMS |
+| `STEAM_API_KEY` | Required for the nightly Steam catalogue sync that backs `get_game_listing` |
 
 ### Services
 
-Each service has its own `AGENTS.md` with specific guidance:
+Each service has its own `AGENTS.md`:
 
-- **OpenAIService** (`src/services/openai/`): OpenAI chat provider and image generation
-- **RooivalkService** (`src/services/rooivalk/`): Core business logic, message processing, and tool dispatch
-- **DiscordService** (`src/services/discord/`): Discord API integration and thread management
-- **MemoryService** (`src/services/memory/`): SQLite-backed per-user memory and phone number registry
-- **BashService** (`src/services/bash/`): Sandboxed shell execution for log inspection and source reading
-- **YrService** (`src/services/yr/`): Weather data from Yr.no
-- **SteamService** (`src/services/steam/`): Steam store lookups and nightly app catalogue sync
-- **ClickatellService** (`src/services/clickatell/`): SMS via Clickatell HTTP API
-- **CronService** (`src/services/cron/`): Scheduled background jobs
-- **Config system** (`src/config/`): Hot-reloadable markdown configuration
+- `src/services/openai` — OpenAI chat + image generation
+- `src/services/rooivalk` — message processing, tool dispatch, MOTD
+- `src/services/discord` — Discord API integration and thread handling
+- `src/services/memory` — SQLite-backed memory, phone numbers, conversation-id store
+- `src/services/yr` — Yr.no weather
+- `src/services/steam` — Steam store + nightly app catalogue sync
+- `src/services/clickatell` — Clickatell SMS
+- `src/services/wikimedia` / `src/services/peapix` — MOTD image fallbacks
+- `src/services/cron` — scheduled jobs
+- `src/config` — hot-reloadable markdown config
 
-### Prompt & Persona Tuning
+For architecture and conventions, see [AGENTS.md](./AGENTS.md).
 
-- Edit `config/instructions.md` to adjust Rooivalk's lore, tone, and response rules. The file is hot-reloaded, so changes take effect without redeploying.
-- Available placeholders:
-  - `{{CURRENT_DATE}}` – replaced with the current ISO date before sending prompts.
-  - `{{EMOJIS}}` – populated with the server's allowed custom emojis (one per line).
-- Conversation continuity is handled server-side via OpenAI's `previous_response_id` chain; per-conversation response ids are stored in SQLite (`conversation_responses` table). Discord thread id and reply-chain root act as the conversation key.
-- Set `LOG_LEVEL=debug` to emit prompt-metric debug logs (instructions length, presence of previous response id, attachment count) ahead of each request.
+### Prompt tuning
 
-### Continuous Integration
+- `config/instructions.md` is the live system prompt. Hot-reloaded.
+- Placeholders: `{{CURRENT_DATE}}` (ISO date), `{{EMOJIS}}` (server's allowed custom emojis).
+- `LOG_LEVEL=debug` emits per-request prompt metrics.
 
-GitHub Actions workflows live in `.github/workflows/`:
-- `test.yml`: Runs on every push and pull request to `main` — Prettier check + full test suite.
-- `deploy.yml`: Deploys automatically after tests pass on `main` — rsyncs source to the server and restarts the PM2 process.
+### CI/CD
 
----
-
-## Notes
-
-- TypeScript strict mode with native execution via Node.js 22+ — no build step required.
-- All tests use [Vitest](https://vitest.dev/), with shared utilities in `src/test-utils/` for mocking Discord interactions, environment variables, and service dependencies.
+- `.github/workflows/test.yml` — Prettier + Vitest on every push/PR to `main`.
+- `.github/workflows/deploy.yml` — rsync + PM2 restart on `main` after tests pass. PM2 runs via `ecosystem.config.cjs` for timestamped logs and managed restarts.
 
 ## License
+
 MIT
 
 ![rooivalk](https://github.com/user-attachments/assets/e579da64-fe84-4483-9686-32c65dd23acb)
-> This image was generated by @rooivalk.
+> Generated by @rooivalk.

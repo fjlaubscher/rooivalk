@@ -77,12 +77,15 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 4. **Other threads**: Bot ignores messages unless directly mentioned
 
 ### Thread Management
-- Threads created automatically when users reply to bot messages
-- Thread names generated via OpenAI based on conversation context
-- **Initial context preservation**: Original conversation history that led to thread creation is captured and stored
-- **Full conversation continuity**: Thread messages include both initial context AND thread-specific messages
-- Thread message caching for performance with combined initial context + thread messages
-- Threads auto-archive after 60 minutes of inactivity
+- Threads created automatically when users reply to bot messages.
+- Thread names generated via OpenAI from the current message content (one-shot).
+- Threads auto-archive after 60 minutes of inactivity.
+
+### Conversation Continuity
+- The OpenAI Responses API holds full turn-by-turn state; clients chain turns via `previous_response_id`. The bot does not reconstruct history from Discord.
+- Per-conversation response ids live in SQLite (`conversation_responses` table) keyed by `(type, ref_id)` where `type` is `'msg'` (a bot reply id) or `'thread'` (a thread id).
+- On the turn that creates a thread, the new response id is written under **both** the msg id and the thread id so the chain survives the transition.
+- If a stored response id has aged out (OpenAI 404), `OpenAIService` transparently retries without it and flags `contextLost: true` so `RooivalkService` can prepend a notice to the reply.
 
 ## Agent Task Examples
 
@@ -93,9 +96,9 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Add new chat tool            | `services/chat/tool-names.ts` + `services/openai/tools.ts` | Add tool name constant, define tool shape, then add executor case in `services/rooivalk/index.ts` |
 | Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
 | Modify thread behavior       | `services/rooivalk/helpers.ts`           | Update `isRooivalkThread`, `isReplyToRooivalk` functions |
-| Add Discord message parsing  | `services/discord/helpers.ts`            | Extend `parseMessageInChain`, `formatMessageInChain` utilities |
+| Add Discord helper utility   | `services/discord/helpers.ts`            | Conversation-ref resolvers live here       |
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
-| Update message history       | `services/discord/index.ts`              | Modify `buildMessageChainFrom*` methods; use `setThreadInitialContext()` for thread context preservation |
+| Change conversation-chain storage | `services/memory/schema.ts` + `services/memory/index.ts` | `conversation_responses` table; keep `(type, ref_id)` composite PK |
 | Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts` and `test-utils/mock.ts` |
 | Update MOTD image feed       | `services/rooivalk/index.ts`             | AI generation is primary (via `OpenAIService.createImage`), Wikimedia is first fallback, Peapix is last resort. Style/aspect arrays are in `index.ts`. |
 | Update config system         | `src/config/loader.ts`, `config/*.md`    | Modify config loading/watching; update markdown configs |

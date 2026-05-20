@@ -50,19 +50,16 @@ const mockDiscordService = vi.mocked({
   },
   allowedEmojis: [],
   startupChannelId: 'test-startup-channel-id',
-  getMessageChain: vi.fn(),
   buildMessageReply: vi.fn().mockResolvedValue({}),
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
   chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
   getGuildEventsBetween: vi.fn(),
   fetchScheduledEventsBetween: vi.fn(),
-  buildMessageChainFromMessage: vi.fn(),
-  buildMessageChainFromThreadMessage: vi.fn(),
   registerSlashCommands: vi.fn(),
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
-  cacheGuildEmojis: vi.fn(), // Add mock for cacheGuildEmojis
+  cacheGuildEmojis: vi.fn(),
   on: vi.fn(),
   once: vi.fn(),
   login: vi.fn(),
@@ -310,8 +307,6 @@ describe('Rooivalk', () => {
         attachments: new Collection<string, Attachment>([['1', attachment]]),
       } as Partial<Message<boolean>>);
 
-      mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-
       await (rooivalk as any).processMessage(userMessage);
 
       const expectedAuthor = buildPromptAuthor(userMessage.author);
@@ -399,24 +394,21 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and buildMessageChainFromMessage returns null', () => {
-      it('should use message content if no history is available', async () => {
-        const userMessage = createMockMessage({
-          content: `<@${BOT_ID}> Hello bot!`,
-        } as Partial<Message<boolean>>);
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        await (rooivalk as any).processMessage(userMessage);
+    it('uses the bare message content when no prior response id is stored', async () => {
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> Hello bot!`,
+      } as Partial<Message<boolean>>);
+      await (rooivalk as any).processMessage(userMessage);
 
-        const expectedAuthor = buildPromptAuthor(userMessage.author);
-        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
-          expectedAuthor,
-          'Hello bot!',
-          null,
-          null,
-          expect.any(Function),
-          expect.any(Array),
-        );
-      });
+      const expectedAuthor = buildPromptAuthor(userMessage.author);
+      expect(mockChatClient.createResponse).toHaveBeenCalledWith(
+        expectedAuthor,
+        'Hello bot!',
+        null,
+        null,
+        expect.any(Function),
+        expect.any(Array),
+      );
     });
 
     it('fetches preferences for the author and passes them to createResponse', async () => {
@@ -447,7 +439,6 @@ describe('Rooivalk', () => {
       const userMessage = createMockMessage({
         content: `<@${BOT_ID}> Hi!`,
       } as Partial<Message<boolean>>);
-      mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
 
       await (rooivalkWithMemory as any).processMessage(userMessage);
 
@@ -469,7 +460,6 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<Message<boolean>>);
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith('Error!');
@@ -481,7 +471,6 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<Message<boolean>>);
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.createResponse.mockRejectedValue(
           new Error('OpenAI error!'),
         );
@@ -533,7 +522,6 @@ describe('Rooivalk', () => {
             DISCORD_FIELD_HOSPITAL_CHANNEL_ID: FH_CHANNEL_ID,
           },
         });
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
       });
 
       it('routes to the field hospital chat service when role and channel match', async () => {
@@ -1807,9 +1795,6 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
-          null,
-        );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -1857,7 +1842,6 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -1884,13 +1868,6 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
-          {
-            author: 'user',
-            content: 'conversation history',
-            attachmentUrls: [],
-          },
-        ]);
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Thread response',
         });
@@ -1954,7 +1931,6 @@ describe('Rooivalk', () => {
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.generateThreadName.mockResolvedValue('New Discussion');
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
@@ -1974,9 +1950,6 @@ describe('Rooivalk', () => {
             .mockRejectedValue(new Error('Thread creation failed')),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
-          { author: 'user', content: 'some history', attachmentUrls: [] },
-        ]);
         mockChatClient.generateThreadName.mockResolvedValue('Thread Name');
 
         await expect(
@@ -1996,7 +1969,6 @@ describe('Rooivalk', () => {
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.generateThreadName.mockResolvedValue(
           'Generated Thread Name',
         );

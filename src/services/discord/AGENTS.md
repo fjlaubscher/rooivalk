@@ -2,60 +2,37 @@
 
 ## Overview
 
-The DiscordService handles Discord API integration, event listening, message routing, and reply handling. It manages the bot's interaction with Discord servers and channels.
+`DiscordService` is a thin wrapper around discord.js. It handles client setup, event subscription, slash command registration, sending replies, and emoji/event lookups. It does **not** build conversation history — continuity is handled server-side via OpenAI's `previous_response_id` chain (see root [AGENTS.md](../../../AGENTS.md)).
 
 ## Key Responsibilities
 
-- Discord API integration and event handling
-- Message routing and processing
-- Thread creation and management
-- Conversation history building
-- Reply handling and message formatting
+- Discord client lifecycle (`login`, `on`, `once`).
+- Mention regex setup.
+- Slash command registration.
+- `buildMessageReply` — turns an `OpenAIResponse` into the right discord.js message-send payload (text, file attachment for over-limit text, or image embed).
+- `buildImageReply` — payload for the `/image` slash command.
+- Guild emoji caching and scheduled-event lookup.
+- `sendReadyMessage` on startup.
 
-## Core Methods
+## Helpers (`helpers.ts`)
 
-### Message Chain Building
-
-- `buildMessageChainFromMessage` - Returns formatted conversation history from reply chains
-- `buildMessageChainFromThreadMessage` - Returns formatted conversation history from Discord threads, including initial context that led to thread creation
-
-### Thread Management
-
-- Creates threads when users reply to bot messages
-- Handles thread ownership verification
-- Manages thread context storage via `setThreadInitialContext()` and `getThreadInitialContext()`
-- Preserves full conversational continuity between regular messages and thread messages
+- `resolveConversationLookupRef(message)` — returns the `ConversationRef` to look up the previous response id for, or `null` for a standalone mention. Thread → `{type:'thread', refId: thread.id}`; reply → `{type:'msg', refId: parent.id}`.
+- `resolveConversationStoreRefs(userMessage, botReply, createdThreadId)` — returns the refs to write the new response id under after a bot reply. Adds the thread ref on the turn a thread is born so chain continuity survives the transition.
+- `formatEmojiEntry(name, tag)` — renders a `:name: → <:name:id>` line for the system prompt.
 
 ## Architecture Notes
 
-- Uses class-based TypeScript with private `_underscore` properties
-- Implements Discord.js client event handlers
-- Integrates with other services via dependency injection
-- Handles both direct messages and thread conversations
-
-## Common Tasks
-
-| Task                        | Action                                  | Notes                                                           |
-| --------------------------- | --------------------------------------- | --------------------------------------------------------------- |
-| Add Discord command         | Extend message/interaction handlers     | Update event listeners in index.ts                              |
-| Update message history      | Modify `buildMessageChainFrom*` methods | Use `setThreadInitialContext()` for thread context preservation |
-| Add thread-related features | Update thread creation/management logic | Consider thread ownership and auto-archiving                    |
-| Handle new Discord events   | Add event listeners                     | Follow existing pattern for event handling                      |
+- Class-based, private `_underscore` properties.
+- All mutable client state lives on the service; consumers reach in via getters where needed.
+- No history reconstruction. If you find yourself walking `message.reference.messageId` chains here, you're probably solving the wrong problem.
 
 ## Testing
 
-- Unit tests in `index.test.ts`
-- Use `test-utils/createMockMessage.ts` for Discord message mocking
-- Use `test-utils/mock.ts` for common environment and config mocks
-- Mock Discord.js Client and related objects as needed
-
-## Helper Functions
-
-- `parseMessageInChain` (in `helpers.ts`) - Parses Discord messages into standardized chain format
-- `formatMessageInChain` (in `helpers.ts`) - Formats messages with attachments for conversation chains
+- `index.test.ts` covers the lifecycle methods, reply building, and slash-command registration error paths.
+- `helpers.test.ts` covers the ref resolvers and emoji formatter.
+- Use `test-utils/createMockMessage.ts` for message mocks.
 
 ## Dependencies
 
-- Discord.js library for Discord API
-- Integration with RooivalkService for business logic
-- Access to shared types and constants
+- `discord.js` for the API client.
+- `OpenAIResponse` type from `src/types.ts` for `buildMessageReply`.
