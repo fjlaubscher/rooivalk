@@ -4,11 +4,9 @@ import type { MemoryRow } from '../memory/index.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
-  MessageInChain,
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
-import { IMAGE_ATTACHMENT_EXTENSIONS } from '../../constants.ts';
 import { FUNCTION_TOOLS } from './tools.ts';
 
 function renderPreferences(preferences: MemoryRow[]): string {
@@ -21,8 +19,23 @@ function stripCitationMarkers(text: string): string {
   return text.replace(CITATION_MARKER, '').trimEnd();
 }
 
-const MAX_HISTORY_MESSAGES = 40;
-const MAX_TOOL_ITERATIONS = 5;
+const MAX_TOOL_ITERATIONS = 10;
+
+function isMissingPreviousResponseError(error: unknown): boolean {
+  if (!(error instanceof OpenAI.APIError)) return false;
+  if (error.status !== 404) return false;
+  const param =
+    typeof error.error === 'object' && error.error !== null
+      ? (error.error as { param?: unknown }).param
+      : undefined;
+  return param === 'previous_response_id';
+}
+
+const IMAGE_ARTIFACT_PATTERN = /^[`*_~\s]*text[`*_~\s]*$/i;
+
+function isImageTextArtifact(text: string): boolean {
+  return IMAGE_ARTIFACT_PATTERN.test(text);
+}
 
 export type OpenAIInstructionsSelector = (config: InMemoryConfig) => string;
 
@@ -78,7 +91,7 @@ class OpenAIService {
   async createResponse(
     author: string | 'rooivalk',
     prompt: string,
-    history: MessageInChain[] | null = null,
+    previousResponseId: string | null = null,
     attachments: AttachmentForPrompt[] | null = null,
     toolExecutor?: ToolExecutor,
     preferences: MemoryRow[] | null = null,
@@ -130,66 +143,7 @@ class OpenAIService {
         });
       }
 
-      // Build structured conversation input from history
       const responseInput: OpenAI.Responses.ResponseInput = [];
-
-      if (history && history.length > 0) {
-        const truncatedHistory = history.slice(-MAX_HISTORY_MESSAGES);
-
-        for (const msg of truncatedHistory) {
-          const imageUrls = msg.attachmentUrls.filter((url) => {
-            const pathWithoutQuery = url.split('?')[0].toLowerCase();
-            return IMAGE_ATTACHMENT_EXTENSIONS.some((ext) =>
-              pathWithoutQuery.endsWith(ext),
-            );
-          });
-          const nonImageUrls = msg.attachmentUrls.filter(
-            (url) => !imageUrls.includes(url),
-          );
-
-          if (msg.author === 'rooivalk') {
-            let content = msg.content || '';
-            if (nonImageUrls.length > 0) {
-              content += `\nAttachments: ${nonImageUrls.join(', ')}`;
-            }
-            responseInput.push({
-              role: 'assistant',
-              content: content.trim(),
-            });
-          } else {
-            let textContent = `${msg.content || ''}`;
-            if (nonImageUrls.length > 0) {
-              textContent += `\nAttachments: ${nonImageUrls.join(', ')}`;
-            }
-
-            if (imageUrls.length > 0) {
-              const msgContent: OpenAI.Responses.ResponseInputContent[] = [
-                {
-                  type: 'input_text',
-                  text: `[${msg.author}]: ${textContent.trim()}`,
-                },
-                ...imageUrls.map(
-                  (url) =>
-                    ({
-                      type: 'input_image',
-                      image_url: url,
-                      detail: 'auto',
-                    }) as OpenAI.Responses.ResponseInputContent,
-                ),
-              ];
-              responseInput.push({
-                role: 'user',
-                content: msgContent,
-              });
-            } else {
-              responseInput.push({
-                role: 'user',
-                content: `[${msg.author}]: ${textContent.trim()}`,
-              });
-            }
-          }
-        }
-      }
 
       if (author !== 'rooivalk') {
         responseInput.push({
@@ -205,8 +159,7 @@ class OpenAIService {
 
       this.logPromptMetrics({
         instructionsLength: instructions.length,
-        hasHistory: !!history && history.length > 0,
-        historyLength: history?.length ?? 0,
+        hasPreviousResponseId: !!previousResponseId,
         attachmentsCount: attachments?.length ?? 0,
         promptLength: prompt.length,
       });
@@ -217,12 +170,33 @@ class OpenAIService {
 
       const chatModel = this.requireChatModel();
 
-      let response = await this._openai.responses.create({
-        model: chatModel,
-        tools,
-        instructions,
-        input: responseInput,
-      });
+      let contextLost = false;
+      let response: OpenAI.Responses.Response;
+      try {
+        response = await this._openai.responses.create({
+          model: chatModel,
+          tools,
+          instructions,
+          previous_response_id: previousResponseId ?? undefined,
+          input: responseInput,
+        });
+      } catch (error) {
+        if (previousResponseId && isMissingPreviousResponseError(error)) {
+          console.warn(
+            '[OpenAIService] previous_response_id no longer valid; starting fresh',
+            { previousResponseId },
+          );
+          contextLost = true;
+          response = await this._openai.responses.create({
+            model: chatModel,
+            tools,
+            instructions,
+            input: responseInput,
+          });
+        } else {
+          throw error;
+        }
+      }
 
       // Tool execution loop: handle function_call outputs
       let createdThread: OpenAIResponse['createdThread'];
@@ -254,9 +228,10 @@ class OpenAIService {
             });
           }
 
+          const isFinalIteration = i === MAX_TOOL_ITERATIONS - 1;
           response = await this._openai.responses.create({
             model: chatModel,
-            tools,
+            tools: isFinalIteration ? [] : tools,
             instructions,
             previous_response_id: response.id,
             input: toolOutputs,
@@ -269,20 +244,27 @@ class OpenAIService {
         .map((output) => output.result ?? '')
         .filter(Boolean);
 
-      const content = stripCitationMarkers(response.output_text);
+      const hasImage = generatedImages.length > 0;
+      let content = stripCitationMarkers(response.output_text);
 
-      if (!content.trim()) {
+      if (hasImage && isImageTextArtifact(content)) {
+        content = '';
+      }
+
+      if (!content.trim() && !hasImage) {
         console.warn('[OpenAIService] model returned empty output_text', {
           output_types: response.output.map((o) => o.type),
         });
       }
 
-      if (generatedImages.length > 0) {
+      if (hasImage) {
         return {
           type: 'image_generation_call',
           content,
           base64Images: generatedImages,
           createdThread,
+          responseId: response.id,
+          contextLost,
         };
       }
 
@@ -291,6 +273,8 @@ class OpenAIService {
         content,
         base64Images: [],
         createdThread,
+        responseId: response.id,
+        contextLost,
       };
     } catch (error) {
       console.error('Error with OpenAI:', error);
@@ -304,8 +288,7 @@ class OpenAIService {
 
   private logPromptMetrics(metrics: {
     instructionsLength: number;
-    hasHistory: boolean;
-    historyLength: number;
+    hasPreviousResponseId: boolean;
     attachmentsCount: number;
     promptLength: number;
   }): void {

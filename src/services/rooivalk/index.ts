@@ -35,13 +35,12 @@ import PeapixService from '../peapix/index.ts';
 import SteamService from '../steam/index.ts';
 import WikimediaService from '../wikimedia/index.ts';
 import YrService from '../yr/index.ts';
-import type {
-  AttachmentForPrompt,
-  InMemoryConfig,
-  MessageInChain,
-} from '../../types.ts';
+import type { AttachmentForPrompt, InMemoryConfig } from '../../types.ts';
 
-import { formatMessageInChain } from '../discord/helpers.ts';
+import {
+  resolveConversationLookupRef,
+  resolveConversationStoreRefs,
+} from '../discord/helpers.ts';
 import {
   isReplyToRooivalk,
   isRooivalkThread,
@@ -284,27 +283,31 @@ class Rooivalk {
     await this._steam.syncAppList();
   }
 
+  public pruneConversationResponses(olderThanMs: number): number {
+    const pruned = this._memory.pruneConversationResponses(olderThanMs);
+    if (pruned > 0) {
+      console.log(
+        `[Rooivalk] pruned ${pruned} expired conversation_responses rows`,
+      );
+    }
+    return pruned;
+  }
+
   public async processMessage(message: Message<boolean>) {
     try {
-      let prompt = message.content
+      const prompt = message.content
         .replace(this._discord.mentionRegex!, '')
         .trim();
 
-      let conversationHistory: MessageInChain[] | null = null;
-
-      if (message.channel.isThread()) {
-        conversationHistory =
-          await this._discord.buildMessageChainFromThreadMessage(message);
-      } else {
-        conversationHistory =
-          await this._discord.buildMessageChainFromMessage(message);
-      }
+      const lookupRef = resolveConversationLookupRef(message);
+      const previousResponseId = lookupRef
+        ? this._memory.getConversationResponseId(lookupRef)
+        : null;
 
       const usersToMention = message.mentions.users.filter(
         (user) => user.id !== this._discord.client.user?.id,
       );
 
-      // filter attachments to only those with allowed content types
       const attachments = Array.from(message.attachments.values())
         .filter((attachment) => this.isAttachmentAllowed(attachment))
         .map((attachment) => this.buildAttachmentForPrompt(attachment));
@@ -316,27 +319,49 @@ class Rooivalk {
       const response = await chat.createResponse(
         buildPromptAuthor(message.author),
         prompt,
-        conversationHistory,
+        previousResponseId,
         attachments.length > 0 ? attachments : null,
         toolExecutor,
         preferences,
       );
 
-      if (response) {
-        const reply = this._discord.buildMessageReply(
-          response,
-          usersToMention.map((user) => user.id),
-        );
-
-        if (response.createdThread) {
-          await response.createdThread.send(reply);
-        } else if (message.channel.isThread()) {
-          await message.channel.send(reply);
-        } else {
-          await message.reply(reply);
-        }
-      } else {
+      if (!response) {
         await message.reply(this._discord.getRooivalkResponse('error'));
+        return;
+      }
+
+      if (response.contextLost && lookupRef) {
+        this._memory.clearConversationResponseId(lookupRef);
+      }
+
+      const reply = this._discord.buildMessageReply(
+        response,
+        usersToMention.map((user) => user.id),
+      );
+
+      if (response.contextLost) {
+        reply.content =
+          `*[the previous context of this conversation was lost in the void — starting fresh]*\n${reply.content ?? ''}`.trimEnd();
+      }
+
+      let botMessage: Message<boolean>;
+      if (response.createdThread) {
+        botMessage = await response.createdThread.send(reply);
+      } else if (message.channel.isThread()) {
+        botMessage = await message.channel.send(reply);
+      } else {
+        botMessage = await message.reply(reply);
+      }
+
+      if (response.responseId) {
+        const storeRefs = resolveConversationStoreRefs(
+          message,
+          botMessage,
+          response.createdThread?.id ?? null,
+        );
+        for (const ref of storeRefs) {
+          this._memory.setConversationResponseId(ref, response.responseId);
+        }
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -688,14 +713,8 @@ class Rooivalk {
     if (trimmedName && trimmedName.length > 0) {
       threadName = trimmedName.substring(0, 100);
     } else {
-      const history = await this._discord.buildMessageChainFromMessage(message);
-      const historyText = history
-        ? history.map(formatMessageInChain).join('\n')
-        : null;
       const chat = this.selectChatService(message);
-      threadName = await chat.generateThreadName(
-        historyText ?? message.content.trim(),
-      );
+      threadName = await chat.generateThreadName(message.content.trim());
     }
 
     const thread = await message.startThread({

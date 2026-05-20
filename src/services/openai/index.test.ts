@@ -17,10 +17,21 @@ const responsesCreateMock = vi.fn();
 const imagesGenerateMock = vi.fn();
 
 vi.mock('openai', () => {
+  class OpenAIErrorMock extends Error {}
+  class APIErrorMock extends OpenAIErrorMock {
+    status: number;
+    error: unknown;
+    constructor(status: number, errorBody: unknown, message: string) {
+      super(message);
+      this.status = status;
+      this.error = errorBody;
+    }
+  }
   class OpenAIMock {
     responses = { create: responsesCreateMock };
     images = { generate: imagesGenerateMock };
-    static OpenAIError = class extends Error {};
+    static OpenAIError = OpenAIErrorMock;
+    static APIError = APIErrorMock;
   }
   return { default: OpenAIMock };
 });
@@ -63,14 +74,17 @@ describe('OpenAIService', () => {
   describe('createResponse', () => {
     it('returns output text on success', async () => {
       responsesCreateMock.mockResolvedValueOnce({
+        id: 'resp-1',
         output_text: 'test response',
         output: [],
       });
       const result = await service.createResponse('test user', 'hi');
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         type: 'text',
         content: 'test response',
         base64Images: [],
+        responseId: 'resp-1',
+        contextLost: false,
       });
     });
 
@@ -165,69 +179,59 @@ describe('OpenAIService', () => {
       }
     });
 
-    it('passes history as structured input messages', async () => {
+    it('passes previousResponseId through to the OpenAI client', async () => {
       responsesCreateMock.mockResolvedValueOnce({
+        id: 'resp-2',
         output_text: 'ok',
         output: [],
       });
 
-      const history = [
-        {
-          author: 'TestUser',
-          content: 'hello',
-          attachmentUrls: [] as string[],
-        },
-        {
-          author: 'rooivalk' as const,
-          content: 'hi back',
-          attachmentUrls: [] as string[],
-        },
-      ];
-
-      await service.createResponse('test user', 'hi', history);
+      const result = await service.createResponse(
+        'test user',
+        'hi',
+        'resp-prev',
+      );
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
-      // History should NOT be in instructions
-      expect(callArgs.instructions).not.toContain('hello');
-      // History should be in input as structured messages
-      const input = callArgs.input;
-      expect(input[0]).toEqual({
-        role: 'user',
-        content: '[TestUser]: hello',
-      });
-      expect(input[1]).toEqual({
-        role: 'assistant',
-        content: 'hi back',
-      });
+      expect(callArgs.previous_response_id).toBe('resp-prev');
+      expect(result.responseId).toBe('resp-2');
+      expect(result.contextLost).toBe(false);
     });
 
-    it('truncates history to last 40 messages', async () => {
+    it('omits previous_response_id when none is provided', async () => {
       responsesCreateMock.mockResolvedValueOnce({
+        id: 'resp-1',
         output_text: 'ok',
         output: [],
       });
 
-      const history = Array.from({ length: 50 }, (_, i) => ({
-        author: `User${i}`,
-        content: `message ${i}`,
-        attachmentUrls: [] as string[],
-      }));
-
-      await service.createResponse('test user', 'hi', history);
+      await service.createResponse('test user', 'hi');
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
-      // 40 history messages + 1 system message + 1 user message = 42
-      const input = callArgs.input;
-      const historyMessages = input.filter(
-        (m: any) =>
-          m.role === 'user' &&
-          typeof m.content === 'string' &&
-          m.content.startsWith('[User'),
+      expect(callArgs.previous_response_id).toBeUndefined();
+    });
+
+    it('retries without previous_response_id when the prior id is missing', async () => {
+      const apiError = new (OpenAI as any).APIError(
+        404,
+        { param: 'previous_response_id' },
+        'not found',
       );
-      expect(historyMessages).toHaveLength(40);
-      // Should keep the last 40, so message 10-49
-      expect(historyMessages[0].content).toContain('message 10');
-      expect(historyMessages[39].content).toContain('message 49');
+
+      responsesCreateMock.mockRejectedValueOnce(apiError);
+      responsesCreateMock.mockResolvedValueOnce({
+        id: 'resp-fresh',
+        output_text: 'starting over',
+        output: [],
+      });
+
+      const result = await service.createResponse('test user', 'hi', 'gone');
+
+      expect(responsesCreateMock).toHaveBeenCalledTimes(2);
+      const retryArgs = responsesCreateMock.mock.calls[1]![0];
+      expect(retryArgs.previous_response_id).toBeUndefined();
+      expect(result.contextLost).toBe(true);
+      expect(result.responseId).toBe('resp-fresh');
     });
   });
 

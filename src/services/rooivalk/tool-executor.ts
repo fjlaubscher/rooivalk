@@ -86,28 +86,6 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           return errorOutput(err);
         }
       }
-      case TOOL_NAMES.GENERATE_IMAGE: {
-        try {
-          const imagePrompt = args.prompt as string;
-          const base64Image = await openai.createImage(imagePrompt);
-          if (base64Image) {
-            return {
-              output: JSON.stringify({
-                status: 'ok',
-                note: 'Image generated and attached to the reply.',
-              }),
-              base64Image,
-            };
-          }
-          return {
-            output: JSON.stringify({
-              error: 'Image generation returned no data',
-            }),
-          };
-        } catch (err) {
-          return errorOutput(err);
-        }
-      }
       case TOOL_NAMES.SEND_SMS: {
         if (!clickatell.isConfigured) {
           return {

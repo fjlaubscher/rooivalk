@@ -2,70 +2,50 @@
 
 ## Overview
 
-The OpenAIService handles OpenAI API integration for chat completion and image generation. It manages API requests, error handling, rate limiting, and response processing.
+`OpenAIService` wraps the OpenAI SDK. It handles chat/reasoning via the Responses API (including the tool-execution loop), image generation, and one-shot thread-name generation.
 
-## Key Responsibilities
+## `createResponse`
 
-- OpenAI API integration (chat completion and image generation)
-- Prompt injection and message formatting
-- Error handling and rate limit management
-- Response processing and formatting
-- Model configuration and parameter management
+Signature:
 
-## Core Functionality
+```
+createResponse(
+  author,
+  prompt,
+  previousResponseId?: string | null,
+  attachments?: AttachmentForPrompt[],
+  toolExecutor?: ToolExecutor,
+  preferences?: MemoryRow[],
+): Promise<OpenAIResponse>
+```
 
-### Chat Completion
+Behaviour:
 
-- Text generation using OpenAI's chat models
-- System prompt injection and conversation context management
-- Streaming and non-streaming response handling
+- Builds a single-turn input (optional system note identifying the speaker + the user prompt + any image/file attachments). Conversation history is **not** assembled — OpenAI chains turns server-side via `previous_response_id`.
+- Passes `previous_response_id` through when provided. If the SDK returns a 404 with `param === 'previous_response_id'`, the call is retried once with no chain and the returned `OpenAIResponse` is flagged `contextLost: true`. Callers (`RooivalkService`) use that flag to surface a "context was lost" notice and clear the stale id from the store.
+- Returns the new `response.id` as `responseId`. The caller persists it under the appropriate `ConversationRef` keys.
+- Tool execution loop: up to `MAX_TOOL_ITERATIONS` (10) round-trips. On the final iteration, tools are stripped from the request so the model must produce a text response instead of yet another function call.
+- Image responses (`image_generation_call` output) bypass the empty-text warning. A literal `text` placeholder produced alongside an image is stripped.
+- `web_search` citation markers (`【…】`) are removed from output text.
 
-### Image Generation
+## Other methods
 
-- OpenAI gpt-image-1 model for image generation
-- Image prompt processing and parameter configuration
-- Image URL handling and response formatting
+- `createImage(prompt)` — direct image generation via `images.generate`, used by the `/image` slash command and the daily MOTD.
+- `generateThreadName(prompt)` — one-shot title generation, capped to 100 chars.
+- `reloadConfig(newConfig)` — hot-reload entry point.
 
-## Architecture Notes
+## Tools
 
-- Uses class-based TypeScript with private `_underscore` properties
-- Implements OpenAI SDK for API communication
-- Handles both synchronous and asynchronous operations
-- Integrates with environment configuration for API keys and model selection
+- `tools.ts` lists the function tools (`FUNCTION_TOOLS`) the model can call. Names are imported from `src/services/chat/tool-names.ts`. Add a new tool by adding the name constant, the schema here, and an executor case in `src/services/rooivalk/tool-executor.ts`.
+- Two native server tools are always attached: `web_search_preview` and `image_generation`.
 
-## Environment Variables
+## Environment
 
-- `OPENAI_API_KEY` - OpenAI API authentication key
-- `OPENAI_MODEL` - Default model for chat completion
-- Additional model-specific configuration as needed
-
-## Common Tasks
-
-| Task                       | Action                                    | Notes                                        |
-| -------------------------- | ----------------------------------------- | -------------------------------------------- |
-| Add OpenAI model support   | Add model ID, update API payload/env vars | Update model configuration and validation    |
-| Modify prompt injection    | Update system prompt handling             | Consider conversation context preservation   |
-| Handle new OpenAI features | Extend API integration                    | Follow OpenAI SDK patterns                   |
-| Update error handling      | Modify error catching and logging         | Handle rate limits and API errors gracefully |
+- `OPENAI_API_KEY` — required.
+- `OPENAI_MODEL` — chat/reasoning model.
+- `OPENAI_IMAGE_MODEL` — image model (e.g. `gpt-image-1`).
+- `OPENAI_MODEL_FIELD_HOSPITAL` — optional; a second `OpenAIService` instance routed to in matching role/channel combos (see `src/services/chat/AGENTS.md`).
 
 ## Testing
 
-- Unit tests in `index.test.ts`
-- Mock OpenAI SDK responses for reliable testing
-- Use `test-utils/mock.ts` for common environment and config mocks
-- Test both success and error scenarios
-- Validate prompt formatting and response processing
-
-## Error Handling
-
-- Graceful handling of API rate limits
-- Retry logic for transient failures
-- Meaningful error logging and user feedback
-- Fallback behavior for API unavailability
-
-## Dependencies
-
-- OpenAI SDK for API communication
-- Environment configuration management
-- Integration with RooivalkService for business logic
-- Access to shared types and constants
+- `index.test.ts` mocks the SDK at module level. Includes the `previous_response_id` round-trip, the 404 retry, citation stripping, attachment handling, and the preferences-injection paths.

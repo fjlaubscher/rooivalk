@@ -2,10 +2,11 @@
 
 ## Overview
 
-`MemoryService` is the bot's persistent key-value memory, backed by SQLite via the built-in `node:sqlite` module. It stores two things:
+`MemoryService` is the bot's persistent key-value store, backed by SQLite via the built-in `node:sqlite` module. It stores three things:
 
 1. **Memories** — free-form notes the model decides to keep about a user.
 2. **Phone numbers** — opt-in registry used to gate SMS sending via `ClickatellService`.
+3. **Conversation response ids** — per-conversation OpenAI `response.id` values used to chain turns via `previous_response_id`.
 
 The service holds two connections to the same DB file: a writable one for mutations and a `readOnly: true` one used for reads (`recall`, `forgetMemory` lookup, `getPhoneNumberFor`). Read-only is enforced **at the SQLite level**, so even a programming bug that issues a write through the read handle fails in the engine.
 
@@ -15,6 +16,7 @@ The service holds two connections to the same DB file: a writable one for mutati
 
 - `memories(id, discord_user_id, content, kind, created_at)` — composite index on `(discord_user_id, kind)`. `kind` is `'memory'` or `'preference'`, enforced by a CHECK constraint.
 - `phone_numbers(discord_user_id PK, phone_number, registered_at)` — one number per user, upsert via `ON CONFLICT`.
+- `conversation_responses(type, ref_id, response_id, updated_at)` — composite PK on `(type, ref_id)`. `type` is `'msg'` (a bot reply id) or `'thread'` (a thread id), enforced by a CHECK constraint. Upserted via `ON CONFLICT(type, ref_id)`. Read/written via `getConversationResponseId(ref)` / `setConversationResponseId(ref, id)` / `clearConversationResponseId(ref)`. Index on `updated_at` supports the TTL prune. `pruneConversationResponses(olderThanMs)` deletes any row past its expiry — wired to a daily cron in `src/index.ts` with `CONVERSATION_RESPONSE_TTL_MS` (30 days) since OpenAI's response retention window is the upper bound on usefulness.
 
 ## Memory kinds
 

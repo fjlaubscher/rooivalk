@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { REQUIRED_ENV } from './constants.ts';
+import { CONVERSATION_RESPONSE_TTL_MS, REQUIRED_ENV } from './constants.ts';
 import { watchConfigs } from './config/watcher.ts';
 import { loadConfig } from './config/loader.ts';
 import Cron, { DEFAULT_CRON } from './services/cron/index.ts';
@@ -42,6 +42,10 @@ async function main() {
       await rooivalk.syncSteamAppList();
     });
   }
+
+  cron.schedule('30 3 * * *', () => {
+    rooivalk.pruneConversationResponses(CONVERSATION_RESPONSE_TTL_MS);
+  });
 }
 
 main().catch((error) => {

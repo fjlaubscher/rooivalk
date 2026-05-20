@@ -50,19 +50,16 @@ const mockDiscordService = vi.mocked({
   },
   allowedEmojis: [],
   startupChannelId: 'test-startup-channel-id',
-  getMessageChain: vi.fn(),
-  buildMessageReply: vi.fn().mockResolvedValue({}),
+  buildMessageReply: vi.fn().mockReturnValue({}),
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
   chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
   getGuildEventsBetween: vi.fn(),
   fetchScheduledEventsBetween: vi.fn(),
-  buildMessageChainFromMessage: vi.fn(),
-  buildMessageChainFromThreadMessage: vi.fn(),
   registerSlashCommands: vi.fn(),
   sendReadyMessage: vi.fn(),
   setupMentionRegex: vi.fn(),
-  cacheGuildEmojis: vi.fn(), // Add mock for cacheGuildEmojis
+  cacheGuildEmojis: vi.fn(),
   on: vi.fn(),
   once: vi.fn(),
   login: vi.fn(),
@@ -72,6 +69,20 @@ const mockChatClient = vi.mocked({
   createResponse: vi.fn(),
   generateThreadName: vi.fn(),
   reloadConfig: vi.fn(),
+} as any);
+
+const mockMemoryService = vi.mocked({
+  getPreferences: vi.fn().mockReturnValue([]),
+  getConversationResponseId: vi.fn().mockReturnValue(null),
+  setConversationResponseId: vi.fn(),
+  clearConversationResponseId: vi.fn(),
+  recall: vi.fn(),
+  remember: vi.fn(),
+  forgetMemory: vi.fn(),
+  registerPhoneNumber: vi.fn(),
+  forgetPhoneNumber: vi.fn(),
+  getPhoneNumberFor: vi.fn(),
+  close: vi.fn(),
 } as any);
 
 const mockOpenAIClient = vi.mocked({
@@ -116,6 +127,12 @@ describe('Rooivalk', () => {
       mockDiscordService,
       mockChatClient,
       mockOpenAIClient,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      mockMemoryService,
     );
   });
 
@@ -124,32 +141,157 @@ describe('Rooivalk', () => {
   });
 
   describe('when processing a message', () => {
-    describe('and buildMessageChainFromMessage returns history', () => {
-      it('should pass history to OpenAI if available', async () => {
+    describe('previous_response_id lookup', () => {
+      it('passes null when the user message is a standalone mention', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Hi!`,
         } as Partial<Message<boolean>>);
-        const mockHistory = [
-          { author: 'User', content: 'Hi!', attachmentUrls: [] },
-          { author: 'rooivalk', content: 'Hello!', attachmentUrls: [] },
-        ];
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          mockHistory,
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'ok',
+        });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-1' }),
         );
+
         await (rooivalk as any).processMessage(userMessage);
-        expect(
-          mockDiscordService.buildMessageChainFromMessage,
-        ).toHaveBeenCalledWith(userMessage);
 
         const expectedAuthor = buildPromptAuthor(userMessage.author);
         expect(mockChatClient.createResponse).toHaveBeenCalledWith(
           expectedAuthor,
           'Hi!',
-          mockHistory,
+          null,
           null,
           expect.any(Function),
           expect.any(Array),
         );
+      });
+
+      it('passes the stored previous_response_id for replies to bot messages', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> Follow up`,
+          reference: { messageId: 'prev-bot-msg' } as any,
+        } as Partial<Message<boolean>>);
+
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'stored-resp-id',
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'ok',
+        });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-2' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(
+          mockMemoryService.getConversationResponseId,
+        ).toHaveBeenCalledWith({
+          type: 'msg',
+          refId: 'prev-bot-msg',
+        });
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[2]).toBe('stored-resp-id');
+      });
+
+      it('persists the new response_id under the bot reply message id', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> Hi!`,
+        } as Partial<Message<boolean>>);
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-fresh',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'ok',
+        });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-stored' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(
+          mockMemoryService.setConversationResponseId,
+        ).toHaveBeenCalledWith(
+          { type: 'msg', refId: 'bot-reply-stored' },
+          'resp-fresh',
+        );
+      });
+
+      it('writes both a msg and a thread ref when a thread was created this turn', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> spawn a thread please`,
+        } as Partial<Message<boolean>>);
+        const createdThread = {
+          id: 'newborn-thread',
+          send: vi
+            .fn()
+            .mockResolvedValue(createMockMessage({ id: 'bot-in-thread' })),
+        } as any;
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'sure',
+          base64Images: [],
+          createdThread,
+          responseId: 'resp-thread-born',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'sure',
+        });
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        const calls = mockMemoryService.setConversationResponseId.mock.calls;
+        expect(calls).toEqual(
+          expect.arrayContaining([
+            [{ type: 'msg', refId: 'bot-in-thread' }, 'resp-thread-born'],
+            [{ type: 'thread', refId: 'newborn-thread' }, 'resp-thread-born'],
+          ]),
+        );
+      });
+
+      it('clears the stored response id when the context is lost', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> still there?`,
+          reference: { messageId: 'lost-ref' } as any,
+        } as Partial<Message<boolean>>);
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'stale-id',
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'starting fresh',
+          base64Images: [],
+          responseId: 'resp-fresh',
+          contextLost: true,
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'starting fresh',
+        });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-after-loss' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(
+          mockMemoryService.clearConversationResponseId,
+        ).toHaveBeenCalledWith({ type: 'msg', refId: 'lost-ref' });
       });
     });
 
@@ -164,8 +306,6 @@ describe('Rooivalk', () => {
         content: `<@${BOT_ID}> Please review the attached notes`,
         attachments: new Collection<string, Attachment>([['1', attachment]]),
       } as Partial<Message<boolean>>);
-
-      mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
 
       await (rooivalk as any).processMessage(userMessage);
 
@@ -254,24 +394,21 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and buildMessageChainFromMessage returns null', () => {
-      it('should use message content if no history is available', async () => {
-        const userMessage = createMockMessage({
-          content: `<@${BOT_ID}> Hello bot!`,
-        } as Partial<Message<boolean>>);
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
-        await (rooivalk as any).processMessage(userMessage);
+    it('uses the bare message content when no prior response id is stored', async () => {
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> Hello bot!`,
+      } as Partial<Message<boolean>>);
+      await (rooivalk as any).processMessage(userMessage);
 
-        const expectedAuthor = buildPromptAuthor(userMessage.author);
-        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
-          expectedAuthor,
-          'Hello bot!',
-          null,
-          null,
-          expect.any(Function),
-          expect.any(Array),
-        );
-      });
+      const expectedAuthor = buildPromptAuthor(userMessage.author);
+      expect(mockChatClient.createResponse).toHaveBeenCalledWith(
+        expectedAuthor,
+        'Hello bot!',
+        null,
+        null,
+        expect.any(Function),
+        expect.any(Array),
+      );
     });
 
     it('fetches preferences for the author and passes them to createResponse', async () => {
@@ -302,7 +439,6 @@ describe('Rooivalk', () => {
       const userMessage = createMockMessage({
         content: `<@${BOT_ID}> Hi!`,
       } as Partial<Message<boolean>>);
-      mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
 
       await (rooivalkWithMemory as any).processMessage(userMessage);
 
@@ -324,7 +460,6 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<Message<boolean>>);
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.createResponse.mockResolvedValue(null);
         await (rooivalk as any).processMessage(userMessage);
         expect(userMessage.reply).toHaveBeenCalledWith('Error!');
@@ -336,7 +471,6 @@ describe('Rooivalk', () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Fail!`,
         } as Partial<Message<boolean>>);
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.createResponse.mockRejectedValue(
           new Error('OpenAI error!'),
         );
@@ -388,7 +522,6 @@ describe('Rooivalk', () => {
             DISCORD_FIELD_HOSPITAL_CHANNEL_ID: FH_CHANNEL_ID,
           },
         });
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
       });
 
       it('routes to the field hospital chat service when role and channel match', async () => {
@@ -463,58 +596,6 @@ describe('Rooivalk', () => {
 
         const parsed = JSON.parse(result.output);
         expect(parsed.note).toContain('No custom emojis');
-      });
-    });
-
-    describe('generate_image tool executor', () => {
-      it('returns base64 image and status on success', async () => {
-        const message = createMockMessage({
-          content: `<@${BOT_ID}> draw a cat`,
-        } as Partial<Message<boolean>>);
-
-        mockOpenAIClient.createImage.mockResolvedValue('BASE64DATA');
-
-        const executor = (rooivalk as any).createToolExecutor(message);
-        const result = await executor('generate_image', {
-          prompt: 'a fluffy cat',
-        });
-
-        expect(mockOpenAIClient.createImage).toHaveBeenCalledWith(
-          'a fluffy cat',
-        );
-        expect(result.base64Image).toBe('BASE64DATA');
-        const parsed = JSON.parse(result.output);
-        expect(parsed.status).toBe('ok');
-      });
-
-      it('returns an error payload when createImage returns null', async () => {
-        const message = createMockMessage({
-          content: `<@${BOT_ID}> draw a bird`,
-        } as Partial<Message<boolean>>);
-
-        mockOpenAIClient.createImage.mockResolvedValue(null);
-
-        const executor = (rooivalk as any).createToolExecutor(message);
-        const result = await executor('generate_image', { prompt: 'a bird' });
-
-        expect(result.base64Image).toBeUndefined();
-        const parsed = JSON.parse(result.output);
-        expect(parsed.error).toContain('no data');
-      });
-
-      it('returns an error payload when createImage throws', async () => {
-        const message = createMockMessage({
-          content: `<@${BOT_ID}> draw a dog`,
-        } as Partial<Message<boolean>>);
-
-        mockOpenAIClient.createImage.mockRejectedValue(new Error('blocked'));
-
-        const executor = (rooivalk as any).createToolExecutor(message);
-        const result = await executor('generate_image', { prompt: 'a dog' });
-
-        expect(result.base64Image).toBeUndefined();
-        const parsed = JSON.parse(result.output);
-        expect(parsed.error).toBe('blocked');
       });
     });
 
@@ -1663,25 +1744,26 @@ describe('Rooivalk', () => {
 
   describe('thread handling', () => {
     describe('when message is sent in a thread', () => {
-      it('should use thread history when processing messages in threads', async () => {
+      it('looks up the previous response_id by thread id', async () => {
+        const sentMessage = createMockMessage({ id: 'thread-bot-reply' });
         const threadMessage = createMockMessage({
           content: 'Hello in thread',
           channel: {
+            id: 'thread-id-99',
             isThread: vi.fn().mockReturnValue(true),
-            send: vi.fn(),
+            send: vi.fn().mockResolvedValue(sentMessage),
           } as any,
         } as Partial<Message<boolean>>);
 
-        const mockThreadHistory = [
-          {
-            author: 'User',
-            content: 'thread conversation',
-            attachmentUrls: [],
-          },
-        ];
-        mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
-          mockThreadHistory,
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'thread-resp-id',
         );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'Response',
+          base64Images: [],
+          responseId: 'resp-after',
+        });
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -1689,20 +1771,18 @@ describe('Rooivalk', () => {
         await (rooivalk as any).processMessage(threadMessage);
 
         expect(
-          mockDiscordService.buildMessageChainFromThreadMessage,
-        ).toHaveBeenCalledWith(threadMessage);
+          mockMemoryService.getConversationResponseId,
+        ).toHaveBeenCalledWith({
+          type: 'thread',
+          refId: 'thread-id-99',
+        });
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[2]).toBe('thread-resp-id');
         expect(
-          mockDiscordService.buildMessageChainFromMessage,
-        ).not.toHaveBeenCalled();
-
-        const expectedAuthor = buildPromptAuthor(threadMessage.author);
-        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
-          expectedAuthor,
-          'Hello in thread',
-          mockThreadHistory,
-          null,
-          expect.any(Function),
-          expect.any(Array),
+          mockMemoryService.setConversationResponseId,
+        ).toHaveBeenCalledWith(
+          { type: 'thread', refId: 'thread-id-99' },
+          'resp-after',
         );
       });
 
@@ -1715,9 +1795,6 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromThreadMessage.mockResolvedValue(
-          null,
-        );
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -1730,42 +1807,30 @@ describe('Rooivalk', () => {
     });
 
     describe('when message is not in a thread', () => {
-      it('should use message chain history when processing non-thread messages', async () => {
+      it('passes null previous_response_id for a non-thread standalone message', async () => {
         const regularMessage = createMockMessage({
           content: 'Hello outside thread',
           channel: {
             isThread: vi.fn().mockReturnValue(false),
           } as any,
         } as Partial<Message<boolean>>);
-
-        const mockChainHistory = [
-          { author: 'User', content: 'message chain', attachmentUrls: [] },
-        ];
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          mockChainHistory,
-        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'Response',
+          base64Images: [],
+          responseId: 'resp-1',
+        });
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
+        (regularMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'reply-id' }),
+        );
 
         await rooivalk.processMessage(regularMessage);
 
-        expect(
-          mockDiscordService.buildMessageChainFromMessage,
-        ).toHaveBeenCalledWith(regularMessage);
-        expect(
-          mockDiscordService.buildMessageChainFromThreadMessage,
-        ).not.toHaveBeenCalled();
-
-        const expectedAuthor = buildPromptAuthor(regularMessage.author);
-        expect(mockChatClient.createResponse).toHaveBeenCalledWith(
-          expectedAuthor,
-          'Hello outside thread',
-          mockChainHistory,
-          null,
-          expect.any(Function),
-          expect.any(Array),
-        );
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[2]).toBeNull();
       });
 
       it('should send response as reply when not in thread', async () => {
@@ -1777,7 +1842,6 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Response',
         });
@@ -1804,13 +1868,6 @@ describe('Rooivalk', () => {
           } as any,
         } as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
-          {
-            author: 'user',
-            content: 'conversation history',
-            attachmentUrls: [],
-          },
-        ]);
         mockDiscordService.buildMessageReply.mockReturnValue({
           content: 'Thread response',
         });
@@ -1833,29 +1890,18 @@ describe('Rooivalk', () => {
     });
 
     describe('when creating a thread from a reply', () => {
-      it('should store initial context when history is available', async () => {
-        const mockHistory = [
-          { author: 'user', content: 'Original question', attachmentUrls: [] },
-          {
-            author: 'rooivalk',
-            content: 'Previous response',
-            attachmentUrls: [],
-          },
-        ];
+      it('generates a thread name from the current message content', async () => {
         const mockThread = {
           id: 'new-thread-123',
           members: { add: vi.fn() },
         } as any as ThreadChannel;
 
         const replyMessage = createMockMessage({
-          content: 'Follow-up question',
+          content: '  Follow-up question  ',
           author: { id: 'user-123', displayName: 'TestUser' },
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(
-          mockHistory,
-        );
         mockChatClient.generateThreadName.mockResolvedValue(
           'Discussion Thread',
         );
@@ -1864,7 +1910,7 @@ describe('Rooivalk', () => {
 
         expect(result).toBe(mockThread);
         expect(mockChatClient.generateThreadName).toHaveBeenCalledWith(
-          '- user: Original question\n- rooivalk: Previous response',
+          'Follow-up question',
         );
         expect(replyMessage.startThread).toHaveBeenCalledWith({
           name: 'Discussion Thread',
@@ -1885,7 +1931,6 @@ describe('Rooivalk', () => {
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.generateThreadName.mockResolvedValue('New Discussion');
 
         const result = await rooivalk.createRooivalkThread(replyMessage);
@@ -1905,9 +1950,6 @@ describe('Rooivalk', () => {
             .mockRejectedValue(new Error('Thread creation failed')),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue([
-          { author: 'user', content: 'some history', attachmentUrls: [] },
-        ]);
         mockChatClient.generateThreadName.mockResolvedValue('Thread Name');
 
         await expect(
@@ -1927,7 +1969,6 @@ describe('Rooivalk', () => {
           startThread: vi.fn().mockResolvedValue(mockThread),
         } as unknown as Partial<Message<boolean>>);
 
-        mockDiscordService.buildMessageChainFromMessage.mockResolvedValue(null);
         mockChatClient.generateThreadName.mockResolvedValue(
           'Generated Thread Name',
         );
