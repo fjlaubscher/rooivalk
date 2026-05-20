@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { SCHEMA_SQL } from './schema.ts';
+import type { ConversationRef } from '../../types.ts';
 
 export type MemoryKind = 'memory' | 'preference';
 
@@ -172,6 +173,38 @@ class MemoryService {
       )
       .get(discordUserId) as { phone_number: string } | undefined;
     return row ? row.phone_number : null;
+  }
+
+  public getConversationResponseId(ref: ConversationRef): string | null {
+    const row = this._readDb
+      .prepare(
+        'SELECT response_id FROM conversation_responses WHERE type = ? AND ref_id = ?',
+      )
+      .get(ref.type, ref.refId) as { response_id: string } | undefined;
+    return row ? row.response_id : null;
+  }
+
+  public setConversationResponseId(
+    ref: ConversationRef,
+    responseId: string,
+  ): void {
+    this._writeDb
+      .prepare(
+        `INSERT INTO conversation_responses (type, ref_id, response_id, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(type, ref_id) DO UPDATE SET
+           response_id = excluded.response_id,
+           updated_at = excluded.updated_at`,
+      )
+      .run(ref.type, ref.refId, responseId, Date.now());
+  }
+
+  public clearConversationResponseId(ref: ConversationRef): void {
+    this._writeDb
+      .prepare(
+        'DELETE FROM conversation_responses WHERE type = ? AND ref_id = ?',
+      )
+      .run(ref.type, ref.refId);
   }
 
   public close(): void {

@@ -17,11 +17,10 @@ import {
 import type {
   InMemoryConfig,
   ResponseType,
-  MessageInChain,
   OpenAIResponse,
 } from '../../types.ts';
 
-import { parseMessageInChain, formatEmojiEntry } from './helpers.ts';
+import { formatEmojiEntry } from './helpers.ts';
 
 class DiscordService {
   private _discordClient: DiscordClient;
@@ -238,62 +237,6 @@ class DiscordService {
     }
   }
 
-  public async getMessageChain(
-    currentMessage: Message<boolean>,
-  ): Promise<MessageInChain[]> {
-    const messageChain: MessageInChain[] = [];
-
-    try {
-      // if the current message is a reply
-      if (currentMessage.reference && currentMessage.reference.messageId) {
-        // fetch the referenced message
-        let referencedMessage = await currentMessage.channel.messages.fetch(
-          currentMessage.reference.messageId,
-        );
-        const tempChain: MessageInChain[] = [];
-
-        // while there are replies in the chain with content / attachments
-        while (referencedMessage) {
-          const parsedMessage = parseMessageInChain(
-            referencedMessage,
-            this._discordClient.user?.id,
-          );
-          if (parsedMessage) {
-            tempChain.push(parsedMessage);
-          }
-
-          // if the current referenced message has a reference
-          if (
-            referencedMessage.reference &&
-            referencedMessage.reference.messageId
-          ) {
-            try {
-              // fetch the next referenced message
-              referencedMessage =
-                await referencedMessage.channel.messages.fetch(
-                  referencedMessage.reference.messageId,
-                );
-            } catch (error) {
-              console.error('Error fetching message chain:', error);
-              break;
-            }
-          } else {
-            // no more references, end of chain.
-            break;
-          }
-        }
-
-        // reverse the temp chain in chronological order and add it to the message chain
-        messageChain.push(...tempChain.reverse());
-      }
-    } catch (error) {
-      console.error('Error fetching message chain:', error);
-    }
-
-    // deliberately omit the current message from the chain
-    return messageChain;
-  }
-
   public async registerSlashCommands(): Promise<void> {
     const rest = new REST({ version: '10' }).setToken(
       process.env.DISCORD_TOKEN!,
@@ -341,75 +284,6 @@ class DiscordService {
     } catch (error) {
       console.error('Error registering slash command:', error);
     }
-  }
-
-  public async buildMessageChainFromMessage(
-    currentMessage: Message<boolean>,
-  ): Promise<MessageInChain[] | null> {
-    // get the message chain for the current message
-    const messageChain = await this.getMessageChain(currentMessage);
-
-    if (messageChain.length === 0) {
-      return null;
-    }
-
-    return messageChain;
-  }
-
-  public async buildMessageChainFromThreadMessage(
-    message: Message<boolean>,
-  ): Promise<MessageInChain[] | null> {
-    if (message.channel.isThread()) {
-      const thread = message.channel;
-
-      try {
-        // Get the thread starter message
-        const starterMessage = await thread.fetchStarterMessage();
-        if (!starterMessage) {
-          return null;
-        }
-
-        // Build the message chain from the starter message (gets context before thread)
-        const preThreadContext =
-          await this.buildMessageChainFromMessage(starterMessage);
-
-        // Parse the starter message itself
-        const starterParsed = parseMessageInChain(
-          starterMessage,
-          this._discordClient.user?.id,
-        );
-
-        // Fetch all thread messages
-        const threadMessages = await thread.messages.fetch();
-        const messages = Array.from(threadMessages.values());
-
-        // Process thread messages in chronological order
-        const threadParsed: MessageInChain[] = [];
-        messages.reverse().forEach((msg) => {
-          const msgInChain = parseMessageInChain(
-            msg,
-            this._discordClient.user?.id,
-          );
-          if (msgInChain) {
-            threadParsed.push(msgInChain);
-          }
-        });
-
-        // Combine all parts: pre-thread context + starter message + thread messages
-        const result: MessageInChain[] = [
-          ...(preThreadContext ?? []),
-          ...(starterParsed ? [starterParsed] : []),
-          ...threadParsed,
-        ];
-
-        return result.length > 0 ? result : null;
-      } catch (error) {
-        console.error('Error building thread message chain:', error);
-        return null;
-      }
-    }
-
-    return null;
   }
 
   public setupMentionRegex(): void {

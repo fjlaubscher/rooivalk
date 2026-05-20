@@ -2,10 +2,10 @@
 > Artwork by [Pieter Jordaan](https://www.thisisender.com/)
 
 # Rooivalk
-Rooivalk is a Discord bot powered by Anthropic Claude or OpenAI. It responds to mentions and replies, manages threaded conversations, and exposes a set of tools the model can invoke directly.
+Rooivalk is a Discord bot powered by OpenAI. It responds to mentions and replies, manages threaded conversations, and exposes a set of tools the model can invoke directly.
 
 ## Features
-- **AI-powered responses**: Supports Anthropic Claude and OpenAI as interchangeable chat providers; image generation always uses OpenAI gpt-image-1
+- **AI-powered responses**: Backed by the OpenAI Responses API with server-side conversation chaining via `previous_response_id`; image generation always uses OpenAI gpt-image-1
 - **Smart conversation handling**: Responds to mentions, replies to bot messages, and automatically creates threads
 - **Thread management**: Automatic thread creation when users reply to bot messages, with full conversation continuity and initial context preservation
 - **Persistent memory**: Per-user memory and preference storage backed by SQLite; the model can remember, recall, and forget facts across conversations
@@ -28,7 +28,6 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 - [pnpm](https://pnpm.io/) (v10.x)
 - A Discord bot token ([guide](https://discord.com/developers/applications))
 - An OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
-- An Anthropic API key ([guide](https://console.anthropic.com/)) — optional if using OpenAI as the chat provider
 
 ### Installation
 
@@ -53,9 +52,8 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
    | `DISCORD_APP_ID` | Discord application ID |
    | `DISCORD_STARTUP_CHANNEL_ID` | Channel the bot announces startup in |
    | `DISCORD_MOTD_CHANNEL_ID` | Channel for daily MOTD posts |
-   | `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` | Use Claude as the chat provider (takes priority if both are set) |
-   | `OPENAI_API_KEY` + `OPENAI_MODEL` | Use OpenAI as the chat provider |
-   | `OPENAI_IMAGE_MODEL` | Model used for image generation (always OpenAI) |
+   | `OPENAI_API_KEY` + `OPENAI_MODEL` | Chat / reasoning credentials and model |
+   | `OPENAI_IMAGE_MODEL` | Model used for image generation |
    | `ROOIVALK_MOTD_CRON` | Cron expression for the MOTD job (e.g. `"0 8 * * *"`) |
    | `ROOIVALK_DB_PATH` | Path to the SQLite database (default: `./data/rooivalk.db`) |
    | `CLICKATELL_API_KEY` | Clickatell API key for SMS (optional) |
@@ -74,7 +72,6 @@ For a full breakdown of the architecture and coding conventions, see [AGENTS.md]
 
 Each service has its own `AGENTS.md` with specific guidance:
 
-- **ClaudeService** (`src/services/claude/`): Anthropic Claude chat provider
 - **OpenAIService** (`src/services/openai/`): OpenAI chat provider and image generation
 - **RooivalkService** (`src/services/rooivalk/`): Core business logic, message processing, and tool dispatch
 - **DiscordService** (`src/services/discord/`): Discord API integration and thread management
@@ -92,8 +89,8 @@ Each service has its own `AGENTS.md` with specific guidance:
 - Available placeholders:
   - `{{CURRENT_DATE}}` – replaced with the current ISO date before sending prompts.
   - `{{EMOJIS}}` – populated with the server's allowed custom emojis (one per line).
-  - `{{CONVERSATION_HISTORY}}` – replaced with the most recent conversation history (or a fallback line when no history exists). History is automatically truncated to keep prompts lean.
-- Set `LOG_LEVEL=debug` to emit prompt-metric debug logs (instructions length, presence of history, attachment count) ahead of each request.
+- Conversation continuity is handled server-side via OpenAI's `previous_response_id` chain; per-conversation response ids are stored in SQLite (`conversation_responses` table). Discord thread id and reply-chain root act as the conversation key.
+- Set `LOG_LEVEL=debug` to emit prompt-metric debug logs (instructions length, presence of previous response id, attachment count) ahead of each request.
 
 ### Continuous Integration
 

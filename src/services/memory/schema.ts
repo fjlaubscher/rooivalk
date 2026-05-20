@@ -14,4 +14,12 @@ CREATE TABLE IF NOT EXISTS phone_numbers (
   phone_number TEXT NOT NULL,
   registered_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS conversation_responses (
+  type TEXT NOT NULL CHECK (type IN ('msg', 'thread')),
+  ref_id TEXT NOT NULL,
+  response_id TEXT NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (type, ref_id)
+);
 `;
