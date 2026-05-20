@@ -283,6 +283,16 @@ class Rooivalk {
     await this._steam.syncAppList();
   }
 
+  public pruneConversationResponses(olderThanMs: number): number {
+    const pruned = this._memory.pruneConversationResponses(olderThanMs);
+    if (pruned > 0) {
+      console.log(
+        `[Rooivalk] pruned ${pruned} expired conversation_responses rows`,
+      );
+    }
+    return pruned;
+  }
+
   public async processMessage(message: Message<boolean>) {
     try {
       const prompt = message.content

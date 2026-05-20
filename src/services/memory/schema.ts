@@ -22,4 +22,7 @@ CREATE TABLE IF NOT EXISTS conversation_responses (
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (type, ref_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_conversation_responses_updated_at
+  ON conversation_responses(updated_at);
 `;

@@ -207,6 +207,14 @@ class MemoryService {
       .run(ref.type, ref.refId);
   }
 
+  public pruneConversationResponses(olderThanMs: number): number {
+    const cutoff = Date.now() - olderThanMs;
+    const result = this._writeDb
+      .prepare('DELETE FROM conversation_responses WHERE updated_at < ?')
+      .run(cutoff);
+    return result.changes as number;
+  }
+
   public close(): void {
     if (this._closed) {
       return;

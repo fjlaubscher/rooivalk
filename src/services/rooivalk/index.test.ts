@@ -50,7 +50,7 @@ const mockDiscordService = vi.mocked({
   },
   allowedEmojis: [],
   startupChannelId: 'test-startup-channel-id',
-  buildMessageReply: vi.fn().mockResolvedValue({}),
+  buildMessageReply: vi.fn().mockReturnValue({}),
   buildImageReply: vi.fn().mockReturnValue({ embeds: [], files: [] }),
   chunkContent: vi.fn(),
   getRooivalkResponse: vi.fn().mockReturnValue('Error!'),
