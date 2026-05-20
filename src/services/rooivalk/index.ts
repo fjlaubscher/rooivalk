@@ -360,9 +360,8 @@ class Rooivalk {
       let finalPrompt = prompt;
       let referencedAttachments: AttachmentForPrompt[] = [];
       if (!previousResponseId && message.reference?.messageId) {
-        const referencedContext = await this.loadReferencedMessageContext(
-          message,
-        );
+        const referencedContext =
+          await this.loadReferencedMessageContext(message);
         if (referencedContext) {
           finalPrompt = `${referencedContext.prefix}${prompt}`;
           referencedAttachments = referencedContext.attachments;
