@@ -232,6 +232,51 @@ class Rooivalk {
     };
   }
 
+  private async loadReferencedMessageContext(
+    message: Message<boolean>,
+  ): Promise<{ prefix: string; attachments: AttachmentForPrompt[] } | null> {
+    if (!message.reference?.messageId) {
+      return null;
+    }
+
+    let referenced: Message<boolean>;
+    try {
+      referenced = await message.channel.messages.fetch(
+        message.reference.messageId,
+      );
+    } catch (error) {
+      console.warn(
+        '[Rooivalk] failed to fetch referenced message for context',
+        error,
+      );
+      return null;
+    }
+
+    const author = referenced.author.displayName ?? referenced.author.username;
+    const content = referenced.content?.trim() ?? '';
+    const attachments = Array.from(referenced.attachments.values())
+      .filter((attachment) => this.isAttachmentAllowed(attachment))
+      .map((attachment) => this.buildAttachmentForPrompt(attachment));
+
+    if (!content && attachments.length === 0) {
+      return null;
+    }
+
+    const parts: string[] = [];
+    if (content) {
+      parts.push(`"${content}"`);
+    }
+    if (attachments.length > 0) {
+      const noun = attachments.length === 1 ? 'attachment' : 'attachments';
+      parts.push(`(${attachments.length} ${noun})`);
+    }
+
+    return {
+      prefix: `[Replying to ${author}: ${parts.join(' ')}]\n`,
+      attachments,
+    };
+  }
+
   private normalizeContentType(contentType?: string | null): string | null {
     if (!contentType) {
       return null;
@@ -312,15 +357,29 @@ class Rooivalk {
         .filter((attachment) => this.isAttachmentAllowed(attachment))
         .map((attachment) => this.buildAttachmentForPrompt(attachment));
 
+      let finalPrompt = prompt;
+      let referencedAttachments: AttachmentForPrompt[] = [];
+      if (!previousResponseId && message.reference?.messageId) {
+        const referencedContext = await this.loadReferencedMessageContext(
+          message,
+        );
+        if (referencedContext) {
+          finalPrompt = `${referencedContext.prefix}${prompt}`;
+          referencedAttachments = referencedContext.attachments;
+        }
+      }
+
+      const combinedAttachments = [...referencedAttachments, ...attachments];
+
       const toolExecutor = this.createToolExecutor(message);
       const chat = this.selectChatService(message);
       const preferences = this._memory.getPreferences(message.author.id);
 
       const response = await chat.createResponse(
         buildPromptAuthor(message.author),
-        prompt,
+        finalPrompt,
         previousResponseId,
-        attachments.length > 0 ? attachments : null,
+        combinedAttachments.length > 0 ? combinedAttachments : null,
         toolExecutor,
         preferences,
       );

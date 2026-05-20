@@ -265,6 +265,133 @@ describe('Rooivalk', () => {
         );
       });
 
+      it('includes the referenced message as quoted context when no prior response id is stored', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> wat se ek hier`,
+          reference: { messageId: 'plain-user-msg' } as any,
+        } as Partial<Message<boolean>>);
+        (userMessage.channel.messages.fetch as any).mockResolvedValue({
+          author: { displayName: 'chipgatsby', username: 'chipgatsby' } as any,
+          content: 'blablabla',
+          attachments: new Collection<string, Attachment>(),
+        });
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-ctx' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(userMessage.channel.messages.fetch).toHaveBeenCalledWith(
+          'plain-user-msg',
+        );
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe(
+          '[Replying to chipgatsby: "blablabla"]\nwat se ek hier',
+        );
+        expect(call[2]).toBeNull();
+      });
+
+      it('forwards attachments from the referenced message', async () => {
+        const refImage = {
+          url: 'https://cdn.discordapp.com/attachments/ref-image.png',
+          contentType: 'image/png',
+          name: 'ref-image.png',
+        } as unknown as Attachment;
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> what's in this image?`,
+          reference: { messageId: 'msg-with-image' } as any,
+        } as Partial<Message<boolean>>);
+        (userMessage.channel.messages.fetch as any).mockResolvedValue({
+          author: { displayName: 'chipgatsby', username: 'chipgatsby' } as any,
+          content: 'check this out',
+          attachments: new Collection<string, Attachment>([['1', refImage]]),
+        });
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-att' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe(
+          '[Replying to chipgatsby: "check this out" (1 attachment)]\nwhat\'s in this image?',
+        );
+        expect(call[3]).toEqual([
+          {
+            url: refImage.url,
+            name: refImage.name,
+            contentType: 'image/png',
+            kind: 'image',
+          },
+        ]);
+      });
+
+      it('does not fetch the referenced message when a prior response id was found', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> follow up`,
+          reference: { messageId: 'prev-bot-msg' } as any,
+        } as Partial<Message<boolean>>);
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'stored-resp-id',
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-skip' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(userMessage.channel.messages.fetch).not.toHaveBeenCalled();
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe('follow up');
+      });
+
+      it('falls back to the bare prompt when fetching the referenced message fails', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> wat se ek hier`,
+          reference: { messageId: 'gone-msg' } as any,
+        } as Partial<Message<boolean>>);
+        (userMessage.channel.messages.fetch as any).mockRejectedValue(
+          new Error('blocked'),
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-fail' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe('wat se ek hier');
+        expect(call[3]).toBeNull();
+      });
+
       it('clears the stored response id when the context is lost', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> still there?`,

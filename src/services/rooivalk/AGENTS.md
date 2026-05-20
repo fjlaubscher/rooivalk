@@ -31,6 +31,7 @@ The RooivalkService contains the core business logic for the bot. It processes m
 - `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to `OpenAIService.createResponse`.
 - After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn).
 - When `OpenAIService` reports `contextLost: true`, the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
+- When a Discord reply has no stored `previous_response_id` (e.g., replying to a non-bot message while mentioning the bot), `loadReferencedMessageContext` fetches the referenced message and prepends a `[Replying to <author>: "<content>" (N attachments)]` block to the prompt. Allowed attachments from the referenced message are merged ahead of the current message's attachments so the model can see both. Fetch failures fall back silently to the bare prompt.
 
 ### Context Integration
 
