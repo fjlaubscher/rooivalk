@@ -48,6 +48,7 @@ export const CONFIG_FILE_INSTRUCTIONS = 'instructions.md';
 export const CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL =
   'instructions_field_hospital.md';
 export const CONFIG_FILE_MOTD = 'motd.md';
+export const CONFIG_FILE_LEADERBOARD = 'leaderboard.md';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 

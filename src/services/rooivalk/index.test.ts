@@ -101,6 +101,14 @@ const mockWikimediaService = vi.mocked({
   getCityImage: vi.fn(),
 } as any);
 
+const mockEmojiService = vi.mocked({
+  recordReaction: vi.fn(),
+  getTopReceivers: vi.fn().mockReturnValue([]),
+  getTopGivers: vi.fn().mockReturnValue([]),
+  getEmojiChampions: vi.fn().mockReturnValue([]),
+  close: vi.fn(),
+} as any);
+
 describe('Rooivalk', () => {
   let rooivalk: Rooivalk;
 
@@ -133,6 +141,8 @@ describe('Rooivalk', () => {
       undefined,
       undefined,
       mockMemoryService,
+      undefined,
+      mockEmojiService,
     );
   });
 
@@ -2107,6 +2117,125 @@ describe('Rooivalk', () => {
           'Question about something',
         );
       });
+    });
+  });
+
+  describe('processMessageReaction', () => {
+    const GUILD_ID = 'test-guild-id';
+
+    function makeReaction(overrides: Record<string, unknown> = {}) {
+      return {
+        partial: false,
+        message: {
+          partial: false,
+          id: 'msg-1',
+          channelId: 'channel-1',
+          guild: { id: GUILD_ID },
+          author: { id: 'author-1', bot: false },
+          fetch: vi.fn(),
+        },
+        emoji: { id: null, name: '🔥', animated: false },
+        fetch: vi.fn(),
+        ...overrides,
+      };
+    }
+
+    function makeUser(overrides: Record<string, unknown> = {}) {
+      return {
+        partial: false,
+        id: 'reactor-1',
+        bot: false,
+        fetch: vi.fn(),
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      vi.stubEnv('DISCORD_GUILD_ID', GUILD_ID);
+    });
+
+    it('records a valid reaction', async () => {
+      await (rooivalk as any).processMessageReaction(
+        makeReaction(),
+        makeUser(),
+      );
+      expect(mockEmojiService.recordReaction).toHaveBeenCalledOnce();
+    });
+
+    it('skips reactions from a different guild', async () => {
+      const reaction = makeReaction({
+        message: {
+          partial: false,
+          id: 'msg-1',
+          channelId: 'channel-1',
+          guild: { id: 'other-guild' },
+          author: { id: 'author-1', bot: false },
+          fetch: vi.fn(),
+        },
+      });
+      await (rooivalk as any).processMessageReaction(reaction, makeUser());
+      expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
+    });
+
+    it('skips reactions from a bot user', async () => {
+      await (rooivalk as any).processMessageReaction(
+        makeReaction(),
+        makeUser({ bot: true }),
+      );
+      expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
+    });
+
+    it('skips reactions on messages authored by a bot', async () => {
+      const reaction = makeReaction({
+        message: {
+          partial: false,
+          id: 'msg-1',
+          channelId: 'channel-1',
+          guild: { id: GUILD_ID },
+          author: { id: 'bot-author', bot: true },
+          fetch: vi.fn(),
+        },
+      });
+      await (rooivalk as any).processMessageReaction(reaction, makeUser());
+      expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
+    });
+
+    it('skips self-reactions', async () => {
+      const reaction = makeReaction({
+        message: {
+          partial: false,
+          id: 'msg-1',
+          channelId: 'channel-1',
+          guild: { id: GUILD_ID },
+          author: { id: 'same-user', bot: false },
+          fetch: vi.fn(),
+        },
+      });
+      await (rooivalk as any).processMessageReaction(
+        reaction,
+        makeUser({ id: 'same-user' }),
+      );
+      expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
+    });
+
+    it('skips and logs when a partial fetch throws', async () => {
+      const reaction = makeReaction({
+        partial: true,
+        fetch: vi.fn().mockRejectedValue(new Error('fetch failed')),
+      });
+      await (rooivalk as any).processMessageReaction(reaction, makeUser());
+      expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
+    });
+
+    it('resolves a partial reaction before applying filters', async () => {
+      const resolved = makeReaction();
+      const partial = makeReaction({
+        partial: true,
+        fetch: vi.fn().mockResolvedValue(resolved),
+      });
+      await (rooivalk as any).processMessageReaction(partial, makeUser());
+      expect(mockEmojiService.recordReaction).toHaveBeenCalledOnce();
     });
   });
 });

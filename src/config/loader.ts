@@ -8,6 +8,7 @@ import {
   CONFIG_FILE_DISCORD_LIMIT,
   CONFIG_FILE_INSTRUCTIONS,
   CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL,
+  CONFIG_FILE_LEADERBOARD,
   CONFIG_FILE_MOTD,
 } from '../constants.ts';
 import type { InMemoryConfig } from '../types.ts';
@@ -99,6 +100,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     errorMessages,
     greetingMessages,
     discordLimitMessages,
+    leaderboardEmptyMessages,
     instructions,
     fieldHospitalInstructions,
     motd,
@@ -106,6 +108,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadMessageList(CONFIG_FILE_ERRORS),
     loadMessageList(CONFIG_FILE_GREETINGS),
     loadMessageList(CONFIG_FILE_DISCORD_LIMIT),
+    loadMessageList(CONFIG_FILE_LEADERBOARD),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS),
     loadOptionalInstructions(CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL),
     loadInstructions(CONFIG_FILE_MOTD),
@@ -115,6 +118,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     errorMessages,
     greetingMessages,
     discordLimitMessages,
+    leaderboardEmptyMessages,
     instructions,
     fieldHospitalInstructions,
     motd,

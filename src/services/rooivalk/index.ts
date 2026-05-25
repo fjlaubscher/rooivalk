@@ -2,6 +2,8 @@ import {
   AttachmentBuilder,
   EmbedBuilder,
   Events as DiscordEvents,
+  formatEmoji,
+  userMention,
 } from 'discord.js';
 import type {
   Attachment,
@@ -13,6 +15,8 @@ import type {
   MessageReaction,
   PartialMessageReaction,
   SendableChannels,
+  User,
+  PartialUser,
 } from 'discord.js';
 
 import {
@@ -29,6 +33,8 @@ import {
 import type { ChatService } from '../chat/index.ts';
 import ClickatellService from '../clickatell/index.ts';
 import DiscordService from '../discord/index.ts';
+import EmojiService from '../emoji/index.ts';
+import type { EmojiChampion } from '../emoji/types.ts';
 import MemoryService from '../memory/index.ts';
 import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
@@ -102,6 +108,7 @@ class Rooivalk {
   protected _peapix: PeapixService;
   protected _wikimedia: WikimediaService;
   protected _clickatell: ClickatellService;
+  protected _emoji: EmojiService;
   protected _memory: MemoryService;
   protected _steam: SteamService;
   private _allowedAppIds: string[];
@@ -118,6 +125,7 @@ class Rooivalk {
     clickatellService?: ClickatellService,
     memoryService?: MemoryService,
     steamService?: SteamService,
+    emojiService?: EmojiService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -140,6 +148,9 @@ class Rooivalk {
         process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db',
         process.env.STEAM_API_KEY,
       );
+    this._emoji =
+      emojiService ??
+      new EmojiService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -616,6 +627,124 @@ class Rooivalk {
     }
   }
 
+  public async sendLeaderboardToMotdChannel(): Promise<void> {
+    if (!this._discord.motdChannelId) {
+      console.error('[Rooivalk] Leaderboard: MOTD channel ID not set');
+      return;
+    }
+
+    const LEADERBOARD_LIMIT = 5;
+    const now = Date.now();
+    const windowStart = now - 7 * 24 * 60 * 60 * 1000;
+    const guildId = process.env.DISCORD_GUILD_ID!;
+
+    try {
+      const receivers = this._emoji.getTopReceivers(
+        guildId,
+        windowStart,
+        now,
+        LEADERBOARD_LIMIT,
+      );
+      const givers = this._emoji.getTopGivers(
+        guildId,
+        windowStart,
+        now,
+        LEADERBOARD_LIMIT,
+      );
+      const champions = this._emoji.getEmojiChampions(
+        guildId,
+        windowStart,
+        now,
+        LEADERBOARD_LIMIT,
+      );
+
+      const channel = await this._discord.client.channels.fetch(
+        this._discord.motdChannelId,
+      );
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        console.error(
+          `[Rooivalk] Leaderboard: channel ${this._discord.motdChannelId} is not sendable`,
+        );
+        return;
+      }
+
+      if (!receivers.length && !givers.length && !champions.length) {
+        const msgs = this._config.leaderboardEmptyMessages;
+        const msg =
+          msgs.length > 0
+            ? msgs[Math.floor(Math.random() * msgs.length)]!
+            : 'Quieter than a ghost town in Pyongyang this week.';
+        await (channel as SendableChannels).send({
+          content: msg,
+          allowedMentions: { users: [] },
+        });
+        return;
+      }
+
+      const guild = await this._discord.client.guilds.fetch(
+        process.env.DISCORD_GUILD_ID!,
+      );
+      const uniqueIds = new Set([
+        ...receivers.map((r) => r.user_id),
+        ...givers.map((g) => g.user_id),
+        ...champions.map((c) => c.user_id),
+      ]);
+      const nameMap = new Map<string, string>();
+      for (const id of uniqueIds) {
+        try {
+          const member = await guild.members.fetch(id);
+          nameMap.set(id, member.displayName);
+        } catch {
+          nameMap.set(id, userMention(id));
+        }
+      }
+      const displayName = (id: string) => nameMap.get(id) ?? userMention(id);
+
+      const lines: string[] = ['**Weekly Emoji Recap** — last 7 days', ''];
+
+      if (receivers.length) {
+        lines.push('**Most-loved messages**');
+        receivers.forEach((r, i) => {
+          lines.push(
+            `${i + 1}. ${displayName(r.user_id)} — ${r.count} reaction${r.count === 1 ? '' : 's'}`,
+          );
+        });
+        lines.push('');
+      }
+
+      if (givers.length) {
+        lines.push('**Most reactive**');
+        givers.forEach((g, i) => {
+          lines.push(
+            `${i + 1}. ${displayName(g.user_id)} — ${g.count} reaction${g.count === 1 ? '' : 's'} given`,
+          );
+        });
+        lines.push('');
+      }
+
+      if (champions.length) {
+        lines.push('**Emoji champions**');
+        champions.forEach((c) => {
+          const emojiStr = c.emoji_id
+            ? formatEmoji({
+                id: c.emoji_id,
+                animated: c.emoji_animated === 1,
+                name: c.emoji_name,
+              })
+            : c.emoji_name;
+          lines.push(`${emojiStr} — ${displayName(c.user_id)} (${c.count})`);
+        });
+      }
+
+      await (channel as SendableChannels).send({
+        content: lines.join('\n').trim(),
+        allowedMentions: { users: [] },
+      });
+    } catch (err) {
+      console.error('[Rooivalk] Error sending leaderboard:', err);
+    }
+  }
+
   public async sendMessageToChannel(
     channelId: string | undefined,
     prompt: string,
@@ -786,12 +915,36 @@ class Rooivalk {
 
   public async processMessageReaction(
     reaction: MessageReaction | PartialMessageReaction,
-  ) {
-    // Ignore reactions from:
-    // 1. Other bots
-    // 2. Messages not from the specified guild (server)
-    if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) {
+    user: User | PartialUser,
+  ): Promise<void> {
+    try {
+      if (reaction.partial) reaction = await reaction.fetch();
+      if (reaction.message.partial) await reaction.message.fetch();
+      if (user.partial) user = await user.fetch();
+    } catch (err) {
+      console.error('[Rooivalk] Failed to fetch partial reaction data:', err);
       return;
+    }
+
+    if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) return;
+    if (user.bot) return;
+    if (!reaction.message.author) return;
+    if (reaction.message.author.bot) return;
+    if (user.id === reaction.message.author.id) return;
+
+    try {
+      this._emoji.recordReaction({
+        guildId: process.env.DISCORD_GUILD_ID!,
+        messageId: reaction.message.id,
+        channelId: reaction.message.channelId,
+        messageAuthorId: reaction.message.author.id,
+        reactorId: user.id,
+        emojiId: reaction.emoji.id ?? null,
+        emojiName: reaction.emoji.name ?? 'unknown',
+        emojiAnimated: reaction.emoji.animated ?? false,
+      });
+    } catch (err) {
+      console.error('[Rooivalk] Failed to record emoji reaction:', err);
     }
   }
 
@@ -826,8 +979,8 @@ class Rooivalk {
       await this.processMessage(message);
     });
 
-    this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction) =>
-      this.processMessageReaction(reaction),
+    this._discord.on(DiscordEvents.MessageReactionAdd, async (reaction, user) =>
+      this.processMessageReaction(reaction, user),
     );
 
     this._discord.on(
