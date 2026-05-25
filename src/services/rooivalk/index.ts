@@ -636,24 +636,28 @@ class Rooivalk {
     const LEADERBOARD_LIMIT = 5;
     const now = Date.now();
     const windowStart = now - 7 * 24 * 60 * 60 * 1000;
-
-    const receivers = this._emoji.getTopReceivers(
-      windowStart,
-      now,
-      LEADERBOARD_LIMIT,
-    );
-    const givers = this._emoji.getTopGivers(
-      windowStart,
-      now,
-      LEADERBOARD_LIMIT,
-    );
-    const champions = this._emoji.getEmojiChampions(
-      windowStart,
-      now,
-      LEADERBOARD_LIMIT,
-    );
+    const guildId = process.env.DISCORD_GUILD_ID!;
 
     try {
+      const receivers = this._emoji.getTopReceivers(
+        guildId,
+        windowStart,
+        now,
+        LEADERBOARD_LIMIT,
+      );
+      const givers = this._emoji.getTopGivers(
+        guildId,
+        windowStart,
+        now,
+        LEADERBOARD_LIMIT,
+      );
+      const champions = this._emoji.getEmojiChampions(
+        guildId,
+        windowStart,
+        now,
+        LEADERBOARD_LIMIT,
+      );
+
       const channel = await this._discord.client.channels.fetch(
         this._discord.motdChannelId,
       );
@@ -666,7 +670,10 @@ class Rooivalk {
 
       if (!receivers.length && !givers.length && !champions.length) {
         const msgs = this._config.leaderboardEmptyMessages;
-        const msg = msgs[Math.floor(Math.random() * msgs.length)] ?? '';
+        const msg =
+          msgs.length > 0
+            ? msgs[Math.floor(Math.random() * msgs.length)]!
+            : 'Quieter than a ghost town in Pyongyang this week.';
         await (channel as SendableChannels).send({
           content: msg,
           allowedMentions: { users: [] },
@@ -921,19 +928,24 @@ class Rooivalk {
 
     if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) return;
     if (user.bot) return;
-    if (reaction.message.author?.bot) return;
-    if (user.id === reaction.message.author?.id) return;
+    if (!reaction.message.author) return;
+    if (reaction.message.author.bot) return;
+    if (user.id === reaction.message.author.id) return;
 
-    this._emoji.recordReaction({
-      guildId: process.env.DISCORD_GUILD_ID!,
-      messageId: reaction.message.id,
-      channelId: reaction.message.channelId,
-      messageAuthorId: reaction.message.author!.id,
-      reactorId: user.id,
-      emojiId: reaction.emoji.id ?? null,
-      emojiName: reaction.emoji.name ?? '',
-      emojiAnimated: reaction.emoji.animated ?? false,
-    });
+    try {
+      this._emoji.recordReaction({
+        guildId: process.env.DISCORD_GUILD_ID!,
+        messageId: reaction.message.id,
+        channelId: reaction.message.channelId,
+        messageAuthorId: reaction.message.author.id,
+        reactorId: user.id,
+        emojiId: reaction.emoji.id ?? null,
+        emojiName: reaction.emoji.name ?? 'unknown',
+        emojiAnimated: reaction.emoji.animated ?? false,
+      });
+    } catch (err) {
+      console.error('[Rooivalk] Failed to record emoji reaction:', err);
+    }
   }
 
   public async init(): Promise<void> {

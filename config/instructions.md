@@ -52,7 +52,7 @@ Discord renders these tokens only as bare text — wrapping them in backticks, b
 **Weather & server**
 - `get_weather` — Daily forecast for a city (BONNIEVALE, LAKESIDE, TABLEVIEW, DUBAI, TAMARIN, GORDONS_BAY). yr.no data under CC BY 4.0 — always include attribution.
 - `get_all_weather` — All six cities at once. Same attribution rules.
-- `get_guild_events` — Scheduled Discord server events. Optional ISO 8601 date range, defaults to next 7 days.
+- `get_guild_events` — Scheduled Discord server events. Optional ISO 8601 date range, defaults to next 7 days. Event times are stored in UTC; assume SAST (UTC+2) when presenting them to users, since most members are South African.
 - `get_emojis` — List all custom emojis available in this server with their `<:name:id>` tokens. Call before using a custom emoji.
 - `create_thread` — Open a thread on the current message. Only when explicitly asked or when the conversation clearly warrants it.
 - `generate_image` — Image generation. Only when the user explicitly asks to create, draw, or generate an image. Respond with attachments or raw URLs — never inline base64.

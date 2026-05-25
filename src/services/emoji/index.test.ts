@@ -36,7 +36,12 @@ describe('EmojiService', () => {
     it('returns the receiver after a reaction is recorded', () => {
       emoji.recordReaction(BASE);
       const now = Date.now();
-      const rows = emoji.getTopReceivers(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getTopReceivers(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        5,
+      );
       expect(rows).toHaveLength(1);
       expect(rows[0]!.user_id).toBe('author-1');
       expect(rows[0]!.count).toBe(1);
@@ -46,7 +51,12 @@ describe('EmojiService', () => {
       emoji.recordReaction(BASE);
       emoji.recordReaction({ ...BASE, reactorId: 'reactor-2' });
       const now = Date.now();
-      const rows = emoji.getTopReceivers(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getTopReceivers(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        5,
+      );
       expect(rows[0]!.count).toBe(2);
     });
 
@@ -67,7 +77,12 @@ describe('EmojiService', () => {
         reactorId: 'r3',
       });
       const now = Date.now();
-      const rows = emoji.getTopReceivers(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getTopReceivers(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        5,
+      );
       expect(rows[0]!.user_id).toBe('author-b');
       expect(rows[0]!.count).toBe(2);
     });
@@ -75,7 +90,12 @@ describe('EmojiService', () => {
     it('excludes reactions outside the window', () => {
       emoji.recordReaction(BASE);
       const past = Date.now() - 200_000;
-      const rows = emoji.getTopReceivers(past - 60_000, past - 1_000, 5);
+      const rows = emoji.getTopReceivers(
+        'guild-1',
+        past - 60_000,
+        past - 1_000,
+        5,
+      );
       expect(rows).toHaveLength(0);
     });
 
@@ -88,7 +108,12 @@ describe('EmojiService', () => {
         });
       }
       const now = Date.now();
-      const rows = emoji.getTopReceivers(now - 60_000, now + 60_000, 3);
+      const rows = emoji.getTopReceivers(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        3,
+      );
       expect(rows).toHaveLength(3);
     });
   });
@@ -97,7 +122,7 @@ describe('EmojiService', () => {
     it('returns the reactor after a reaction is recorded', () => {
       emoji.recordReaction(BASE);
       const now = Date.now();
-      const rows = emoji.getTopGivers(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getTopGivers('guild-1', now - 60_000, now + 60_000, 5);
       expect(rows[0]!.user_id).toBe('reactor-1');
       expect(rows[0]!.count).toBe(1);
     });
@@ -119,7 +144,7 @@ describe('EmojiService', () => {
         messageAuthorId: 'a3',
       });
       const now = Date.now();
-      const rows = emoji.getTopGivers(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getTopGivers('guild-1', now - 60_000, now + 60_000, 5);
       expect(rows[0]!.user_id).toBe('reactor-b');
       expect(rows[0]!.count).toBe(2);
     });
@@ -127,7 +152,12 @@ describe('EmojiService', () => {
     it('excludes reactions outside the window', () => {
       emoji.recordReaction(BASE);
       const past = Date.now() - 200_000;
-      const rows = emoji.getTopGivers(past - 60_000, past - 1_000, 5);
+      const rows = emoji.getTopGivers(
+        'guild-1',
+        past - 60_000,
+        past - 1_000,
+        5,
+      );
       expect(rows).toHaveLength(0);
     });
   });
@@ -148,7 +178,12 @@ describe('EmojiService', () => {
         messageAuthorId: 'a3',
       });
       const now = Date.now();
-      const rows = emoji.getEmojiChampions(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getEmojiChampions(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        5,
+      );
       expect(rows).toHaveLength(1);
       expect(rows[0]!.emoji_name).toBe('🔥');
       expect(rows[0]!.user_id).toBe('r1');
@@ -163,7 +198,12 @@ describe('EmojiService', () => {
         emojiAnimated: false,
       });
       const now = Date.now();
-      const rows = emoji.getEmojiChampions(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getEmojiChampions(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        5,
+      );
       expect(rows[0]!.emoji_id).toBe('123456');
       expect(rows[0]!.emoji_name).toBe('rooivalk');
     });
@@ -173,13 +213,23 @@ describe('EmojiService', () => {
         emoji.recordReaction({ ...BASE, emojiName: `emoji-${i}` });
       }
       const now = Date.now();
-      const rows = emoji.getEmojiChampions(now - 60_000, now + 60_000, 3);
+      const rows = emoji.getEmojiChampions(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        3,
+      );
       expect(rows.length).toBeLessThanOrEqual(3);
     });
 
     it('returns empty when no reactions exist', () => {
       const now = Date.now();
-      const rows = emoji.getEmojiChampions(now - 60_000, now + 60_000, 5);
+      const rows = emoji.getEmojiChampions(
+        'guild-1',
+        now - 60_000,
+        now + 60_000,
+        5,
+      );
       expect(rows).toHaveLength(0);
     });
   });

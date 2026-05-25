@@ -40,6 +40,7 @@ class EmojiService {
   }
 
   public getTopReceivers(
+    guildId: string,
     windowStart: number,
     windowEnd: number,
     limit: number,
@@ -48,15 +49,16 @@ class EmojiService {
       .prepare(
         `SELECT message_author_id AS user_id, COUNT(*) AS count
          FROM emoji_reactions
-         WHERE created_at >= ? AND created_at < ?
+         WHERE guild_id = ? AND created_at >= ? AND created_at < ?
          GROUP BY message_author_id
          ORDER BY count DESC
          LIMIT ?`,
       )
-      .all(windowStart, windowEnd, limit) as TopUser[];
+      .all(guildId, windowStart, windowEnd, limit) as TopUser[];
   }
 
   public getTopGivers(
+    guildId: string,
     windowStart: number,
     windowEnd: number,
     limit: number,
@@ -65,15 +67,16 @@ class EmojiService {
       .prepare(
         `SELECT reactor_id AS user_id, COUNT(*) AS count
          FROM emoji_reactions
-         WHERE created_at >= ? AND created_at < ?
+         WHERE guild_id = ? AND created_at >= ? AND created_at < ?
          GROUP BY reactor_id
          ORDER BY count DESC
          LIMIT ?`,
       )
-      .all(windowStart, windowEnd, limit) as TopUser[];
+      .all(guildId, windowStart, windowEnd, limit) as TopUser[];
   }
 
   public getEmojiChampions(
+    guildId: string,
     windowStart: number,
     windowEnd: number,
     emojiLimit: number,
@@ -83,7 +86,7 @@ class EmojiService {
         `WITH emoji_totals AS (
            SELECT emoji_id, emoji_name, emoji_animated, SUM(1) AS total
            FROM emoji_reactions
-           WHERE created_at >= ? AND created_at < ?
+           WHERE guild_id = ? AND created_at >= ? AND created_at < ?
            GROUP BY emoji_id, emoji_name, emoji_animated
            ORDER BY total DESC
            LIMIT ?
@@ -91,12 +94,15 @@ class EmojiService {
          per_user AS (
            SELECT r.emoji_id, r.emoji_name, r.emoji_animated, r.reactor_id AS user_id, COUNT(*) AS count
            FROM emoji_reactions r
-           INNER JOIN emoji_totals t ON r.emoji_id IS t.emoji_id AND r.emoji_name = t.emoji_name
-           WHERE r.created_at >= ? AND r.created_at < ?
+           INNER JOIN emoji_totals t
+             ON r.emoji_id IS t.emoji_id
+             AND r.emoji_name = t.emoji_name
+             AND r.emoji_animated = t.emoji_animated
+           WHERE r.guild_id = ? AND r.created_at >= ? AND r.created_at < ?
            GROUP BY r.emoji_id, r.emoji_name, r.emoji_animated, r.reactor_id
          ),
          ranked AS (
-           SELECT *, ROW_NUMBER() OVER (PARTITION BY emoji_id, emoji_name ORDER BY count DESC) AS rn
+           SELECT *, ROW_NUMBER() OVER (PARTITION BY emoji_id, emoji_name, emoji_animated ORDER BY count DESC) AS rn
            FROM per_user
          )
          SELECT emoji_id, emoji_name, emoji_animated, user_id, count
@@ -104,9 +110,11 @@ class EmojiService {
          WHERE rn = 1`,
       )
       .all(
+        guildId,
         windowStart,
         windowEnd,
         emojiLimit,
+        guildId,
         windowStart,
         windowEnd,
       ) as EmojiChampion[];
