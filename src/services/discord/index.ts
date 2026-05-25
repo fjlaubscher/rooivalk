@@ -1,6 +1,7 @@
 import {
   Client as DiscordClient,
   GatewayIntentBits,
+  Partials,
   AttachmentBuilder,
   userMention,
   REST,
@@ -41,6 +42,7 @@ class DiscordService {
           GatewayIntentBits.GuildMessageReactions,
           GatewayIntentBits.MessageContent,
         ],
+        partials: [Partials.Message, Partials.Reaction, Partials.User],
       });
     this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
     this._motdChannelId = process.env.DISCORD_MOTD_CHANNEL_ID;

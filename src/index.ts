@@ -37,6 +37,10 @@ async function main() {
   cron.schedule(motdExpr, async () => {
     await rooivalk.sendMotdToMotdChannel();
   });
+  const leaderboardExpr = process.env.ROOIVALK_LEADERBOARD_CRON || '5 8 * * 3';
+  cron.schedule(leaderboardExpr, async () => {
+    await rooivalk.sendLeaderboardToMotdChannel();
+  });
   if (process.env.STEAM_API_KEY) {
     cron.schedule('0 0 * * *', async () => {
       await rooivalk.syncSteamAppList();
