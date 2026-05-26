@@ -20,7 +20,10 @@ export type InMemoryConfig = {
   greetingMessages: string[];
   discordLimitMessages: string[];
   leaderboardEmptyMessages: string[];
-  instructions: string;
+  instructions: {
+    openai: string;
+    xai: string;
+  };
   fieldHospitalInstructions?: string;
   motd: string;
 };

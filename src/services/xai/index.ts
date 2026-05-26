@@ -70,7 +70,7 @@ class XAIService {
     preferences: MemoryRow[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
-      let instructions = this._config.instructions;
+      let instructions = this._config.instructions.xai;
 
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);
@@ -129,9 +129,15 @@ class XAIService {
         content: inputContent,
       });
 
-      // xAI's Responses API does not support OpenAI's native server tools
-      // (web_search_preview, image_generation) — only function tools.
-      const tools = toolExecutor ? [...FUNCTION_TOOLS] : [];
+      // `web_search` is xAI's native server tool — distinct from OpenAI's
+      // `web_search_preview` and not part of the SDK's `Tool` union, hence the
+      // double cast.
+      const webSearchTool = {
+        type: 'web_search',
+      } as unknown as OpenAI.Responses.Tool;
+      const tools: OpenAI.Responses.Tool[] = toolExecutor
+        ? [...FUNCTION_TOOLS, webSearchTool]
+        : [webSearchTool];
 
       const chatModel = this.requireChatModel();
 

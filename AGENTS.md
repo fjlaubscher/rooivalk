@@ -33,7 +33,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
-- `config/` – Hot-swappable markdown configs (`instructions.md`, greetings, errors, etc.)
+- `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, greetings, errors, etc.)
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 

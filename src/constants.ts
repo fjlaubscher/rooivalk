@@ -43,7 +43,8 @@ export const DISCORD_COMMANDS = {
 export const CONFIG_FILE_ERRORS = 'errors.md';
 export const CONFIG_FILE_GREETINGS = 'greetings.md';
 export const CONFIG_FILE_DISCORD_LIMIT = 'discord_limit.md';
-export const CONFIG_FILE_INSTRUCTIONS = 'instructions.md';
+export const CONFIG_FILE_INSTRUCTIONS_OPENAI = 'instructions/openai.md';
+export const CONFIG_FILE_INSTRUCTIONS_XAI = 'instructions/xai.md';
 export const CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL =
   'instructions_field_hospital.md';
 export const CONFIG_FILE_MOTD = 'motd.md';

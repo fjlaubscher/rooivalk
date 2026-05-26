@@ -57,6 +57,6 @@ export function createFieldHospitalChatService(
     config,
     model,
     undefined,
-    (c) => c.fieldHospitalInstructions ?? c.instructions,
+    (c) => c.fieldHospitalInstructions ?? c.instructions.openai,
   );
 }
