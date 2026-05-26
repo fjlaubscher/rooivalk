@@ -9,7 +9,7 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
 } from 'discord.js';
-import type { Message, TextChannel, ClientEvents } from 'discord.js';
+import type { TextChannel, ClientEvents } from 'discord.js';
 
 import {
   DISCORD_MESSAGE_LIMIT,

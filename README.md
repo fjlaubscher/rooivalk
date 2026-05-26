@@ -8,11 +8,11 @@ A Discord bot powered by OpenAI. Responds to mentions and replies, threads its o
 ## Features
 
 - **Chat & reasoning** via the OpenAI Responses API. Conversation continuity is handled server-side through `previous_response_id`; per-conversation ids live in SQLite (`conversation_responses`).
-- **Image generation** via OpenAI `gpt-image-1`, exposed both as a slash command and as a native tool inside chat.
+- **Image generation** via OpenAI `gpt-image-1` (or xAI `grok-2-image` when configured), exposed as a slash command and as the `generate_image` function tool so the model can produce images inline.
 - **Threads**: replying to a bot message auto-creates a thread; the bot responds to everything inside threads it owns.
 - **Per-user memory** in SQLite — the model can `remember`, `recall`, and `forget` facts. Capped preference set is injected on every turn.
-- **Tools**: weather (Yr.no), Steam store lookups, SMS (Clickatell), sandboxed `run_bash` for log/source inspection, server-event lookup.
-- **Daily MOTD** with AI-generated city artwork; Wikimedia + Peapix as fallbacks.
+- **Tools**: weather (Yr.no), Steam store lookups, ad-hoc SQLite querying of the bot's own data, sandboxed `run_bash` for log/source inspection, server-event lookup.
+- **Daily MOTD** with AI-generated city artwork; Peapix (Bing image of the day) as a fallback.
 - **Hot-reloadable config** — edit `config/*.md` and changes take effect without redeploying.
 
 ### Rooivalk in action
@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v22+
+- [Node.js](https://nodejs.org/) v24+
 - [pnpm](https://pnpm.io/) v10.x
 - Discord bot token ([guide](https://discord.com/developers/applications))
 - OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
@@ -48,7 +48,7 @@ Key env vars:
 | `OPENAI_IMAGE_MODEL` | Image generation model |
 | `ROOIVALK_MOTD_CRON` | Cron expression for the daily MOTD (e.g. `"0 8 * * *"`) |
 | `ROOIVALK_DB_PATH` | SQLite path (default `./data/rooivalk.db`) |
-| `CLICKATELL_API_KEY` | Optional; enables SMS |
+| `XAI_API_KEY` / `XAI_MODEL` / `XAI_IMAGE_MODEL` | Optional; route chat and/or image generation to xAI Grok via the OpenAI SDK |
 | `STEAM_API_KEY` | Required for the nightly Steam catalogue sync that backs `get_game_listing` |
 
 ### Services
@@ -56,13 +56,14 @@ Key env vars:
 Each service has its own `AGENTS.md`:
 
 - `src/services/openai` — OpenAI chat + image generation
+- `src/services/xai` — xAI Grok chat + image provider (OpenAI-SDK compatible)
+- `src/services/chat` — provider-routing factories (chat, image, field hospital)
 - `src/services/rooivalk` — message processing, tool dispatch, MOTD
 - `src/services/discord` — Discord API integration and thread handling
-- `src/services/memory` — SQLite-backed memory, phone numbers, conversation-id store
+- `src/services/memory` — SQLite-backed memory + conversation-id store
 - `src/services/yr` — Yr.no weather
 - `src/services/steam` — Steam store + nightly app catalogue sync
-- `src/services/clickatell` — Clickatell SMS
-- `src/services/wikimedia` / `src/services/peapix` — MOTD image fallbacks
+- `src/services/peapix` — Bing image-of-the-day fallback for MOTD
 - `src/services/cron` — scheduled jobs
 - `src/config` — hot-reloadable markdown config
 

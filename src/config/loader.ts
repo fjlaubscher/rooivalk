@@ -13,7 +13,7 @@ import {
 } from '../constants.ts';
 import type { InMemoryConfig } from '../types.ts';
 
-export const getConfigFilePath = (filename: string): string =>
+const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
 
 /**
@@ -36,7 +36,7 @@ const getPackageVersion = async (): Promise<string> => {
  * Loads a list of messages from a markdown file.
  * Expects each message to be on its own line, prefixed with '- '.
  */
-export const loadMessageList = async (filename: string): Promise<string[]> => {
+const loadMessageList = async (filename: string): Promise<string[]> => {
   const filePath = getConfigFilePath(filename);
   try {
     const content = await readFile(filePath, 'utf8');
@@ -58,7 +58,7 @@ export const loadMessageList = async (filename: string): Promise<string[]> => {
  * Returns the content as a single string, removing the first heading if present.
  * Replaces {{VERSION}} template with the version from package.json.
  */
-export const loadInstructions = async (filename: string): Promise<string> => {
+const loadInstructions = async (filename: string): Promise<string> => {
   const filePath = getConfigFilePath(filename);
   try {
     const [content, version] = await Promise.all([

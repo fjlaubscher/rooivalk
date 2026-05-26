@@ -3,13 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import MemoryService, { normalizePhoneNumber } from './index.ts';
-
-describe('normalizePhoneNumber', () => {
-  it('strips leading + and whitespace and dashes', () => {
-    expect(normalizePhoneNumber(' +27 82-123 4567 ')).toBe('27821234567');
-  });
-});
+import MemoryService from './index.ts';
 
 describe('MemoryService', () => {
   let tmpDir: string;
@@ -151,43 +145,43 @@ describe('MemoryService', () => {
     });
   });
 
-  describe('phone numbers', () => {
-    it('registers, looks up, and forgets a number', () => {
-      memory.registerPhoneNumber('user-1', '+27 82 123 4567');
-      expect(memory.getPhoneNumberFor('user-1')).toBe('27821234567');
-
-      const forgot = memory.forgetPhoneNumber('user-1');
-      expect(forgot.deleted).toBe(true);
-      expect(memory.getPhoneNumberFor('user-1')).toBeNull();
+  describe('query', () => {
+    it('returns rows from a parameterised SELECT', () => {
+      memory.remember('user-1', 'fact A');
+      memory.remember('user-2', 'fact B');
+      const { rows, truncated } = memory.query(
+        'SELECT content FROM memories WHERE discord_user_id = ? ORDER BY id',
+        ['user-1'],
+      );
+      expect(truncated).toBe(false);
+      expect(rows).toEqual([{ content: 'fact A' }]);
     });
 
-    it('upserts on conflict', () => {
-      memory.registerPhoneNumber('user-1', '27821234567');
-      memory.registerPhoneNumber('user-1', '27820000002');
-      expect(memory.getPhoneNumberFor('user-1')).toBe('27820000002');
+    it('caps results at rowLimit and flags truncation', () => {
+      for (let i = 0; i < 5; i++) {
+        memory.remember('user-1', `fact ${i}`);
+      }
+      const { rows, truncated } = memory.query(
+        'SELECT id FROM memories',
+        [],
+        3,
+      );
+      expect(rows).toHaveLength(3);
+      expect(truncated).toBe(true);
     });
 
-    it('rejects malformed numbers', () => {
-      expect(() =>
-        memory.registerPhoneNumber('user-1', 'not-a-number'),
-      ).toThrow(/Invalid phone number/);
-    });
-
-    it('forgetPhoneNumber on a missing user reports deleted: false', () => {
-      const result = memory.forgetPhoneNumber('nobody');
-      expect(result.deleted).toBe(false);
+    it('rejects writes — the read handle is read-only', () => {
+      expect(() => memory.query('DELETE FROM memories', [])).toThrow();
     });
   });
 
   describe('persistence', () => {
     it('survives reopening the same db file', () => {
       memory.remember('user-1', 'durable');
-      memory.registerPhoneNumber('user-1', '27821234567');
       memory.close();
 
       memory = new MemoryService(dbPath);
       expect(memory.recall('user-1')[0]!.content).toBe('durable');
-      expect(memory.getPhoneNumberFor('user-1')).toBe('27821234567');
     });
   });
 });

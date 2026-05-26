@@ -1,15 +1,14 @@
 export const TOOL_NAMES = Object.freeze({
   GET_WEATHER: 'get_weather',
-  GET_ALL_WEATHER: 'get_all_weather',
   CREATE_THREAD: 'create_thread',
   GET_GUILD_EVENTS: 'get_guild_events',
-  SEND_SMS: 'send_sms',
   REMEMBER: 'remember',
   RECALL: 'recall',
   FORGET_MEMORY: 'forget_memory',
-  REGISTER_PHONE_NUMBER: 'register_phone_number',
-  FORGET_PHONE_NUMBER: 'forget_phone_number',
   RUN_BASH: 'run_bash',
   GET_GAME_LISTING: 'get_game_listing',
   GET_EMOJIS: 'get_emojis',
+  QUERY_SQLITE: 'query_sqlite',
+  DESCRIBE_SCHEMA: 'describe_schema',
+  GENERATE_IMAGE: 'generate_image',
 });

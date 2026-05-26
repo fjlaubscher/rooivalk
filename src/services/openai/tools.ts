@@ -3,7 +3,49 @@ import type OpenAI from 'openai';
 import { YR_COORDINATES } from '../../constants.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 
-export { TOOL_NAMES };
+export const QUERY_SQLITE_SCHEMA = {
+  tables: [
+    {
+      name: 'conversation_responses',
+      columns: ['type', 'ref_id', 'response_id', 'updated_at'],
+      notes: "type is 'msg' or 'thread'; updated_at is unix epoch ms.",
+    },
+    {
+      name: 'emoji_reactions',
+      columns: [
+        'id',
+        'guild_id',
+        'message_id',
+        'channel_id',
+        'message_author_id',
+        'reactor_id',
+        'emoji_id',
+        'emoji_name',
+        'emoji_animated',
+        'created_at',
+      ],
+      notes: 'created_at is unix epoch ms. emoji_id is null for unicode emoji.',
+    },
+    {
+      name: 'steam_apps',
+      columns: [
+        'appid',
+        'name',
+        'search_name',
+        'last_modified',
+        'price_change_number',
+      ],
+      notes: 'search_name is lowercased for matching.',
+    },
+    {
+      name: 'steam_meta',
+      columns: ['key', 'value'],
+    },
+  ],
+  excluded: ['memories'],
+  notes:
+    "The 'memories' table is excluded — use the recall/remember/forget_memory tools instead.",
+} as const;
 
 export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   {
@@ -27,18 +69,6 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
-    name: TOOL_NAMES.GET_ALL_WEATHER,
-    description: 'Get weather forecasts for all available cities at once.',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {},
-      required: [],
-      additionalProperties: false,
-    },
-  },
-  {
-    type: 'function',
     name: TOOL_NAMES.CREATE_THREAD,
     description:
       'Create a new Discord thread on the current message. Only use when explicitly asked to create a thread.',
@@ -53,29 +83,6 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
         },
       },
       required: ['name'],
-      additionalProperties: false,
-    },
-  },
-  {
-    type: 'function',
-    name: TOOL_NAMES.SEND_SMS,
-    description:
-      'Send an SMS to a Discord user who has registered their phone number. Pass the recipient as their Discord user ID (the snowflake inside <@...> mentions). Refuses if the user has not registered a number.',
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        discord_user_id: {
-          type: 'string',
-          description:
-            'Discord user ID (snowflake) of the recipient. Extract from <@123...> mentions in the prompt.',
-        },
-        content: {
-          type: 'string',
-          description: 'The SMS message body. Keep it concise.',
-        },
-      },
-      required: ['discord_user_id', 'content'],
       additionalProperties: false,
     },
   },
@@ -140,38 +147,6 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
-    name: TOOL_NAMES.REGISTER_PHONE_NUMBER,
-    description:
-      "Register the speaker's own phone number so they can receive SMS. Always registers for the user currently talking to you — they cannot register a number for someone else. Use only when the user explicitly asks.",
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {
-        phone_number: {
-          type: 'string',
-          description:
-            'Phone number in international format. Digits only is best, but leading + and whitespace are tolerated.',
-        },
-      },
-      required: ['phone_number'],
-      additionalProperties: false,
-    },
-  },
-  {
-    type: 'function',
-    name: TOOL_NAMES.FORGET_PHONE_NUMBER,
-    description:
-      "Delete the speaker's registered phone number. Use when the user explicitly asks to be removed from SMS.",
-    strict: true,
-    parameters: {
-      type: 'object',
-      properties: {},
-      required: [],
-      additionalProperties: false,
-    },
-  },
-  {
-    type: 'function',
     name: TOOL_NAMES.GET_GUILD_EVENTS,
     description:
       'Get scheduled Discord server events, optionally filtered by date range.',
@@ -223,6 +198,65 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
       type: 'object',
       properties: {},
       required: [],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.GENERATE_IMAGE,
+    description:
+      "Generate an image inline as part of your reply. Use when the user explicitly asks for an image, drawing, picture, meme, or visual. Pass a self-contained prompt describing the image — the image model does not see the surrounding conversation. The generated image is attached to your Discord reply automatically; you don't need to embed a URL. Your text reply can be short or empty when the image is the whole answer.",
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description:
+            'A self-contained description of the image to generate. Be specific about subject, style, and composition.',
+        },
+      },
+      required: ['prompt'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.DESCRIBE_SCHEMA,
+    description:
+      "Return the tables and columns available to query_sqlite. Call this first when you don't already know the layout; the result stays in conversation context so you only need it once per thread.",
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.QUERY_SQLITE,
+    description:
+      "Run a SELECT against the bot's SQLite. Call describe_schema first if you don't know the layout. SELECT or WITH only, single statement. The 'memories' table is off-limits — use recall/remember/forget_memory instead. Use ? placeholders and pass values in 'params'. Default 100 rows, max 500.",
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        sql: {
+          type: 'string',
+          description:
+            'A single SQL statement. SELECT only — writes will fail.',
+        },
+        params: {
+          type: ['array', 'null'],
+          description:
+            'Positional bind values for ? placeholders in sql. Null = no params. Each item must be a string, number, or null.',
+          items: {
+            type: ['string', 'number', 'null'],
+          },
+        },
+      },
+      required: ['sql', 'params'],
       additionalProperties: false,
     },
   },

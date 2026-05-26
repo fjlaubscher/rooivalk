@@ -37,7 +37,7 @@ export const isReplyToRooivalk = async (
 };
 
 export const buildPromptAuthor = (author: User) =>
-  `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag)`;
+  `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag) ${author.id} (discord_user_id — use this when querying the database for rows belonging to the speaker)`;
 
 export const shouldUseFieldHospitalModel = (
   message: Message<boolean>,

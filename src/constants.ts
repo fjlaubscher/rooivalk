@@ -33,7 +33,6 @@ export const DISCORD_MESSAGE_LIMIT = 2000;
 // OpenAI keeps stored responses for ~30 days. Anything older in our
 // conversation_responses table is dead weight and can be pruned.
 export const CONVERSATION_RESPONSE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-export const DISCORD_EMOJI = 'rooivalk';
 export const DISCORD_COMMANDS = {
   IMAGE: 'image',
   WEATHER: 'weather',
@@ -68,10 +67,10 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     latitude: -33.9255,
     longitude: 20.0827,
   },
-  GORDONS_BAY: {
-    name: "Gordon's Bay, South Africa",
-    latitude: -34.1559,
-    longitude: 18.8699,
+  GDANSK: {
+    name: 'Gdańsk, Poland',
+    latitude: 54.352,
+    longitude: 18.6466,
   },
   LAKESIDE: {
     name: 'Lakeside, South Africa',

@@ -25,7 +25,7 @@ Behaviour:
 - Passes `previous_response_id` through when provided. If the SDK returns a 404 with `param === 'previous_response_id'`, the call is retried once with no chain and the returned `OpenAIResponse` is flagged `contextLost: true`. Callers (`RooivalkService`) use that flag to surface a "context was lost" notice and clear the stale id from the store.
 - Returns the new `response.id` as `responseId`. The caller persists it under the appropriate `ConversationRef` keys.
 - Tool execution loop: up to `MAX_TOOL_ITERATIONS` (10) round-trips. On the final iteration, tools are stripped from the request so the model must produce a text response instead of yet another function call.
-- Image responses (`image_generation_call` output) bypass the empty-text warning. A literal `text` placeholder produced alongside an image is stripped.
+- Any `base64Image` returned by a tool result (via the `generate_image` function tool) is collected across iterations. If at least one image was produced the response is flagged `type: 'image_generation_call'` so the Discord renderer attaches it.
 - `web_search` citation markers (`【…】`) are removed from output text.
 
 ## Other methods
@@ -36,8 +36,8 @@ Behaviour:
 
 ## Tools
 
-- `tools.ts` lists the function tools (`FUNCTION_TOOLS`) the model can call. Names are imported from `src/services/chat/tool-names.ts`. Add a new tool by adding the name constant, the schema here, and an executor case in `src/services/rooivalk/tool-executor.ts`.
-- Two native server tools are always attached: `web_search_preview` and `image_generation`.
+- `tools.ts` lists the function tools (`FUNCTION_TOOLS`) the model can call. Names are imported from `src/services/chat/tool-names.ts`. Add a new tool by adding the name constant, the schema here, and an executor case in `src/services/rooivalk/tool-executor.ts`. Inline image generation goes through the `generate_image` function tool so the same surface works on both OpenAI and xAI.
+- One native server tool is always attached: `web_search_preview`.
 
 ## Environment
 
