@@ -9,5 +9,6 @@ export const TOOL_NAMES = Object.freeze({
   GET_GAME_LISTING: 'get_game_listing',
   GET_EMOJIS: 'get_emojis',
   QUERY_SQLITE: 'query_sqlite',
+  DESCRIBE_SCHEMA: 'describe_schema',
   GENERATE_IMAGE: 'generate_image',
 });

@@ -3,6 +3,8 @@ import type { Message, ThreadChannel } from 'discord.js';
 import { runBash } from '../bash/index.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 import type { ImageService } from '../chat/index.ts';
+import { QUERY_SQLITE_SCHEMA } from '../openai/tools.ts';
+import { validateQuerySql } from './query-sqlite-guard.ts';
 import type DiscordService from '../discord/index.ts';
 import type MemoryService from '../memory/index.ts';
 import type { MemoryKind } from '../memory/index.ts';
@@ -173,9 +175,15 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           return errorOutput(err);
         }
       }
+      case TOOL_NAMES.DESCRIBE_SCHEMA: {
+        return { output: JSON.stringify(QUERY_SQLITE_SCHEMA) };
+      }
       case TOOL_NAMES.QUERY_SQLITE: {
+        const validation = validateQuerySql(args.sql);
+        if (!validation.ok) {
+          return { output: JSON.stringify({ error: validation.error }) };
+        }
         try {
-          const sql = args.sql as string;
           const rawParams = args.params as unknown;
           const params = Array.isArray(rawParams)
             ? (rawParams.filter(
@@ -183,7 +191,7 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
                   p === null || typeof p === 'string' || typeof p === 'number',
               ) as Array<string | number | null>)
             : [];
-          const result = memory.query(sql, params);
+          const result = memory.query(validation.sql, params);
           return { output: JSON.stringify(result) };
         } catch (err) {
           return errorOutput(err);

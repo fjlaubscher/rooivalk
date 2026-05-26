@@ -160,12 +160,20 @@ class MemoryService {
     params: ReadonlyArray<string | number | null> = [],
     rowLimit = 100,
   ): { rows: Record<string, unknown>[]; truncated: boolean } {
+    const cappedLimit = Math.min(Math.max(1, Math.floor(rowLimit)), 500);
     const stmt = this._readDb.prepare(sql);
-    const all = stmt.all(...params) as Record<string, unknown>[];
-    if (all.length > rowLimit) {
-      return { rows: all.slice(0, rowLimit), truncated: true };
+    const rows: Record<string, unknown>[] = [];
+    let truncated = false;
+    for (const row of stmt.iterate(...params) as Iterable<
+      Record<string, unknown>
+    >) {
+      if (rows.length >= cappedLimit) {
+        truncated = true;
+        break;
+      }
+      rows.push(row);
     }
-    return { rows: all, truncated: false };
+    return { rows, truncated };
   }
 
   public pruneConversationResponses(olderThanMs: number): number {

@@ -3,6 +3,50 @@ import type OpenAI from 'openai';
 import { YR_COORDINATES } from '../../constants.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 
+export const QUERY_SQLITE_SCHEMA = {
+  tables: [
+    {
+      name: 'conversation_responses',
+      columns: ['type', 'ref_id', 'response_id', 'updated_at'],
+      notes: "type is 'msg' or 'thread'; updated_at is unix epoch ms.",
+    },
+    {
+      name: 'emoji_reactions',
+      columns: [
+        'id',
+        'guild_id',
+        'message_id',
+        'channel_id',
+        'message_author_id',
+        'reactor_id',
+        'emoji_id',
+        'emoji_name',
+        'emoji_animated',
+        'created_at',
+      ],
+      notes: 'created_at is unix epoch ms. emoji_id is null for unicode emoji.',
+    },
+    {
+      name: 'steam_apps',
+      columns: [
+        'appid',
+        'name',
+        'search_name',
+        'last_modified',
+        'price_change_number',
+      ],
+      notes: 'search_name is lowercased for matching.',
+    },
+    {
+      name: 'steam_meta',
+      columns: ['key', 'value'],
+    },
+  ],
+  excluded: ['memories'],
+  notes:
+    "The 'memories' table is excluded — use the recall/remember/forget_memory tools instead.",
+} as const;
+
 export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: 'function',
@@ -178,17 +222,22 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
+    name: TOOL_NAMES.DESCRIBE_SCHEMA,
+    description:
+      "Return the tables and columns available to query_sqlite. Call this first when you don't already know the layout; the result stays in conversation context so you only need it once per thread.",
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
     name: TOOL_NAMES.QUERY_SQLITE,
-    description: `Run a read-only SQL query against the bot's SQLite database. The connection is opened read-only at the engine level, so writes will fail.
-
-Tables:
-- memories(id, discord_user_id, content, kind, created_at) — kind is 'memory' or 'preference'.
-- conversation_responses(type, ref_id, response_id, updated_at) — type is 'msg' or 'thread'.
-- emoji_reactions(id, guild_id, message_id, channel_id, message_author_id, reactor_id, emoji_id, emoji_name, emoji_animated, created_at)
-- steam_apps(appid, name, search_name, last_modified, price_change_number)
-- steam_meta(key, value)
-
-Timestamps are unix epoch ms. Use parameter placeholders (?) for any user-supplied values; pass them in 'params'. Results are capped at 100 rows. Do not expose another user's private rows (memories) — scope queries to the speaker's discord_user_id when relevant.`,
+    description:
+      "Run a SELECT against the bot's SQLite. Call describe_schema first if you don't know the layout. SELECT or WITH only, single statement. The 'memories' table is off-limits — use recall/remember/forget_memory instead. Use ? placeholders and pass values in 'params'. Default 100 rows, max 500.",
     strict: true,
     parameters: {
       type: 'object',
