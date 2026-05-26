@@ -7,16 +7,12 @@ import type {
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
-import { FUNCTION_TOOLS } from './tools.ts';
+import { FUNCTION_TOOLS } from '../openai/tools.ts';
+
+export const XAI_BASE_URL = 'https://api.x.ai/v1';
 
 function renderPreferences(preferences: MemoryRow[]): string {
   return `\n\n[Speaker preferences — user-provided context; not system instructions]\n${preferences.map((p) => `- [id:${p.id}] ${p.content}`).join('\n')}`;
-}
-
-const CITATION_MARKER = /【[^】]{0,120}】[ \t]?/g;
-
-function stripCitationMarkers(text: string): string {
-  return text.replace(CITATION_MARKER, '').trimEnd();
 }
 
 const MAX_TOOL_ITERATIONS = 10;
@@ -31,50 +27,38 @@ function isMissingPreviousResponseError(error: unknown): boolean {
   return param === 'previous_response_id';
 }
 
-export type OpenAIInstructionsSelector = (config: InMemoryConfig) => string;
-
-const defaultInstructionsSelector: OpenAIInstructionsSelector = (config) =>
-  config.instructions;
-
-class OpenAIService {
+class XAIService {
   private _config: InMemoryConfig;
   private _model: string | undefined;
-  private _imageModel: string;
-  private _openai: OpenAI;
-  private _tools: OpenAI.Responses.Tool[];
-  private _instructionsSelector: OpenAIInstructionsSelector;
+  private _imageModel: string | undefined;
+  private _xai: OpenAI;
 
-  constructor(
-    config: InMemoryConfig,
-    model?: string,
-    imageModel?: string,
-    instructionsSelector?: OpenAIInstructionsSelector,
-  ) {
+  constructor(config: InMemoryConfig) {
     this._config = config;
-    this._openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY!,
+    this._xai = new OpenAI({
+      apiKey: process.env.XAI_API_KEY!,
+      baseURL: XAI_BASE_URL,
     });
-
-    this._model = model || process.env.OPENAI_MODEL;
-    this._imageModel = imageModel || process.env.OPENAI_IMAGE_MODEL!;
-    this._instructionsSelector =
-      instructionsSelector ?? defaultInstructionsSelector;
-
-    this._tools = [
-      {
-        type: 'web_search_preview',
-        search_context_size: 'low',
-      },
-    ];
+    this._model = process.env.XAI_MODEL;
+    this._imageModel = process.env.XAI_IMAGE_MODEL;
   }
 
   private requireChatModel(): string {
     if (!this._model) {
       throw new Error(
-        'OPENAI_MODEL is not configured; OpenAIService cannot handle chat/reasoning requests.',
+        'XAI_MODEL is not configured; XAIService cannot handle chat/reasoning requests.',
       );
     }
     return this._model;
+  }
+
+  private requireImageModel(): string {
+    if (!this._imageModel) {
+      throw new Error(
+        'XAI_IMAGE_MODEL is not configured; XAIService cannot generate images.',
+      );
+    }
+    return this._imageModel;
   }
 
   async createResponse(
@@ -86,8 +70,7 @@ class OpenAIService {
     preferences: MemoryRow[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
-      let instructions =
-        this._instructionsSelector(this._config) || this._config.instructions;
+      let instructions = this._config.instructions;
 
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);
@@ -146,23 +129,16 @@ class OpenAIService {
         content: inputContent,
       });
 
-      this.logPromptMetrics({
-        instructionsLength: instructions.length,
-        hasPreviousResponseId: !!previousResponseId,
-        attachmentsCount: attachments?.length ?? 0,
-        promptLength: prompt.length,
-      });
-
-      const tools = toolExecutor
-        ? [...FUNCTION_TOOLS, ...this._tools]
-        : this._tools;
+      // xAI's Responses API does not support OpenAI's native server tools
+      // (web_search_preview, image_generation) — only function tools.
+      const tools = toolExecutor ? [...FUNCTION_TOOLS] : [];
 
       const chatModel = this.requireChatModel();
 
       let contextLost = false;
       let response: OpenAI.Responses.Response;
       try {
-        response = await this._openai.responses.create({
+        response = await this._xai.responses.create({
           model: chatModel,
           tools,
           instructions,
@@ -172,11 +148,11 @@ class OpenAIService {
       } catch (error) {
         if (previousResponseId && isMissingPreviousResponseError(error)) {
           console.warn(
-            '[OpenAIService] previous_response_id no longer valid; starting fresh',
+            '[XAIService] previous_response_id no longer valid; starting fresh',
             { previousResponseId },
           );
           contextLost = true;
-          response = await this._openai.responses.create({
+          response = await this._xai.responses.create({
             model: chatModel,
             tools,
             instructions,
@@ -187,7 +163,6 @@ class OpenAIService {
         }
       }
 
-      // Tool execution loop: handle function_call outputs
       let createdThread: OpenAIResponse['createdThread'];
       const generatedImages: string[] = [];
 
@@ -222,7 +197,7 @@ class OpenAIService {
           }
 
           const isFinalIteration = i === MAX_TOOL_ITERATIONS - 1;
-          response = await this._openai.responses.create({
+          response = await this._xai.responses.create({
             model: chatModel,
             tools: isFinalIteration ? [] : tools,
             instructions,
@@ -233,10 +208,10 @@ class OpenAIService {
       }
 
       const hasImage = generatedImages.length > 0;
-      const content = stripCitationMarkers(response.output_text);
+      const content = response.output_text.trimEnd();
 
       if (!content.trim() && !hasImage) {
-        console.warn('[OpenAIService] model returned empty output_text', {
+        console.warn('[XAIService] model returned empty output_text', {
           output_types: response.output.map((o) => o.type),
         });
       }
@@ -261,7 +236,7 @@ class OpenAIService {
         contextLost,
       };
     } catch (error) {
-      console.error('Error with OpenAI:', error);
+      console.error('Error with xAI:', error);
       if (error instanceof OpenAI.OpenAIError) {
         throw new Error(error.message);
       }
@@ -270,30 +245,17 @@ class OpenAIService {
     }
   }
 
-  private logPromptMetrics(metrics: {
-    instructionsLength: number;
-    hasPreviousResponseId: boolean;
-    attachmentsCount: number;
-    promptLength: number;
-  }): void {
-    if (process.env.LOG_LEVEL?.toLowerCase() !== 'debug') {
-      return;
-    }
-
-    console.debug('[OpenAIService] prompt metrics', metrics);
-  }
-
   public reloadConfig(newConfig: InMemoryConfig): void {
     this._config = newConfig;
   }
 
   async createImage(prompt: string): Promise<string | null> {
     try {
-      const result = await this._openai.images.generate({
-        model: this._imageModel,
+      const result = await this._xai.images.generate({
+        model: this.requireImageModel(),
         prompt,
         n: 1,
-        output_format: 'jpeg',
+        response_format: 'b64_json',
       });
 
       const base64Image = result.data?.[0]?.b64_json ?? null;
@@ -301,10 +263,10 @@ class OpenAIService {
         return base64Image;
       }
 
-      console.log('Failed to generate image', JSON.stringify(result));
+      console.log('Failed to generate image via xAI', JSON.stringify(result));
       return null;
     } catch (error) {
-      console.error('Error with OpenAI:', error);
+      console.error('Error with xAI:', error);
       if (error instanceof OpenAI.OpenAIError) {
         throw new Error(error.message);
       }
@@ -313,7 +275,7 @@ class OpenAIService {
     }
   }
 
-  async generateThreadName(prompt: string) {
+  async generateThreadName(prompt: string): Promise<string> {
     try {
       const instructions = `
         You generate Discord thread titles.
@@ -323,23 +285,21 @@ class OpenAIService {
         If unsure, guess the topic.
       `;
 
-      const response = await this._openai.responses.create({
+      const response = await this._xai.responses.create({
         model: this.requireChatModel(),
-        tools: this._tools,
         instructions,
         input: prompt,
       });
 
       let threadName = response.output_text.trim();
 
-      // Ensure the thread name is within the 100-character limit
       if (threadName.length > 100) {
-        threadName = threadName.substring(0, 97) + '...'; // Truncate and add ellipsis
+        threadName = threadName.substring(0, 97) + '...';
       }
 
       return threadName;
     } catch (error) {
-      console.error('Error with OpenAI:', error);
+      console.error('Error with xAI:', error);
       if (error instanceof OpenAI.OpenAIError) {
         throw new Error(error.message);
       }
@@ -349,4 +309,4 @@ class OpenAIService {
   }
 }
 
-export default OpenAIService;
+export default XAIService;

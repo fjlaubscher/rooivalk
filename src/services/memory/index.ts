@@ -15,19 +15,7 @@ export type MemoryRow = {
   created_at: number;
 };
 
-export type PhoneNumberRow = {
-  discord_user_id: string;
-  phone_number: string;
-  registered_at: number;
-};
-
-export const PHONE_NUMBER_PATTERN = /^\d{6,15}$/;
-
 const MAX_PREFERENCES = 5;
-
-export function normalizePhoneNumber(input: string): string {
-  return input.trim().replace(/^\+/, '').replace(/[\s-]/g, '');
-}
 
 class MemoryService {
   private _writeDb: DatabaseSync;
@@ -135,46 +123,6 @@ class MemoryService {
     return { deleted: result.changes > 0 };
   }
 
-  public registerPhoneNumber(
-    discordUserId: string,
-    phoneNumber: string,
-  ): { phoneNumber: string } {
-    const normalized = normalizePhoneNumber(phoneNumber);
-    if (!PHONE_NUMBER_PATTERN.test(normalized)) {
-      throw new Error(
-        `Invalid phone number: ${phoneNumber}. Use international format, digits only.`,
-      );
-    }
-
-    this._writeDb
-      .prepare(
-        `INSERT INTO phone_numbers (discord_user_id, phone_number, registered_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(discord_user_id) DO UPDATE SET
-           phone_number = excluded.phone_number,
-           registered_at = excluded.registered_at`,
-      )
-      .run(discordUserId, normalized, Date.now());
-
-    return { phoneNumber: normalized };
-  }
-
-  public forgetPhoneNumber(discordUserId: string): { deleted: boolean } {
-    const result = this._writeDb
-      .prepare('DELETE FROM phone_numbers WHERE discord_user_id = ?')
-      .run(discordUserId);
-    return { deleted: result.changes > 0 };
-  }
-
-  public getPhoneNumberFor(discordUserId: string): string | null {
-    const row = this._readDb
-      .prepare(
-        'SELECT phone_number FROM phone_numbers WHERE discord_user_id = ?',
-      )
-      .get(discordUserId) as { phone_number: string } | undefined;
-    return row ? row.phone_number : null;
-  }
-
   public getConversationResponseId(ref: ConversationRef): string | null {
     const row = this._readDb
       .prepare(
@@ -205,6 +153,19 @@ class MemoryService {
         'DELETE FROM conversation_responses WHERE type = ? AND ref_id = ?',
       )
       .run(ref.type, ref.refId);
+  }
+
+  public query(
+    sql: string,
+    params: ReadonlyArray<string | number | null> = [],
+    rowLimit = 100,
+  ): { rows: Record<string, unknown>[]; truncated: boolean } {
+    const stmt = this._readDb.prepare(sql);
+    const all = stmt.all(...params) as Record<string, unknown>[];
+    if (all.length > rowLimit) {
+      return { rows: all.slice(0, rowLimit), truncated: true };
+    }
+    return { rows: all, truncated: false };
   }
 
   public pruneConversationResponses(olderThanMs: number): number {

@@ -2,20 +2,22 @@
 
 ## Overview
 
-`MemoryService` is the bot's persistent key-value store, backed by SQLite via the built-in `node:sqlite` module. It stores three things:
+`MemoryService` is the bot's persistent key-value store, backed by SQLite via the built-in `node:sqlite` module. It stores two things:
 
-1. **Memories** — free-form notes the model decides to keep about a user.
-2. **Phone numbers** — opt-in registry used to gate SMS sending via `ClickatellService`.
-3. **Conversation response ids** — per-conversation OpenAI `response.id` values used to chain turns via `previous_response_id`.
+1. **Memories** — free-form notes the model decides to keep about a user (`memory` kind), plus a capped set of stable user preferences (`preference` kind) injected into every turn.
+2. **Conversation response ids** — per-conversation OpenAI `response.id` values used to chain turns via `previous_response_id`.
 
-The service holds two connections to the same DB file: a writable one for mutations and a `readOnly: true` one used for reads (`recall`, `forgetMemory` lookup, `getPhoneNumberFor`). Read-only is enforced **at the SQLite level**, so even a programming bug that issues a write through the read handle fails in the engine.
+The service holds two connections to the same DB file: a writable one for mutations and a `readOnly: true` one used for reads (`recall`, `getPreferences`, `forgetMemory` lookup, `getConversationResponseId`, ad-hoc `query`). Read-only is enforced **at the SQLite level**, so even a programming bug that issues a write through the read handle fails in the engine.
+
+## `query`
+
+`query(sql, params?, rowLimit?)` runs an arbitrary SQL statement against the read-only connection. Backs the `query_sqlite` tool so the model can inspect its own data. The read-only handle is the safety boundary — any write attempt is rejected by SQLite before the prepared statement runs. Results are capped at `rowLimit` (default 100) with a `truncated` flag set when there were more rows. Use parameter placeholders (`?`) and pass values via `params`; never interpolate user input into `sql`.
 
 ## Schema
 
 `schema.ts` is the source of truth. `IF NOT EXISTS` makes constructor calls idempotent — no migration framework yet.
 
 - `memories(id, discord_user_id, content, kind, created_at)` — composite index on `(discord_user_id, kind)`. `kind` is `'memory'` or `'preference'`, enforced by a CHECK constraint.
-- `phone_numbers(discord_user_id PK, phone_number, registered_at)` — one number per user, upsert via `ON CONFLICT`.
 - `conversation_responses(type, ref_id, response_id, updated_at)` — composite PK on `(type, ref_id)`. `type` is `'msg'` (a bot reply id) or `'thread'` (a thread id), enforced by a CHECK constraint. Upserted via `ON CONFLICT(type, ref_id)`. Read/written via `getConversationResponseId(ref)` / `setConversationResponseId(ref, id)` / `clearConversationResponseId(ref)`. Index on `updated_at` supports the TTL prune. `pruneConversationResponses(olderThanMs)` deletes any row past its expiry — wired to a daily cron in `src/index.ts` with `CONVERSATION_RESPONSE_TTL_MS` (30 days) since OpenAI's response retention window is the upper bound on usefulness.
 
 ## Memory kinds
@@ -27,7 +29,7 @@ The service holds two connections to the same DB file: a writable one for mutati
 
 ## Authority Model
 
-Every memory/phone tool resolves the subject from `message.author.id` at the **executor**, never from tool args. The model can ask to `remember(content)` or `recall()`, but the executor pins the user to the speaker — there is no way to read or write another user's rows. `forget_memory` additionally checks that the row owner matches the requester before deleting.
+Every memory tool resolves the subject from `message.author.id` at the **executor**, never from tool args. The model can ask to `remember(content)` or `recall()`, but the executor pins the user to the speaker — there is no way to read or write another user's rows. `forget_memory` additionally checks that the row owner matches the requester before deleting.
 
 ## Configuration
 
@@ -38,7 +40,7 @@ Every memory/phone tool resolves the subject from `message.author.id` at the **e
 ## Testing
 
 - Tests use a temp directory (`mkdtempSync` in `os.tmpdir()`). `:memory:` won't work because two connections to it are independent DBs.
-- `index.test.ts` covers: writes, scoped recall, limit clamping, cross-user delete refusal, structural read-only enforcement, upsert, normalization, persistence across reopens.
+- `index.test.ts` covers: writes, scoped recall, limit clamping, cross-user delete refusal, structural read-only enforcement, ad-hoc `query` (parameterised SELECT, row-limit truncation, write rejection), persistence across reopens.
 
 ## Out of Scope (for now)
 

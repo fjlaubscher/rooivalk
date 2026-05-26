@@ -68,10 +68,10 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     latitude: -33.9255,
     longitude: 20.0827,
   },
-  GORDONS_BAY: {
-    name: "Gordon's Bay, South Africa",
-    latitude: -34.1559,
-    longitude: 18.8699,
+  GDANSK: {
+    name: 'Gdańsk, Poland',
+    latitude: 54.352,
+    longitude: 18.6466,
   },
   LAKESIDE: {
     name: 'Lakeside, South Africa',

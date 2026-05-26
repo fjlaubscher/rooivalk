@@ -79,9 +79,6 @@ const mockMemoryService = vi.mocked({
   recall: vi.fn(),
   remember: vi.fn(),
   forgetMemory: vi.fn(),
-  registerPhoneNumber: vi.fn(),
-  forgetPhoneNumber: vi.fn(),
-  getPhoneNumberFor: vi.fn(),
   close: vi.fn(),
 } as any);
 
@@ -135,7 +132,6 @@ describe('Rooivalk', () => {
       mockDiscordService,
       mockChatClient,
       mockOpenAIClient,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -569,7 +565,6 @@ describe('Rooivalk', () => {
         undefined,
         undefined,
         undefined,
-        undefined,
         mockMemory,
       );
 
@@ -753,7 +748,6 @@ describe('Rooivalk', () => {
           mockDiscordService,
           mockChatClient,
           mockOpenAIClient,
-          undefined,
           undefined,
           undefined,
           undefined,
@@ -1118,7 +1112,6 @@ describe('Rooivalk', () => {
         mockDiscordService,
         mockChatClient,
         mockOpenAIClient,
-        undefined,
         undefined,
         undefined,
         undefined,

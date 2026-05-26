@@ -9,12 +9,6 @@ CREATE TABLE IF NOT EXISTS memories (
 
 CREATE INDEX IF NOT EXISTS idx_memories_user_kind ON memories(discord_user_id, kind);
 
-CREATE TABLE IF NOT EXISTS phone_numbers (
-  discord_user_id TEXT PRIMARY KEY,
-  phone_number TEXT NOT NULL,
-  registered_at INTEGER NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS conversation_responses (
   type TEXT NOT NULL CHECK (type IN ('msg', 'thread')),
   ref_id TEXT NOT NULL,

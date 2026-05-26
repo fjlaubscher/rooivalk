@@ -24,13 +24,13 @@ The RooivalkService contains the core business logic for the bot. It processes m
 ### Thread Handling
 
 - Automatically responds to ALL messages in bot-created threads (no mentions needed).
-- Thread names are generated one-shot from the current message content via `OpenAIService.generateThreadName`.
+- Thread names are generated one-shot from the current message content via `ChatService.generateThreadName` (the active chat provider — OpenAI by default, xAI when `XAI_MODEL` is set).
 
 ### Conversation Continuity
 
-- `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to `OpenAIService.createResponse`.
+- `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to the active `ChatService.createResponse`.
 - After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn).
-- When `OpenAIService` reports `contextLost: true`, the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
+- When the chat provider reports `contextLost: true` (an aged-out `previous_response_id` triggers a one-shot retry without it), the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
 - When a Discord reply has no stored `previous_response_id` (e.g., replying to a non-bot message while mentioning the bot), `loadReferencedMessageContext` fetches the referenced message and prepends a `[Replying to <author>: "<content>" (N attachments)]` block to the prompt. Allowed attachments from the referenced message are merged ahead of the current message's attachments so the model can see both. Fetch failures fall back silently to the bare prompt.
 
 ### Context Integration
@@ -42,7 +42,7 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 The daily MOTD uses a three-tier image fallback strategy:
 
-1. **AI-generated image** (primary): Calls `OpenAIService.createImage()` with a randomly composed prompt combining a style and city aspect for the selected city
+1. **AI-generated image** (primary): Calls `ImageService.createImage()` on the active image provider with a randomly composed prompt combining a style and city aspect for the selected city
 2. **Wikimedia** (fallback): Fetches a geo-located photo via `WikimediaService.getCityImage()`
 3. **Peapix** (last resort): Fetches Bing's image of the day via `PeapixService.getImage()`
 
@@ -66,7 +66,7 @@ A random style + aspect + city name are combined into the prompt each day for va
 
 - Uses class-based TypeScript with private `_underscore` properties
 - Integrates with DiscordService for Discord operations
-- Integrates with OpenAIService for AI responses
+- Integrates with the active chat provider (`OpenAIService` or `XAIService`, via `createChatService`) for AI responses
 - Integrates with YrService for weather data
 - Coordinates overall bot behavior and decision-making
 
@@ -90,8 +90,8 @@ A random style + aspect + city name are combined into the prompt each day for va
 ## Integration Points
 
 - **DiscordService**: For Discord API operations and message handling
-- **ChatService**: For AI-generated text responses (MOTD, conversations)
-- **OpenAIService**: For image generation (`createImage`)
+- **ChatService**: For AI-generated text responses and thread-name generation (MOTD, conversations)
+- **ImageService**: For image generation (`createImage`) — used by MOTD and the `/image` slash command
 - **YrService**: For weather data integration
 - **WikimediaService**: For geo-located city photos (MOTD image fallback)
 - **PeapixService**: For Bing image of the day (MOTD last-resort fallback)

@@ -1,13 +1,44 @@
 import OpenAIService from '../openai/index.ts';
+import XAIService from '../xai/index.ts';
 import type { InMemoryConfig } from '../../types.ts';
 
-export type ChatService = OpenAIService;
+export type ChatService = OpenAIService | XAIService;
+export type ImageService = OpenAIService | XAIService;
 
 export function createChatService(
   config: InMemoryConfig,
-  openaiService?: OpenAIService,
+  env: NodeJS.ProcessEnv = process.env,
 ): ChatService {
-  return openaiService ?? new OpenAIService(config);
+  if (env.XAI_MODEL) {
+    if (!env.XAI_API_KEY) {
+      console.warn(
+        '[chat] XAI_MODEL set but XAI_API_KEY missing — falling back to OpenAI',
+      );
+    } else {
+      console.log(`[chat] xAI chat provider active (model: ${env.XAI_MODEL})`);
+      return new XAIService(config);
+    }
+  }
+  return new OpenAIService(config);
+}
+
+export function createImageService(
+  config: InMemoryConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): ImageService {
+  if (env.XAI_IMAGE_MODEL) {
+    if (!env.XAI_API_KEY) {
+      console.warn(
+        '[image] XAI_IMAGE_MODEL set but XAI_API_KEY missing — falling back to OpenAI',
+      );
+    } else {
+      console.log(
+        `[image] xAI image provider active (model: ${env.XAI_IMAGE_MODEL})`,
+      );
+      return new XAIService(config);
+    }
+  }
+  return new OpenAIService(config);
 }
 
 export function createFieldHospitalChatService(

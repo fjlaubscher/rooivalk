@@ -29,9 +29,9 @@ import {
 import {
   createChatService,
   createFieldHospitalChatService,
+  createImageService,
 } from '../chat/index.ts';
-import type { ChatService } from '../chat/index.ts';
-import ClickatellService from '../clickatell/index.ts';
+import type { ChatService, ImageService } from '../chat/index.ts';
 import DiscordService from '../discord/index.ts';
 import EmojiService from '../emoji/index.ts';
 import type { EmojiChampion } from '../emoji/types.ts';
@@ -103,11 +103,10 @@ class Rooivalk {
   protected _discord: DiscordService;
   protected _chat: ChatService;
   protected _chatFieldHospital?: ChatService;
-  protected _openai: OpenAIService;
+  protected _openai: ImageService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
   protected _wikimedia: WikimediaService;
-  protected _clickatell: ClickatellService;
   protected _emoji: EmojiService;
   protected _memory: MemoryService;
   protected _steam: SteamService;
@@ -117,28 +116,24 @@ class Rooivalk {
     config: InMemoryConfig,
     discordService?: DiscordService,
     chatService?: ChatService,
-    openaiService?: OpenAIService,
+    openaiService?: ImageService,
     yrService?: YrService,
     peapixService?: PeapixService,
     wikimediaService?: WikimediaService,
     fieldHospitalChatService?: ChatService,
-    clickatellService?: ClickatellService,
     memoryService?: MemoryService,
     steamService?: SteamService,
     emojiService?: EmojiService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
-    this._openai = openaiService ?? new OpenAIService(this._config);
-    this._chat = chatService ?? createChatService(this._config, this._openai);
+    this._openai = openaiService ?? createImageService(this._config);
+    this._chat = chatService ?? createChatService(this._config);
     this._chatFieldHospital =
       fieldHospitalChatService ?? createFieldHospitalChatService(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._wikimedia = wikimediaService ?? new WikimediaService();
-    this._clickatell =
-      clickatellService ??
-      new ClickatellService(process.env.CLICKATELL_API_KEY);
     this._memory =
       memoryService ??
       new MemoryService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
@@ -327,8 +322,7 @@ class Rooivalk {
       message,
       yr: this._yr,
       discord: this._discord,
-      openai: this._openai,
-      clickatell: this._clickatell,
+      image: this._openai,
       memory: this._memory,
       steam: this._steam,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),

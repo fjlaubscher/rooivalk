@@ -19,14 +19,14 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/discord/` – DiscordService (Discord integration) - [See AGENTS.md](src/services/discord/AGENTS.md)
   - `helpers.ts` – Message parsing and formatting utilities
 - `src/services/openai/` – OpenAIService (OpenAI chat provider + image generation) - [See AGENTS.md](src/services/openai/AGENTS.md)
+- `src/services/xai/` – XAIService (xAI Grok chat + image provider via OpenAI SDK) - [See AGENTS.md](src/services/xai/AGENTS.md)
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
   - `helpers.ts` – Thread detection and reply handling utilities
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
 - `src/services/wikimedia/` – WikimediaService (Wikimedia Commons image integration) - [See AGENTS.md](src/services/wikimedia/AGENTS.md)
 - `src/services/peapix/` – PeapixService (Bing image feed integration) - [See AGENTS.md](src/services/peapix/AGENTS.md)
-- `src/services/clickatell/` – ClickatellService (SMS sending via Clickatell HTTP API) - [See AGENTS.md](src/services/clickatell/AGENTS.md)
 - `src/services/emoji/` – EmojiService (SQLite-backed emoji reaction tracking + leaderboard queries) - [See AGENTS.md](src/services/emoji/AGENTS.md)
-- `src/services/memory/` – MemoryService (SQLite-backed memory + phone number registry) - [See AGENTS.md](src/services/memory/AGENTS.md)
+- `src/services/memory/` – MemoryService (SQLite-backed memory + preferences) - [See AGENTS.md](src/services/memory/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
 - `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
 - `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
