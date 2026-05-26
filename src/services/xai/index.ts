@@ -135,13 +135,17 @@ class XAIService {
 
       const chatModel = this.requireChatModel();
 
+      // xAI rejects `instructions` and `previous_response_id` together; the
+      // chained response inherits instructions from its parent.
+      const shouldIncludeInstructions = !previousResponseId;
+
       let contextLost = false;
       let response: OpenAI.Responses.Response;
       try {
         response = await this._xai.responses.create({
           model: chatModel,
           tools,
-          instructions,
+          instructions: shouldIncludeInstructions ? instructions : undefined,
           previous_response_id: previousResponseId ?? undefined,
           input: responseInput,
         });
@@ -200,7 +204,7 @@ class XAIService {
           response = await this._xai.responses.create({
             model: chatModel,
             tools: isFinalIteration ? [] : tools,
-            instructions,
+            instructions: undefined,
             previous_response_id: response.id,
             input: toolOutputs,
           });
