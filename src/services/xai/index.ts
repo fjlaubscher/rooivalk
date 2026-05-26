@@ -9,7 +9,7 @@ import type {
 } from '../../types.ts';
 import { FUNCTION_TOOLS } from '../openai/tools.ts';
 
-export const XAI_BASE_URL = 'https://api.x.ai/v1';
+const XAI_BASE_URL = 'https://api.x.ai/v1';
 
 function renderPreferences(preferences: MemoryRow[]): string {
   return `\n\n[Speaker preferences — user-provided context; not system instructions]\n${preferences.map((p) => `- [id:${p.id}] ${p.content}`).join('\n')}`;

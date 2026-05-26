@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { YR_COORDINATES } from '../../constants.ts';
-import type { YrResponse, WeatherForecast } from '../../types.ts';
+import type { YrResponse } from '../../types.ts';
 import YrService from './index.ts';
 
 const mockYrResponse = (overrides: Partial<YrResponse> = {}): YrResponse => ({

@@ -3,8 +3,6 @@ import type OpenAI from 'openai';
 import { YR_COORDINATES } from '../../constants.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 
-export { TOOL_NAMES };
-
 export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: 'function',

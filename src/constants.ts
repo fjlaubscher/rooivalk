@@ -33,7 +33,6 @@ export const DISCORD_MESSAGE_LIMIT = 2000;
 // OpenAI keeps stored responses for ~30 days. Anything older in our
 // conversation_responses table is dead weight and can be pruned.
 export const CONVERSATION_RESPONSE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-export const DISCORD_EMOJI = 'rooivalk';
 export const DISCORD_COMMANDS = {
   IMAGE: 'image',
   WEATHER: 'weather',

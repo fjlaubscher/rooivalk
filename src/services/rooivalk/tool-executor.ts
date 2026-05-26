@@ -8,7 +8,7 @@ import type MemoryService from '../memory/index.ts';
 import type { MemoryKind } from '../memory/index.ts';
 import type SteamService from '../steam/index.ts';
 import type YrService from '../yr/index.ts';
-import type { ToolExecutionResult } from '../../types.ts';
+import type { ToolExecutionResult, ToolExecutor } from '../../types.ts';
 
 export type ToolExecutorContext = {
   message: Message<boolean>;
@@ -22,11 +22,6 @@ export type ToolExecutorContext = {
     name?: string,
   ) => Promise<ThreadChannel | null>;
 };
-
-export type ToolExecutor = (
-  name: string,
-  args: Record<string, unknown>,
-) => Promise<ToolExecutionResult>;
 
 function errorOutput(err: unknown): ToolExecutionResult {
   const errorMessage = err instanceof Error ? err.message : 'Unknown error';

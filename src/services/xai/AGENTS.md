@@ -2,7 +2,7 @@
 
 ## Overview
 
-`XAIService` is the chat/image provider class for xAI Grok. It uses the OpenAI SDK pointed at `https://api.x.ai/v1` (exported as `XAI_BASE_URL`) and exposes the same surface as [`OpenAIService`](../openai/AGENTS.md) so the two are interchangeable behind the `ChatService` / `ImageService` union types in [`src/services/chat`](../chat/AGENTS.md).
+`XAIService` is the chat/image provider class for xAI Grok. It uses the OpenAI SDK pointed at `https://api.x.ai/v1` and exposes the same surface as [`OpenAIService`](../openai/AGENTS.md) so the two are interchangeable behind the `ChatService` / `ImageService` union types in [`src/services/chat`](../chat/AGENTS.md).
 
 The class is a deliberate parallel implementation rather than a subclass or an env-driven branch in `OpenAIService`. xAI and OpenAI diverge in subtle ways (native server tool support, image-API params and response fields) and keeping each provider's code as a self-contained class is preferred over conditionals.
 

@@ -34,9 +34,7 @@ import {
 import type { ChatService, ImageService } from '../chat/index.ts';
 import DiscordService from '../discord/index.ts';
 import EmojiService from '../emoji/index.ts';
-import type { EmojiChampion } from '../emoji/types.ts';
 import MemoryService from '../memory/index.ts';
-import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
 import SteamService from '../steam/index.ts';
 import YrService from '../yr/index.ts';
@@ -53,7 +51,7 @@ import {
   shouldUseFieldHospitalModel,
 } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
-import type { ToolExecutor } from './tool-executor.ts';
+import type { ToolExecutor } from '../../types.ts';
 
 function shuffleArray<T>(items: T[]): T[] {
   return items
