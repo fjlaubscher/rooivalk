@@ -39,7 +39,6 @@ import MemoryService from '../memory/index.ts';
 import OpenAIService from '../openai/index.ts';
 import PeapixService from '../peapix/index.ts';
 import SteamService from '../steam/index.ts';
-import WikimediaService from '../wikimedia/index.ts';
 import YrService from '../yr/index.ts';
 import type { AttachmentForPrompt, InMemoryConfig } from '../../types.ts';
 
@@ -106,7 +105,6 @@ class Rooivalk {
   protected _openai: ImageService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
-  protected _wikimedia: WikimediaService;
   protected _emoji: EmojiService;
   protected _memory: MemoryService;
   protected _steam: SteamService;
@@ -119,7 +117,6 @@ class Rooivalk {
     openaiService?: ImageService,
     yrService?: YrService,
     peapixService?: PeapixService,
-    wikimediaService?: WikimediaService,
     fieldHospitalChatService?: ChatService,
     memoryService?: MemoryService,
     steamService?: SteamService,
@@ -133,7 +130,6 @@ class Rooivalk {
       fieldHospitalChatService ?? createFieldHospitalChatService(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
-    this._wikimedia = wikimediaService ?? new WikimediaService();
     this._memory =
       memoryService ??
       new MemoryService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
@@ -510,52 +506,29 @@ class Rooivalk {
       }
 
       if (!motdImage) {
-        for (const location of shuffled) {
-          try {
-            const cityImage = await this._wikimedia.getCityImage(location);
-            if (cityImage) {
-              motdImage = {
-                heading: cityImage.cityName,
-                attribution: cityImage.title,
-                buffer: cityImage.buffer,
-              };
-              break;
-            }
-          } catch (err) {
-            console.error(
-              `Wikimedia image fetch failed for ${location.name}:`,
-              err,
-            );
+        console.warn('AI image generation failed. Falling back to Peapix.');
+        try {
+          const peapixImage = await this._peapix.getImage();
+          if (peapixImage) {
+            motdImage = {
+              heading: peapixImage.title ?? 'Image of the day',
+              attribution: peapixImage.copyright,
+              buffer: peapixImage.buffer,
+            };
+          } else {
+            console.warn('Peapix fallback returned no image.');
           }
-        }
-
-        if (!motdImage) {
-          console.warn(
-            `AI generation and Wikimedia both failed. Falling back to Peapix.`,
+        } catch (peapixErr) {
+          console.error(
+            'Peapix fallback image fetch threw an error:',
+            peapixErr,
           );
-          try {
-            const peapixImage = await this._peapix.getImage();
-            if (peapixImage) {
-              motdImage = {
-                heading: peapixImage.title ?? 'Image of the day',
-                attribution: peapixImage.copyright,
-                buffer: peapixImage.buffer,
-              };
-            } else {
-              console.warn('Peapix fallback returned no image.');
-            }
-          } catch (peapixErr) {
-            console.error(
-              'Peapix fallback image fetch threw an error:',
-              peapixErr,
-            );
-          }
         }
       }
 
       if (!motdImage) {
         console.error(
-          'MOTD image sources exhausted: both Wikimedia and Peapix failed to provide an image. ' +
+          'MOTD image sources exhausted: AI generation and Peapix both failed to provide an image. ' +
             'The MOTD will be sent without an image.',
         );
       }

@@ -40,11 +40,10 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 ### MOTD Image Generation
 
-The daily MOTD uses a three-tier image fallback strategy:
+The daily MOTD uses a two-tier image fallback strategy:
 
 1. **AI-generated image** (primary): Calls `ImageService.createImage()` on the active image provider with a randomly composed prompt combining a style and city aspect for the selected city
-2. **Wikimedia** (fallback): Fetches a geo-located photo via `WikimediaService.getCityImage()`
-3. **Peapix** (last resort): Fetches Bing's image of the day via `PeapixService.getImage()`
+2. **Peapix** (fallback): Fetches Bing's image of the day via `PeapixService.getImage()`
 
 Image prompt composition uses two module-level arrays:
 
@@ -93,7 +92,6 @@ A random style + aspect + city name are combined into the prompt each day for va
 - **ChatService**: For AI-generated text responses and thread-name generation (MOTD, conversations)
 - **ImageService**: For image generation (`createImage`) — used by MOTD and the `/image` slash command
 - **YrService**: For weather data integration
-- **WikimediaService**: For geo-located city photos (MOTD image fallback)
 - **PeapixService**: For Bing image of the day (MOTD last-resort fallback)
 - **CronService**: For scheduled tasks and operations
 - **Config system**: For hot-swappable configuration

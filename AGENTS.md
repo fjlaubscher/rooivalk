@@ -23,8 +23,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
   - `helpers.ts` – Thread detection and reply handling utilities
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
-- `src/services/wikimedia/` – WikimediaService (Wikimedia Commons image integration) - [See AGENTS.md](src/services/wikimedia/AGENTS.md)
-- `src/services/peapix/` – PeapixService (Bing image feed integration) - [See AGENTS.md](src/services/peapix/AGENTS.md)
+- `src/services/peapix/` – PeapixService (Bing image-of-the-day fallback for MOTD) - [See AGENTS.md](src/services/peapix/AGENTS.md)
 - `src/services/emoji/` – EmojiService (SQLite-backed emoji reaction tracking + leaderboard queries) - [See AGENTS.md](src/services/emoji/AGENTS.md)
 - `src/services/memory/` – MemoryService (SQLite-backed memory + preferences) - [See AGENTS.md](src/services/memory/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
@@ -49,7 +48,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 ## Entry Point
 
 - `src/index.ts` bootstraps the application, loads environment variables, instantiates services, and starts the Discord client.
-- Start script: `node src/index.ts` — runs TypeScript natively via Node.js 22+ (no build step or custom loader required).
+- Start script: `node src/index.ts` — runs TypeScript natively via Node.js 24+ (no build step or custom loader required). CI pins 24.12.0.
 
 ## Environment
 
@@ -101,7 +100,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
 | Change conversation-chain storage | `services/memory/schema.ts` + `services/memory/index.ts` | `conversation_responses` table; keep `(type, ref_id)` composite PK |
 | Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts` and `test-utils/mock.ts` |
-| Update MOTD image feed       | `services/rooivalk/index.ts`             | AI generation is primary (via `OpenAIService.createImage`), Wikimedia is first fallback, Peapix is last resort. Style/aspect arrays are in `index.ts`. |
+| Update MOTD image feed       | `services/rooivalk/index.ts`             | AI generation is primary (via the active `ImageService.createImage`), Peapix is the only fallback. Style/aspect arrays are in `index.ts`. |
 | Update config system         | `src/config/loader.ts`, `config/*.md`    | Modify config loading/watching; update markdown configs |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 

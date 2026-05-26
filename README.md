@@ -12,7 +12,7 @@ A Discord bot powered by OpenAI. Responds to mentions and replies, threads its o
 - **Threads**: replying to a bot message auto-creates a thread; the bot responds to everything inside threads it owns.
 - **Per-user memory** in SQLite — the model can `remember`, `recall`, and `forget` facts. Capped preference set is injected on every turn.
 - **Tools**: weather (Yr.no), Steam store lookups, ad-hoc SQLite querying of the bot's own data, sandboxed `run_bash` for log/source inspection, server-event lookup.
-- **Daily MOTD** with AI-generated city artwork; Wikimedia + Peapix as fallbacks.
+- **Daily MOTD** with AI-generated city artwork; Peapix (Bing image of the day) as a fallback.
 - **Hot-reloadable config** — edit `config/*.md` and changes take effect without redeploying.
 
 ### Rooivalk in action
@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/f2ba3afe-4aca-4ac9-bb5b-852aa8277518
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v22+
+- [Node.js](https://nodejs.org/) v24+
 - [pnpm](https://pnpm.io/) v10.x
 - Discord bot token ([guide](https://discord.com/developers/applications))
 - OpenAI API key ([guide](https://platform.openai.com/account/api-keys))
@@ -63,7 +63,7 @@ Each service has its own `AGENTS.md`:
 - `src/services/memory` — SQLite-backed memory + conversation-id store
 - `src/services/yr` — Yr.no weather
 - `src/services/steam` — Steam store + nightly app catalogue sync
-- `src/services/wikimedia` / `src/services/peapix` — MOTD image fallbacks
+- `src/services/peapix` — Bing image-of-the-day fallback for MOTD
 - `src/services/cron` — scheduled jobs
 - `src/config` — hot-reloadable markdown config
 
