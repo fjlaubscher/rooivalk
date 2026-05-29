@@ -62,6 +62,25 @@ function shuffleArray<T>(items: T[]): T[] {
 
 const MOTD_IMAGE_ATTACHMENT_NAME = 'rooivalk_motd.jpg';
 
+const LEADERBOARD_EMBED_COLOR = 0xe74c3c;
+const LEADERBOARD_MEDALS = ['🥇', '🥈', '🥉'];
+
+const leaderboardRank = (index: number): string =>
+  LEADERBOARD_MEDALS[index] ?? `\`${index + 1}.\``;
+
+const formatReactionEmoji = (
+  emojiId: string | null,
+  emojiName: string,
+  emojiAnimated: number,
+): string =>
+  emojiId
+    ? formatEmoji({
+        id: emojiId,
+        animated: emojiAnimated === 1,
+        name: emojiName,
+      })
+    : emojiName;
+
 const MOTD_IMAGE_STYLES = [
   'watercolour painting',
   'oil painting',
@@ -604,7 +623,7 @@ class Rooivalk {
     const guildId = process.env.DISCORD_GUILD_ID!;
 
     try {
-      const receivers = this._emoji.getTopReceivers(
+      const messages = this._emoji.getTopMessages(
         guildId,
         windowStart,
         now,
@@ -616,7 +635,7 @@ class Rooivalk {
         now,
         LEADERBOARD_LIMIT,
       );
-      const champions = this._emoji.getEmojiChampions(
+      const emojis = this._emoji.getTopEmojis(
         guildId,
         windowStart,
         now,
@@ -633,7 +652,7 @@ class Rooivalk {
         return;
       }
 
-      if (!receivers.length && !givers.length && !champions.length) {
+      if (!messages.length && !givers.length && !emojis.length) {
         const msgs = this._config.leaderboardEmptyMessages;
         const msg =
           msgs.length > 0
@@ -646,64 +665,77 @@ class Rooivalk {
         return;
       }
 
-      const guild = await this._discord.client.guilds.fetch(
-        process.env.DISCORD_GUILD_ID!,
-      );
-      const uniqueIds = new Set([
-        ...receivers.map((r) => r.user_id),
-        ...givers.map((g) => g.user_id),
-        ...champions.map((c) => c.user_id),
-      ]);
-      const nameMap = new Map<string, string>();
-      for (const id of uniqueIds) {
-        try {
-          const member = await guild.members.fetch(id);
-          nameMap.set(id, member.displayName);
-        } catch {
-          nameMap.set(id, userMention(id));
-        }
-      }
-      const displayName = (id: string) => nameMap.get(id) ?? userMention(id);
+      const embed = new EmbedBuilder({
+        title: '🏆 Weekly Emoji Recap',
+        description: 'Reactions from the last 7 days',
+        color: LEADERBOARD_EMBED_COLOR,
+      });
 
-      const lines: string[] = ['**Weekly Emoji Recap** — last 7 days', ''];
-
-      if (receivers.length) {
-        lines.push('**Most-loved messages**');
-        receivers.forEach((r, i) => {
-          lines.push(
-            `${i + 1}. ${displayName(r.user_id)} — ${r.count} reaction${r.count === 1 ? '' : 's'}`,
-          );
+      if (messages.length) {
+        embed.addFields({
+          name: 'Most-loved messages',
+          value: messages
+            .map((m, i) => {
+              const link = `https://discord.com/channels/${guildId}/${m.channel_id}/${m.message_id}`;
+              const plural = m.count === 1 ? '' : 's';
+              return `${leaderboardRank(i)} ${userMention(m.message_author_id)} — [${m.count} reaction${plural}](${link})`;
+            })
+            .join('\n'),
         });
-        lines.push('');
       }
 
       if (givers.length) {
-        lines.push('**Most reactive**');
-        givers.forEach((g, i) => {
-          lines.push(
-            `${i + 1}. ${displayName(g.user_id)} — ${g.count} reaction${g.count === 1 ? '' : 's'} given`,
-          );
+        embed.addFields({
+          name: 'Most reactive',
+          value: givers
+            .map((g, i) => {
+              const plural = g.count === 1 ? '' : 's';
+              const fav = formatReactionEmoji(
+                g.fav_emoji_id,
+                g.fav_emoji_name,
+                g.fav_emoji_animated,
+              );
+              return `${leaderboardRank(i)} ${userMention(g.user_id)} — ${g.count} reaction${plural} given — ${fav} is their favourite`;
+            })
+            .join('\n'),
         });
-        lines.push('');
       }
 
-      if (champions.length) {
-        lines.push('**Emoji champions**');
-        champions.forEach((c) => {
-          const emojiStr = c.emoji_id
-            ? formatEmoji({
-                id: c.emoji_id,
-                animated: c.emoji_animated === 1,
-                name: c.emoji_name,
-              })
-            : c.emoji_name;
-          lines.push(`${emojiStr} — ${displayName(c.user_id)} (${c.count})`);
+      if (emojis.length) {
+        embed.addFields({
+          name: 'Top emojis',
+          value: emojis
+            .map((e, i) => {
+              const emojiStr = formatReactionEmoji(
+                e.emoji_id,
+                e.emoji_name,
+                e.emoji_animated,
+              );
+              const plural = e.count === 1 ? '' : 's';
+              return `${leaderboardRank(i)} ${emojiStr} — ${e.count} use${plural}`;
+            })
+            .join('\n'),
         });
       }
+
+      // Mentions inside an embed never notify — to actually ping the
+      // featured users they must appear in the message content, and the
+      // same IDs must be whitelisted in allowedMentions.
+      const featuredIds = [
+        ...new Set([
+          ...messages.map((m) => m.message_author_id),
+          ...givers.map((g) => g.user_id),
+        ]),
+      ];
 
       await (channel as SendableChannels).send({
-        content: lines.join('\n').trim(),
-        allowedMentions: { users: [] },
+        content: featuredIds.length
+          ? `🏆 This week's emoji recap — take a bow ${featuredIds
+              .map((id) => userMention(id))
+              .join(' ')}`
+          : undefined,
+        embeds: [embed],
+        allowedMentions: { users: featuredIds },
       });
     } catch (err) {
       console.error('[Rooivalk] Error sending leaderboard:', err);
