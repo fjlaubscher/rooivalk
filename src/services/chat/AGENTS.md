@@ -38,30 +38,29 @@ Returns the image provider used by `_openai` on `RooivalkService` (MOTD + `/imag
 
 Chat and image are toggled independently — you can run chat through xAI while keeping images on OpenAI, or vice-versa.
 
-### `createRoutedChatServices(config)`
+### `createProfileChatServices(config)`
 
-Builds one chat service per entry in `config.routes`, keyed by route `name`, and returns them as a `Map<string, ChatService>`. Each routed service swaps in the route's instruction profile (via the provider's `instructionsSelector` constructor option) and its `model` override; provider defaults to OpenAI but may be set to `xai` per route.
+Builds one chat service per entry in `config.profiles`, keyed by profile `name`, and returns them as a `Map<string, ChatService>`. Each service swaps in the profile's instructions (via the provider's `instructionsSelector` constructor option) and its `model` override; provider defaults to OpenAI but may be set to `xai` per profile.
 
-A route is skipped (with a warning) when its `instructions` profile file is missing, or when it targets xAI without `XAI_API_KEY` set. Skipping a route means `RooivalkService` falls back to the default chat service for that channel.
+A profile is skipped (with a warning) when its instructions file is missing, or when it targets xAI without `XAI_API_KEY` set. Skipping a profile means `RooivalkService` falls back to the default chat service for that channel.
 
-`RooivalkService` selects a route per incoming message via `matchChannelRoute` (channel match — with thread inheritance through `channel.parentId` — plus the route's optional role gate) and looks up the corresponding service in the map.
+`RooivalkService` selects a profile per incoming message via `matchProfile` (channel match — with thread inheritance through `channel.parentId` — plus the profile's optional role gate) and looks up the corresponding service in the map.
 
-## Channel Routing
+## Channel Profiles
 
-Channel-specific behaviour is declarative config, not code. Routes live in `config/routes.json` (deployment-specific, gitignored; see `config/routes.example.json`). Each route is a [`ChannelRoute`](../../types.ts):
+Channel-specific behaviour is declarative config, not code. Profiles live in `config/profiles.json` (deployment-specific, gitignored; see `config/profiles.example.json`). Each profile is a [`Profile`](../../types.ts):
 
-| Field          | Required | Meaning                                                       |
-| -------------- | -------- | ------------------------------------------------------------- |
-| `name`         | yes      | Label, and the key the built service is stored under          |
-| `channelId`    | yes      | Channel the route applies to (threads inherit via `parentId`) |
-| `roleId`       | no       | When set, the message author must hold this role to match     |
-| `instructions` | yes      | Profile name → `config/instructions/<instructions>.md`        |
-| `model`        | no       | Model override; falls back to the provider's default model    |
-| `provider`     | no       | `openai` (default) or `xai`                                   |
+| Field       | Required | Meaning                                                         |
+| ----------- | -------- | --------------------------------------------------------------- |
+| `name`      | yes      | Label, service map key, and instructions file basename          |
+| `channelId` | yes      | Channel the profile applies to (threads inherit via `parentId`) |
+| `roleId`    | no       | When set, the message author must hold this role to match       |
+| `model`     | no       | Model override; falls back to the provider's default model      |
+| `provider`  | no       | `openai` (default) or `xai`                                     |
 
-Adding a behaviour is two files and no code: a route entry plus a `config/instructions/<name>.md` profile. The field-hospital behaviour is one such route — an OpenAI route with its own model override and the `field-hospital` instruction profile.
+A profile's instructions are loaded from `config/profiles/<name>.md`, resolved from its `name`. Adding a behaviour is two files and no code: a profile entry plus its `config/profiles/<name>.md` instructions (see `config/profiles/example.md`). The field-hospital behaviour is one such profile — an OpenAI profile with its own model override and a `field-hospital.md` instructions file.
 
-Instruction-profile edits hot-reload through the config watcher; adding or removing a route requires a restart (services are built once at construction).
+The config watcher only picks up changes to top-level `config/*.md` files (it watches `CONFIG_DIR` non-recursively), so editing a profile's instructions under `config/profiles/` requires a restart — as does adding or removing a profile (services are built once at construction).
 
 ## Conversation Continuity
 

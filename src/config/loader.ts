@@ -10,10 +10,10 @@ import {
   CONFIG_FILE_INSTRUCTIONS_XAI,
   CONFIG_FILE_LEADERBOARD,
   CONFIG_FILE_MOTD,
-  CONFIG_FILE_ROUTES,
-  getInstructionsProfilePath,
+  CONFIG_FILE_PROFILES,
+  getProfileInstructionsPath,
 } from '../constants.ts';
-import type { ChannelRoute, ChatProvider, InMemoryConfig } from '../types.ts';
+import type { ChatProvider, InMemoryConfig, Profile } from '../types.ts';
 
 const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
@@ -106,32 +106,31 @@ const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string';
 
 /**
- * Validates a single parsed route entry. Returns the typed route, or `null`
+ * Validates a single parsed profile entry. Returns the typed profile, or `null`
  * (with a warning) when a required field is missing/mistyped or `provider` is
- * not a known value — a malformed route is dropped rather than silently
+ * not a known value — a malformed profile is dropped rather than silently
  * routing to nowhere or keying the service map by `undefined`.
  */
-const parseRoute = (entry: unknown, index: number): ChannelRoute | null => {
-  const label = `${CONFIG_FILE_ROUTES}[${index}]`;
+const parseProfile = (entry: unknown, index: number): Profile | null => {
+  const label = `${CONFIG_FILE_PROFILES}[${index}]`;
 
   if (typeof entry !== 'object' || entry === null) {
     console.warn(`[config/loader] ${label} is not an object — skipping`);
     return null;
   }
 
-  const route = entry as Record<string, unknown>;
+  const profile = entry as Record<string, unknown>;
   const problems: string[] = [];
 
-  if (!isNonEmptyString(route.name)) problems.push('name must be a string');
-  if (!isNonEmptyString(route.channelId))
+  if (!isNonEmptyString(profile.name)) problems.push('name must be a string');
+  if (!isNonEmptyString(profile.channelId))
     problems.push('channelId must be a string');
-  if (!isNonEmptyString(route.instructions))
-    problems.push('instructions must be a string');
-  if (!isOptionalString(route.roleId)) problems.push('roleId must be a string');
-  if (!isOptionalString(route.model)) problems.push('model must be a string');
+  if (!isOptionalString(profile.roleId))
+    problems.push('roleId must be a string');
+  if (!isOptionalString(profile.model)) problems.push('model must be a string');
   if (
-    route.provider !== undefined &&
-    !VALID_PROVIDERS.includes(route.provider as ChatProvider)
+    profile.provider !== undefined &&
+    !VALID_PROVIDERS.includes(profile.provider as ChatProvider)
   ) {
     problems.push(`provider must be one of ${VALID_PROVIDERS.join(', ')}`);
   }
@@ -143,19 +142,19 @@ const parseRoute = (entry: unknown, index: number): ChannelRoute | null => {
     return null;
   }
 
-  return entry as ChannelRoute;
+  return entry as Profile;
 };
 
 /**
- * Loads the declarative channel routes from `config/routes.json`.
+ * Loads the declarative channel profiles from `config/profiles.json`.
  * The file is deployment-specific (gitignored); a missing file means no
- * routes are configured and the default chat service handles every channel.
+ * profiles are configured and the default chat service handles every channel.
  * Malformed entries are skipped, and a name reused across entries keeps the
  * first occurrence (later duplicates are dropped) so the matcher and the
  * service map stay in agreement.
  */
-const loadRoutes = async (): Promise<ChannelRoute[]> => {
-  const filePath = getConfigFilePath(CONFIG_FILE_ROUTES);
+const loadProfiles = async (): Promise<Profile[]> => {
+  const filePath = getConfigFilePath(CONFIG_FILE_PROFILES);
   let content: string;
   try {
     content = await readFile(filePath, 'utf8');
@@ -164,7 +163,7 @@ const loadRoutes = async (): Promise<ChannelRoute[]> => {
       return [];
     }
     throw new Error(
-      `[config/loader] Failed to read ${CONFIG_FILE_ROUTES}: ${(err as Error).message}`,
+      `[config/loader] Failed to read ${CONFIG_FILE_PROFILES}: ${(err as Error).message}`,
     );
   }
 
@@ -173,63 +172,64 @@ const loadRoutes = async (): Promise<ChannelRoute[]> => {
     parsed = JSON.parse(content);
   } catch (err) {
     throw new Error(
-      `[config/loader] ${CONFIG_FILE_ROUTES} is not valid JSON: ${(err as Error).message}`,
+      `[config/loader] ${CONFIG_FILE_PROFILES} is not valid JSON: ${(err as Error).message}`,
     );
   }
 
   if (!Array.isArray(parsed)) {
-    throw new Error(`[config/loader] ${CONFIG_FILE_ROUTES} must be an array`);
+    throw new Error(`[config/loader] ${CONFIG_FILE_PROFILES} must be an array`);
   }
 
   const seen = new Set<string>();
-  const routes: ChannelRoute[] = [];
+  const profiles: Profile[] = [];
   parsed.forEach((entry, index) => {
-    const route = parseRoute(entry, index);
-    if (!route) return;
-    if (seen.has(route.name)) {
+    const profile = parseProfile(entry, index);
+    if (!profile) return;
+    if (seen.has(profile.name)) {
       console.warn(
-        `[config/loader] duplicate route name "${route.name}" — keeping the first and skipping this one`,
+        `[config/loader] duplicate profile name "${profile.name}" — keeping the first and skipping this one`,
       );
       return;
     }
-    seen.add(route.name);
-    routes.push(route);
+    seen.add(profile.name);
+    profiles.push(profile);
   });
 
-  return routes;
+  return profiles;
 };
 
 /**
- * Loads the instruction profiles referenced by the given routes. A route that
- * points at a missing profile file is skipped silently — `RooivalkService`
- * then falls back to the default chat service for that channel.
+ * Loads the instruction text for the given profiles from
+ * `config/profiles/<name>.md`. A profile whose file is missing is skipped
+ * silently — `RooivalkService` then falls back to the default chat service for
+ * that channel.
  */
-const loadProfiles = async (
-  routes: ChannelRoute[],
+const loadProfileInstructions = async (
+  profiles: Profile[],
 ): Promise<Record<string, string>> => {
-  const profileNames = [...new Set(routes.map((route) => route.instructions))];
+  const profileNames = [...new Set(profiles.map((profile) => profile.name))];
 
   const entries = await Promise.all(
     profileNames.map(async (name) => {
       const content = await loadOptionalInstructions(
-        getInstructionsProfilePath(name),
+        getProfileInstructionsPath(name),
       );
       if (!content) {
         console.warn(
-          `[config/loader] route references missing instructions profile "${name}"`,
+          `[config/loader] profile "${name}" is missing its instructions file`,
         );
       }
       return [name, content] as const;
     }),
   );
 
-  const profiles: Record<string, string> = {};
+  const profileInstructions: Record<string, string> = {};
   for (const [name, content] of entries) {
     if (content) {
-      profiles[name] = content;
+      profileInstructions[name] = content;
     }
   }
-  return profiles;
+  return profileInstructions;
 };
 
 export const loadConfig = async (): Promise<InMemoryConfig> => {
@@ -240,7 +240,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     leaderboardEmptyMessages,
     openaiInstructions,
     xaiInstructions,
-    routes,
+    profiles,
     motd,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
@@ -249,11 +249,11 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadMessageList(CONFIG_FILE_LEADERBOARD),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_OPENAI),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_XAI),
-    loadRoutes(),
+    loadProfiles(),
     loadInstructions(CONFIG_FILE_MOTD),
   ]);
 
-  const profiles = await loadProfiles(routes);
+  const profileInstructions = await loadProfileInstructions(profiles);
 
   const config: InMemoryConfig = {
     errorMessages,
@@ -265,7 +265,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
       xai: xaiInstructions,
     },
     profiles,
-    routes,
+    profileInstructions,
     motd,
   };
 

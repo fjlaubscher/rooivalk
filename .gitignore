@@ -4,4 +4,6 @@ node_modules
 .claude
 data/
 scripts/deploy.local.ps1
-config/routes.json
+config/profiles.json
+config/profiles/*
+!config/profiles/example.md

@@ -603,33 +603,32 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and a channel route is configured', () => {
+    describe('and a channel profile is configured', () => {
       const FH_ROLE_ID = 'fh-role-id';
       const FH_CHANNEL_ID = 'fh-channel-id';
-      const ROUTE_NAME = 'field-hospital';
+      const PROFILE_NAME = 'field-hospital';
 
-      const ROUTED_CONFIG = {
+      const PROFILE_CONFIG = {
         ...MOCK_CONFIG,
-        profiles: { [ROUTE_NAME]: 'Field hospital instructions' },
-        routes: [
+        profiles: [
           {
-            name: ROUTE_NAME,
+            name: PROFILE_NAME,
             channelId: FH_CHANNEL_ID,
             roleId: FH_ROLE_ID,
-            instructions: ROUTE_NAME,
           },
         ],
+        profileInstructions: { [PROFILE_NAME]: 'Field hospital instructions' },
       };
 
-      const mockRoutedChat = vi.mocked({
+      const mockProfileChat = vi.mocked({
         createResponse: vi.fn(),
         generateThreadName: vi.fn(),
         reloadConfig: vi.fn(),
       } as any);
 
-      const routedChatServices = new Map([[ROUTE_NAME, mockRoutedChat]]);
+      const profileChatServices = new Map([[PROFILE_NAME, mockProfileChat]]);
 
-      const buildRouteMessage = (roleIds: string[], channelId: string) =>
+      const buildProfileMessage = (roleIds: string[], channelId: string) =>
         createMockMessage({
           content: `<@${BOT_ID}> xray please`,
           channelId,
@@ -644,48 +643,48 @@ describe('Rooivalk', () => {
         } as Partial<Message<boolean>>);
 
       beforeEach(() => {
-        mockRoutedChat.createResponse.mockResolvedValue(
+        mockProfileChat.createResponse.mockResolvedValue(
           'Field hospital response',
         );
-        mockRoutedChat.generateThreadName.mockResolvedValue(
+        mockProfileChat.generateThreadName.mockResolvedValue(
           'Field Hospital Title',
         );
       });
 
       it('routes to the matching chat service when role and channel match', async () => {
-        const routedRooivalk = new Rooivalk(
-          ROUTED_CONFIG,
+        const profileRooivalk = new Rooivalk(
+          PROFILE_CONFIG,
           mockDiscordService,
           mockChatClient,
           mockOpenAIClient,
           undefined,
           undefined,
-          routedChatServices,
+          profileChatServices,
         );
 
-        const msg = buildRouteMessage([FH_ROLE_ID], FH_CHANNEL_ID);
-        await (routedRooivalk as any).processMessage(msg);
+        const msg = buildProfileMessage([FH_ROLE_ID], FH_CHANNEL_ID);
+        await (profileRooivalk as any).processMessage(msg);
 
-        expect(mockRoutedChat.createResponse).toHaveBeenCalledTimes(1);
+        expect(mockProfileChat.createResponse).toHaveBeenCalledTimes(1);
         expect(mockChatClient.createResponse).not.toHaveBeenCalled();
       });
 
-      it('falls back to the default chat service when no route matches', async () => {
-        const routedRooivalk = new Rooivalk(
-          ROUTED_CONFIG,
+      it('falls back to the default chat service when no profile matches', async () => {
+        const profileRooivalk = new Rooivalk(
+          PROFILE_CONFIG,
           mockDiscordService,
           mockChatClient,
           mockOpenAIClient,
           undefined,
           undefined,
-          routedChatServices,
+          profileChatServices,
         );
 
-        const msg = buildRouteMessage([FH_ROLE_ID], 'other-channel');
-        await (routedRooivalk as any).processMessage(msg);
+        const msg = buildProfileMessage([FH_ROLE_ID], 'other-channel');
+        await (profileRooivalk as any).processMessage(msg);
 
         expect(mockChatClient.createResponse).toHaveBeenCalledTimes(1);
-        expect(mockRoutedChat.createResponse).not.toHaveBeenCalled();
+        expect(mockProfileChat.createResponse).not.toHaveBeenCalled();
       });
     });
 

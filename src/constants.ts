@@ -45,13 +45,13 @@ export const CONFIG_FILE_GREETINGS = 'greetings.md';
 export const CONFIG_FILE_DISCORD_LIMIT = 'discord_limit.md';
 export const CONFIG_FILE_INSTRUCTIONS_OPENAI = 'instructions/openai.md';
 export const CONFIG_FILE_INSTRUCTIONS_XAI = 'instructions/xai.md';
-export const CONFIG_FILE_ROUTES = 'routes.json';
+export const CONFIG_FILE_PROFILES = 'profiles.json';
 export const CONFIG_FILE_MOTD = 'motd.md';
 
-// Named instruction profiles for channel routes live alongside the
-// per-provider defaults, addressed by profile name.
-export const getInstructionsProfilePath = (name: string): string =>
-  `instructions/${name}.md`;
+// Each channel profile's instructions live in its own markdown file, addressed
+// by profile name. Deployment-specific, separate from the per-provider defaults.
+export const getProfileInstructionsPath = (name: string): string =>
+  `profiles/${name}.md`;
 export const CONFIG_FILE_LEADERBOARD = 'leaderboard.md';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

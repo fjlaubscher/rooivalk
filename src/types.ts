@@ -15,24 +15,26 @@ export type Env = {
 export type ChatProvider = 'openai' | 'xai';
 
 /**
- * A declarative channel-routing rule. A message that lands in `channelId`
- * (or a thread whose parent is `channelId`), optionally from a member holding
- * `roleId`, is handled by a dedicated chat behaviour instead of the default.
+ * A declarative channel profile. A message that lands in `channelId` (or a
+ * thread whose parent is `channelId`), optionally from a member holding
+ * `roleId`, is handled by this profile's dedicated chat behaviour instead of
+ * the default.
  *
- * The behaviour is config-only: the `instructions` profile names a
- * `config/instructions/<name>.md` file, and `model`/`provider` override the
- * defaults. Adding a new behaviour needs a new route entry and a profile file,
- * no code changes.
+ * The behaviour is config-only: instructions are loaded from
+ * `config/profiles/<name>.md` (resolved from `name`), and `model`/`provider`
+ * override the defaults. Adding a profile needs a new entry plus its
+ * instructions file, no code changes.
  */
-export type ChannelRoute = {
-  /** Human-readable label; also the key used to look up the built service. */
+export type Profile = {
+  /**
+   * Human-readable label; the key used to look up the built service, and the
+   * basename of the instructions file (`config/profiles/<name>.md`).
+   */
   name: string;
-  /** Discord channel id the route applies to (with thread inheritance). */
+  /** Discord channel id the profile applies to (with thread inheritance). */
   channelId: string;
   /** Optional Discord role id; when set, the member must hold it to match. */
   roleId?: string;
-  /** Instruction profile name → `config/instructions/<instructions>.md`. */
-  instructions: string;
   /** Optional model override; falls back to the provider's default model. */
   model?: string;
   /** Optional provider override; defaults to `openai`. */
@@ -51,10 +53,10 @@ export type InMemoryConfig = {
     openai: string;
     xai: string;
   };
-  /** Named instruction profiles referenced by channel routes. */
-  profiles: Record<string, string>;
-  /** Declarative channel-routing rules. */
-  routes: ChannelRoute[];
+  /** Declarative channel profiles. */
+  profiles: Profile[];
+  /** Instruction text per profile, keyed by profile name. */
+  profileInstructions: Record<string, string>;
   motd: string;
 };
 

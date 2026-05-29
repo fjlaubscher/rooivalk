@@ -11,7 +11,7 @@ This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The b
 - Post responses back to Discord
 - Maintain some internal state via class-based services with private fields
 
-The chat and image providers are independently swappable: `XAI_MODEL` flips the default chat provider to xAI and `XAI_IMAGE_MODEL` flips image generation to xAI. Channel-specific chat behaviour is layered on top via declarative routes in `config/routes.json` (see `src/services/chat/AGENTS.md`).
+The chat and image providers are independently swappable: `XAI_MODEL` flips the default chat provider to xAI and `XAI_IMAGE_MODEL` flips image generation to xAI. Channel-specific chat behaviour is layered on top via declarative profiles in `config/profiles.json` (see `src/services/chat/AGENTS.md`).
 
 The codebase uses a modular, service-based architecture. All services are TypeScript classes using private properties with an underscore prefix (e.g., `private _propertyName`).
 
@@ -33,7 +33,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
-- `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, named routing profiles like `instructions/field-hospital.md`, greetings, errors, etc.) plus `routes.json` (gitignored channel-routing rules; see `routes.example.json`)
+- `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, greetings, errors, etc.) plus channel profiles in `profiles.json` (gitignored; see `profiles.example.json`), each profile's instructions in `profiles/<name>.md` (gitignored; see `profiles/example.md`)
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 
@@ -57,7 +57,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 - Copy `.env.example` to `.env` and configure required credentials.
 - Required: `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `DISCORD_STARTUP_CHANNEL_ID`, `DISCORD_MOTD_CHANNEL_ID`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL`, `ROOIVALK_MOTD_CRON`.
 - Optional: `OPENAI_MODEL` (chat), `XAI_API_KEY` + `XAI_MODEL` (chat → xAI), `XAI_IMAGE_MODEL` (image gen → xAI), `STEAM_API_KEY` (nightly Steam app catalogue sync), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `LOG_LEVEL` (`debug` enables prompt-metric logging).
-- Channel-specific chat behaviour (e.g. field hospital) is configured in `config/routes.json`, not env — see `src/services/chat/AGENTS.md`.
+- Channel-specific chat behaviour (e.g. field hospital) is configured as profiles in `config/profiles.json`, not env — see `src/services/chat/AGENTS.md`.
 
 ## Coding Conventions
 

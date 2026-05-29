@@ -21,7 +21,7 @@ export const MOCK_CONFIG: InMemoryConfig = {
     openai: 'System instructions {{CURRENT_DATE}}',
     xai: 'System instructions {{CURRENT_DATE}}',
   },
-  profiles: {},
-  routes: [],
+  profiles: [],
+  profileInstructions: {},
   motd: 'Message of the day',
 };

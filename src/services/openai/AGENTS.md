@@ -45,7 +45,7 @@ Behaviour:
 - `OPENAI_MODEL` — chat/reasoning model.
 - `OPENAI_IMAGE_MODEL` — image model (e.g. `gpt-image-1`).
 
-A `model` and `instructionsSelector` may be passed to the constructor to build a routed instance with its own model and instruction profile (see `src/services/chat/AGENTS.md`); both default to `OPENAI_MODEL` and the OpenAI instructions when omitted.
+A `model` and `instructionsSelector` may be passed to the constructor to build a per-profile instance with its own model and instructions (see `src/services/chat/AGENTS.md`); both default to `OPENAI_MODEL` and the OpenAI instructions when omitted.
 
 ## Testing
 

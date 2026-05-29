@@ -8,7 +8,7 @@ A Discord bot powered by OpenAI. Responds to mentions and replies, threads its o
 ## Features
 
 - **Chat & reasoning** via the OpenAI Responses API. Conversation continuity is handled server-side through `previous_response_id`; per-conversation ids live in SQLite (`conversation_responses`).
-- **Image generation** via OpenAI `gpt-image-1` (or xAI `grok-2-image` when configured), exposed as a slash command and as the `generate_image` function tool so the model can produce images inline.
+- **Image generation** via OpenAI `gpt-image-1` (or xAI `grok-imagine-image-quality` when configured), exposed as a slash command and as the `generate_image` function tool so the model can produce images inline.
 - **Threads**: replying to a bot message auto-creates a thread; the bot responds to everything inside threads it owns.
 - **Per-user memory** in SQLite — the model can `remember`, `recall`, and `forget` facts. Capped preference set is injected on every turn.
 - **Tools**: weather (Yr.no), Steam store lookups, ad-hoc SQLite querying of the bot's own data, sandboxed `run_bash` for log/source inspection, server-event lookup.
@@ -74,7 +74,7 @@ For architecture and conventions, see [AGENTS.md](./AGENTS.md).
 - `config/instructions/openai.md` and `config/instructions/xai.md` are the live per-provider system prompts. Hot-reloaded.
 - Placeholders: `{{CURRENT_DATE}}` (ISO date), `{{EMOJIS}}` (server's allowed custom emojis).
 - `LOG_LEVEL=debug` emits per-request prompt metrics.
-- Channel-specific behaviours are declared in `config/routes.json` (copy `config/routes.example.json`); each route names an `instructions` profile in `config/instructions/` and may override the model/provider.
+- Channel-specific behaviours are declared as profiles in `config/profiles.json` (copy `config/profiles.example.json`); each profile's instructions live in `config/profiles/<name>.md` and it may override the model/provider.
 
 ### CI/CD
 

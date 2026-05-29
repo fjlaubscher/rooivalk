@@ -29,7 +29,7 @@ import {
 import {
   createChatService,
   createImageService,
-  createRoutedChatServices,
+  createProfileChatServices,
 } from '../chat/index.ts';
 import type { ChatService, ImageService } from '../chat/index.ts';
 import DiscordService from '../discord/index.ts';
@@ -48,7 +48,7 @@ import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
-  matchChannelRoute,
+  matchProfile,
 } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
 import type { ToolExecutor } from '../../types.ts';
@@ -118,7 +118,7 @@ class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _chat: ChatService;
-  protected _routedChats: Map<string, ChatService>;
+  protected _profileChats: Map<string, ChatService>;
   protected _openai: ImageService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
@@ -134,7 +134,7 @@ class Rooivalk {
     openaiService?: ImageService,
     yrService?: YrService,
     peapixService?: PeapixService,
-    routedChatServices?: Map<string, ChatService>,
+    profileChatServices?: Map<string, ChatService>,
     memoryService?: MemoryService,
     steamService?: SteamService,
     emojiService?: EmojiService,
@@ -143,8 +143,8 @@ class Rooivalk {
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? createImageService(this._config);
     this._chat = chatService ?? createChatService(this._config);
-    this._routedChats =
-      routedChatServices ?? createRoutedChatServices(this._config);
+    this._profileChats =
+      profileChatServices ?? createProfileChatServices(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._memory =
@@ -312,23 +312,23 @@ class Rooivalk {
     this._config = newConfig;
     this._discord.reloadConfig(newConfig);
     this._chat.reloadConfig(newConfig);
-    for (const routedChat of this._routedChats.values()) {
-      routedChat.reloadConfig(newConfig);
+    for (const profileChat of this._profileChats.values()) {
+      profileChat.reloadConfig(newConfig);
     }
     this._openai.reloadConfig(newConfig);
   }
 
   private selectChatService(message: Message<boolean>): ChatService {
-    if (this._routedChats.size === 0) {
+    if (this._profileChats.size === 0) {
       return this._chat;
     }
 
-    const route = matchChannelRoute(message, this._config.routes);
-    if (!route) {
+    const profile = matchProfile(message, this._config.profiles);
+    if (!profile) {
       return this._chat;
     }
 
-    return this._routedChats.get(route.name) ?? this._chat;
+    return this._profileChats.get(profile.name) ?? this._chat;
   }
 
   private createToolExecutor(message: Message<boolean>): ToolExecutor {

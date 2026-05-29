@@ -3,9 +3,9 @@ import type { ThreadChannel } from 'discord.js';
 import {
   isRooivalkThread,
   isReplyToRooivalk,
-  matchChannelRoute,
+  matchProfile,
 } from './helpers.ts';
-import type { ChannelRoute } from '../../types.ts';
+import type { Profile } from '../../types.ts';
 import { createMockMessage } from '../../test-utils/createMockMessage.ts';
 import { MOCK_ENV } from '../../test-utils/mock.ts';
 
@@ -121,15 +121,14 @@ describe('rooivalk helpers', () => {
     });
   });
 
-  describe('matchChannelRoute', () => {
+  describe('matchProfile', () => {
     const ROLE_ID = 'role-123';
     const CHANNEL_ID = 'channel-456';
 
-    const ROUTE: ChannelRoute = {
+    const PROFILE: Profile = {
       name: 'field-hospital',
       channelId: CHANNEL_ID,
       roleId: ROLE_ID,
-      instructions: 'field-hospital',
     };
 
     const buildMessage = (opts: {
@@ -166,7 +165,7 @@ describe('rooivalk helpers', () => {
 
     it('matches when user has role and is in the target channel', () => {
       const msg = buildMessage({});
-      expect(matchChannelRoute(msg, [ROUTE])).toBe(ROUTE);
+      expect(matchProfile(msg, [PROFILE])).toBe(PROFILE);
     });
 
     it('matches inside a thread whose parent is the target channel', () => {
@@ -175,17 +174,17 @@ describe('rooivalk helpers', () => {
         isThread: true,
         parentId: CHANNEL_ID,
       });
-      expect(matchChannelRoute(msg, [ROUTE])).toBe(ROUTE);
+      expect(matchProfile(msg, [PROFILE])).toBe(PROFILE);
     });
 
     it('does not match when user lacks the required role', () => {
       const msg = buildMessage({ roleIds: ['some-other-role'] });
-      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
+      expect(matchProfile(msg, [PROFILE])).toBeUndefined();
     });
 
     it('does not match in a different channel', () => {
       const msg = buildMessage({ channelId: 'some-other-channel' });
-      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
+      expect(matchProfile(msg, [PROFILE])).toBeUndefined();
     });
 
     it('does not match in a thread whose parent is a different channel', () => {
@@ -194,33 +193,31 @@ describe('rooivalk helpers', () => {
         isThread: true,
         parentId: 'some-other-channel',
       });
-      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
+      expect(matchProfile(msg, [PROFILE])).toBeUndefined();
     });
 
-    it('does not match when member is missing on a role-gated route', () => {
+    it('does not match when member is missing on a role-gated profile', () => {
       const msg = buildMessage({ hasMember: false });
-      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
+      expect(matchProfile(msg, [PROFILE])).toBeUndefined();
     });
 
-    it('matches on channel alone when the route has no role', () => {
-      const channelOnly: ChannelRoute = {
+    it('matches on channel alone when the profile has no role', () => {
+      const channelOnly: Profile = {
         name: 'lobby',
         channelId: CHANNEL_ID,
-        instructions: 'lobby',
       };
       const msg = buildMessage({ hasMember: false });
-      expect(matchChannelRoute(msg, [channelOnly])).toBe(channelOnly);
+      expect(matchProfile(msg, [channelOnly])).toBe(channelOnly);
     });
 
-    it('returns the first matching route and undefined when none match', () => {
-      const other: ChannelRoute = {
+    it('returns the first matching profile and undefined when none match', () => {
+      const other: Profile = {
         name: 'other',
         channelId: 'some-other-channel',
-        instructions: 'other',
       };
       const msg = buildMessage({});
-      expect(matchChannelRoute(msg, [other, ROUTE])).toBe(ROUTE);
-      expect(matchChannelRoute(msg, [])).toBeUndefined();
+      expect(matchProfile(msg, [other, PROFILE])).toBe(PROFILE);
+      expect(matchProfile(msg, [])).toBeUndefined();
     });
   });
 });
