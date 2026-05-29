@@ -18,7 +18,7 @@ The class is a deliberate parallel implementation rather than a subclass or an e
 - **Server tools differ.** xAI's Responses API exposes its own native tools (`web_search`, `x_search`, `code_execution`) on a different surface than OpenAI's (`web_search_preview`). `XAIService` always attaches `web_search` (xAI's variant — not in the OpenAI SDK's `Tool` union, hence the double cast at the call site) plus function tools (`FUNCTION_TOOLS`) when a `toolExecutor` is provided. Inline image generation is provided via the shared `generate_image` function tool, the same path OpenAI uses.
 - **No web_search citation stripping.** xAI's chat surface does not produce `【…】` citation markers via this code path.
 - **Image API params differ.** `createImage` sends `response_format: 'b64_json'` and no `output_format`. If you later add quality/size knobs, they go here independently of the OpenAI version.
-- **Separate instructions file.** Pulls from `config/instructions/xai.md` (loaded as `config.instructions.xai`) rather than the OpenAI version. The two diverge in tone — keep them in sync only when the change is provider-agnostic.
+- **Separate instructions file.** Defaults to `config/instructions/xai.md` (loaded as `config.instructions.xai`) rather than the OpenAI version. The two diverge in tone — keep them in sync only when the change is provider-agnostic. A routed instance built for an `xai` channel route can override this via the constructor's optional `model` and `instructionsSelector` arguments (see `src/services/chat/AGENTS.md`).
 
 ## Environment
 

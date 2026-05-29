@@ -8,11 +8,12 @@ import {
   CONFIG_FILE_DISCORD_LIMIT,
   CONFIG_FILE_INSTRUCTIONS_OPENAI,
   CONFIG_FILE_INSTRUCTIONS_XAI,
-  CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL,
   CONFIG_FILE_LEADERBOARD,
   CONFIG_FILE_MOTD,
+  CONFIG_FILE_ROUTES,
+  getInstructionsProfilePath,
 } from '../constants.ts';
-import type { InMemoryConfig } from '../types.ts';
+import type { ChannelRoute, InMemoryConfig } from '../types.ts';
 
 const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
@@ -96,6 +97,74 @@ const loadOptionalInstructions = async (
   }
 };
 
+/**
+ * Loads the declarative channel routes from `config/routes.json`.
+ * The file is deployment-specific (gitignored); a missing file means no
+ * routes are configured and the default chat service handles every channel.
+ */
+const loadRoutes = async (): Promise<ChannelRoute[]> => {
+  const filePath = getConfigFilePath(CONFIG_FILE_ROUTES);
+  let content: string;
+  try {
+    content = await readFile(filePath, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw new Error(
+      `[config/loader] Failed to read ${CONFIG_FILE_ROUTES}: ${(err as Error).message}`,
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (err) {
+    throw new Error(
+      `[config/loader] ${CONFIG_FILE_ROUTES} is not valid JSON: ${(err as Error).message}`,
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(`[config/loader] ${CONFIG_FILE_ROUTES} must be an array`);
+  }
+
+  return parsed as ChannelRoute[];
+};
+
+/**
+ * Loads the instruction profiles referenced by the given routes. A route that
+ * points at a missing profile file is skipped silently — `RooivalkService`
+ * then falls back to the default chat service for that channel.
+ */
+const loadProfiles = async (
+  routes: ChannelRoute[],
+): Promise<Record<string, string>> => {
+  const profileNames = [...new Set(routes.map((route) => route.instructions))];
+
+  const entries = await Promise.all(
+    profileNames.map(async (name) => {
+      const content = await loadOptionalInstructions(
+        getInstructionsProfilePath(name),
+      );
+      if (!content) {
+        console.warn(
+          `[config/loader] route references missing instructions profile "${name}"`,
+        );
+      }
+      return [name, content] as const;
+    }),
+  );
+
+  const profiles: Record<string, string> = {};
+  for (const [name, content] of entries) {
+    if (content) {
+      profiles[name] = content;
+    }
+  }
+  return profiles;
+};
+
 export const loadConfig = async (): Promise<InMemoryConfig> => {
   const [
     errorMessages,
@@ -104,7 +173,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     leaderboardEmptyMessages,
     openaiInstructions,
     xaiInstructions,
-    fieldHospitalInstructions,
+    routes,
     motd,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
@@ -113,9 +182,11 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadMessageList(CONFIG_FILE_LEADERBOARD),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_OPENAI),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_XAI),
-    loadOptionalInstructions(CONFIG_FILE_INSTRUCTIONS_FIELD_HOSPITAL),
+    loadRoutes(),
     loadInstructions(CONFIG_FILE_MOTD),
   ]);
+
+  const profiles = await loadProfiles(routes);
 
   const config: InMemoryConfig = {
     errorMessages,
@@ -126,7 +197,8 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
       openai: openaiInstructions,
       xai: xaiInstructions,
     },
-    fieldHospitalInstructions,
+    profiles,
+    routes,
     motd,
   };
 

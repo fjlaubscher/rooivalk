@@ -57,7 +57,7 @@ Each service has its own `AGENTS.md`:
 
 - `src/services/openai` — OpenAI chat + image generation
 - `src/services/xai` — xAI Grok chat + image provider (OpenAI-SDK compatible)
-- `src/services/chat` — provider-routing factories (chat, image, field hospital)
+- `src/services/chat` — provider + channel-routing factories (chat, image, per-channel behaviours)
 - `src/services/rooivalk` — message processing, tool dispatch, MOTD
 - `src/services/discord` — Discord API integration and thread handling
 - `src/services/memory` — SQLite-backed memory + conversation-id store
@@ -71,9 +71,10 @@ For architecture and conventions, see [AGENTS.md](./AGENTS.md).
 
 ### Prompt tuning
 
-- `config/instructions.md` is the live system prompt. Hot-reloaded.
+- `config/instructions/openai.md` and `config/instructions/xai.md` are the live per-provider system prompts. Hot-reloaded.
 - Placeholders: `{{CURRENT_DATE}}` (ISO date), `{{EMOJIS}}` (server's allowed custom emojis).
 - `LOG_LEVEL=debug` emits per-request prompt metrics.
+- Channel-specific behaviours are declared in `config/routes.json` (copy `config/routes.example.json`); each route names an `instructions` profile in `config/instructions/` and may override the model/provider.
 
 ### CI/CD
 

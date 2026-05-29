@@ -4,6 +4,7 @@ import type { MemoryRow } from '../memory/index.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
+  InstructionsSelector,
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
@@ -31,9 +32,7 @@ function isMissingPreviousResponseError(error: unknown): boolean {
   return param === 'previous_response_id';
 }
 
-export type OpenAIInstructionsSelector = (config: InMemoryConfig) => string;
-
-const defaultInstructionsSelector: OpenAIInstructionsSelector = (config) =>
+const defaultInstructionsSelector: InstructionsSelector = (config) =>
   config.instructions.openai;
 
 class OpenAIService {
@@ -42,13 +41,13 @@ class OpenAIService {
   private _imageModel: string;
   private _openai: OpenAI;
   private _tools: OpenAI.Responses.Tool[];
-  private _instructionsSelector: OpenAIInstructionsSelector;
+  private _instructionsSelector: InstructionsSelector;
 
   constructor(
     config: InMemoryConfig,
     model?: string,
     imageModel?: string,
-    instructionsSelector?: OpenAIInstructionsSelector,
+    instructionsSelector?: InstructionsSelector,
   ) {
     this._config = config;
     this._openai = new OpenAI({

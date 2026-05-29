@@ -3,8 +3,9 @@ import type { ThreadChannel } from 'discord.js';
 import {
   isRooivalkThread,
   isReplyToRooivalk,
-  shouldUseFieldHospitalModel,
+  matchChannelRoute,
 } from './helpers.ts';
+import type { ChannelRoute } from '../../types.ts';
 import { createMockMessage } from '../../test-utils/createMockMessage.ts';
 import { MOCK_ENV } from '../../test-utils/mock.ts';
 
@@ -120,9 +121,16 @@ describe('rooivalk helpers', () => {
     });
   });
 
-  describe('shouldUseFieldHospitalModel', () => {
+  describe('matchChannelRoute', () => {
     const ROLE_ID = 'role-123';
     const CHANNEL_ID = 'channel-456';
+
+    const ROUTE: ChannelRoute = {
+      name: 'field-hospital',
+      channelId: CHANNEL_ID,
+      roleId: ROLE_ID,
+      instructions: 'field-hospital',
+    };
 
     const buildMessage = (opts: {
       channelId?: string;
@@ -156,50 +164,63 @@ describe('rooivalk helpers', () => {
       });
     };
 
-    it('returns true when user has role and is in the target channel', () => {
+    it('matches when user has role and is in the target channel', () => {
       const msg = buildMessage({});
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, CHANNEL_ID)).toBe(true);
+      expect(matchChannelRoute(msg, [ROUTE])).toBe(ROUTE);
     });
 
-    it('returns true when inside a thread whose parent is the target channel', () => {
+    it('matches inside a thread whose parent is the target channel', () => {
       const msg = buildMessage({
         channelId: 'thread-id',
         isThread: true,
         parentId: CHANNEL_ID,
       });
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, CHANNEL_ID)).toBe(true);
+      expect(matchChannelRoute(msg, [ROUTE])).toBe(ROUTE);
     });
 
-    it('returns false when user lacks the role', () => {
+    it('does not match when user lacks the required role', () => {
       const msg = buildMessage({ roleIds: ['some-other-role'] });
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, CHANNEL_ID)).toBe(false);
+      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
     });
 
-    it('returns false when in a different channel', () => {
+    it('does not match in a different channel', () => {
       const msg = buildMessage({ channelId: 'some-other-channel' });
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, CHANNEL_ID)).toBe(false);
+      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
     });
 
-    it('returns false when in a thread whose parent is a different channel', () => {
+    it('does not match in a thread whose parent is a different channel', () => {
       const msg = buildMessage({
         channelId: 'thread-id',
         isThread: true,
         parentId: 'some-other-channel',
       });
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, CHANNEL_ID)).toBe(false);
+      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
     });
 
-    it('returns false when member is missing', () => {
+    it('does not match when member is missing on a role-gated route', () => {
       const msg = buildMessage({ hasMember: false });
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, CHANNEL_ID)).toBe(false);
+      expect(matchChannelRoute(msg, [ROUTE])).toBeUndefined();
     });
 
-    it('returns false when role or channel env is unset', () => {
+    it('matches on channel alone when the route has no role', () => {
+      const channelOnly: ChannelRoute = {
+        name: 'lobby',
+        channelId: CHANNEL_ID,
+        instructions: 'lobby',
+      };
+      const msg = buildMessage({ hasMember: false });
+      expect(matchChannelRoute(msg, [channelOnly])).toBe(channelOnly);
+    });
+
+    it('returns the first matching route and undefined when none match', () => {
+      const other: ChannelRoute = {
+        name: 'other',
+        channelId: 'some-other-channel',
+        instructions: 'other',
+      };
       const msg = buildMessage({});
-      expect(shouldUseFieldHospitalModel(msg, undefined, CHANNEL_ID)).toBe(
-        false,
-      );
-      expect(shouldUseFieldHospitalModel(msg, ROLE_ID, undefined)).toBe(false);
+      expect(matchChannelRoute(msg, [other, ROUTE])).toBe(ROUTE);
+      expect(matchChannelRoute(msg, [])).toBeUndefined();
     });
   });
 });
