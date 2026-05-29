@@ -44,7 +44,8 @@ Behaviour:
 - `OPENAI_API_KEY` — required.
 - `OPENAI_MODEL` — chat/reasoning model.
 - `OPENAI_IMAGE_MODEL` — image model (e.g. `gpt-image-1`).
-- `OPENAI_MODEL_FIELD_HOSPITAL` — optional; a second `OpenAIService` instance routed to in matching role/channel combos (see `src/services/chat/AGENTS.md`).
+
+A `model` and `instructionsSelector` may be passed to the constructor to build a routed instance with its own model and instruction profile (see `src/services/chat/AGENTS.md`); both default to `OPENAI_MODEL` and the OpenAI instructions when omitted.
 
 ## Testing
 

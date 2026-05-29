@@ -28,8 +28,8 @@ import {
 } from '../../constants.ts';
 import {
   createChatService,
-  createFieldHospitalChatService,
   createImageService,
+  createRoutedChatServices,
 } from '../chat/index.ts';
 import type { ChatService, ImageService } from '../chat/index.ts';
 import DiscordService from '../discord/index.ts';
@@ -48,7 +48,7 @@ import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
-  shouldUseFieldHospitalModel,
+  matchChannelRoute,
 } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
 import type { ToolExecutor } from '../../types.ts';
@@ -118,7 +118,7 @@ class Rooivalk {
   protected _config: InMemoryConfig;
   protected _discord: DiscordService;
   protected _chat: ChatService;
-  protected _chatFieldHospital?: ChatService;
+  protected _routedChats: Map<string, ChatService>;
   protected _openai: ImageService;
   protected _yr: YrService;
   protected _peapix: PeapixService;
@@ -134,7 +134,7 @@ class Rooivalk {
     openaiService?: ImageService,
     yrService?: YrService,
     peapixService?: PeapixService,
-    fieldHospitalChatService?: ChatService,
+    routedChatServices?: Map<string, ChatService>,
     memoryService?: MemoryService,
     steamService?: SteamService,
     emojiService?: EmojiService,
@@ -143,8 +143,8 @@ class Rooivalk {
     this._discord = discordService ?? new DiscordService(this._config);
     this._openai = openaiService ?? createImageService(this._config);
     this._chat = chatService ?? createChatService(this._config);
-    this._chatFieldHospital =
-      fieldHospitalChatService ?? createFieldHospitalChatService(this._config);
+    this._routedChats =
+      routedChatServices ?? createRoutedChatServices(this._config);
     this._yr = yrService ?? new YrService();
     this._peapix = peapixService ?? new PeapixService();
     this._memory =
@@ -312,22 +312,23 @@ class Rooivalk {
     this._config = newConfig;
     this._discord.reloadConfig(newConfig);
     this._chat.reloadConfig(newConfig);
-    this._chatFieldHospital?.reloadConfig(newConfig);
+    for (const routedChat of this._routedChats.values()) {
+      routedChat.reloadConfig(newConfig);
+    }
     this._openai.reloadConfig(newConfig);
   }
 
   private selectChatService(message: Message<boolean>): ChatService {
-    if (!this._chatFieldHospital) {
+    if (this._routedChats.size === 0) {
       return this._chat;
     }
 
-    const useFieldHospital = shouldUseFieldHospitalModel(
-      message,
-      process.env.DISCORD_FIELD_HOSPITAL_ROLE_ID,
-      process.env.DISCORD_FIELD_HOSPITAL_CHANNEL_ID,
-    );
+    const route = matchChannelRoute(message, this._config.routes);
+    if (!route) {
+      return this._chat;
+    }
 
-    return useFieldHospital ? this._chatFieldHospital : this._chat;
+    return this._routedChats.get(route.name) ?? this._chat;
   }
 
   private createToolExecutor(message: Message<boolean>): ToolExecutor {

@@ -603,20 +603,33 @@ describe('Rooivalk', () => {
       });
     });
 
-    describe('and field hospital chat routing is configured', () => {
+    describe('and a channel route is configured', () => {
       const FH_ROLE_ID = 'fh-role-id';
       const FH_CHANNEL_ID = 'fh-channel-id';
+      const ROUTE_NAME = 'field-hospital';
 
-      const mockFieldHospitalChat = vi.mocked({
+      const ROUTED_CONFIG = {
+        ...MOCK_CONFIG,
+        profiles: { [ROUTE_NAME]: 'Field hospital instructions' },
+        routes: [
+          {
+            name: ROUTE_NAME,
+            channelId: FH_CHANNEL_ID,
+            roleId: FH_ROLE_ID,
+            instructions: ROUTE_NAME,
+          },
+        ],
+      };
+
+      const mockRoutedChat = vi.mocked({
         createResponse: vi.fn(),
         generateThreadName: vi.fn(),
         reloadConfig: vi.fn(),
       } as any);
 
-      const buildFieldHospitalMessage = (
-        roleIds: string[],
-        channelId: string,
-      ) =>
+      const routedChatServices = new Map([[ROUTE_NAME, mockRoutedChat]]);
+
+      const buildRouteMessage = (roleIds: string[], channelId: string) =>
         createMockMessage({
           content: `<@${BOT_ID}> xray please`,
           channelId,
@@ -631,55 +644,48 @@ describe('Rooivalk', () => {
         } as Partial<Message<boolean>>);
 
       beforeEach(() => {
-        mockFieldHospitalChat.createResponse.mockResolvedValue(
+        mockRoutedChat.createResponse.mockResolvedValue(
           'Field hospital response',
         );
-        mockFieldHospitalChat.generateThreadName.mockResolvedValue(
+        mockRoutedChat.generateThreadName.mockResolvedValue(
           'Field Hospital Title',
         );
-        vi.stubGlobal('process', {
-          env: {
-            ...MOCK_ENV,
-            DISCORD_FIELD_HOSPITAL_ROLE_ID: FH_ROLE_ID,
-            DISCORD_FIELD_HOSPITAL_CHANNEL_ID: FH_CHANNEL_ID,
-          },
-        });
       });
 
-      it('routes to the field hospital chat service when role and channel match', async () => {
-        const fieldHospitalRooivalk = new Rooivalk(
-          MOCK_CONFIG,
+      it('routes to the matching chat service when role and channel match', async () => {
+        const routedRooivalk = new Rooivalk(
+          ROUTED_CONFIG,
           mockDiscordService,
           mockChatClient,
           mockOpenAIClient,
           undefined,
           undefined,
-          mockFieldHospitalChat,
+          routedChatServices,
         );
 
-        const msg = buildFieldHospitalMessage([FH_ROLE_ID], FH_CHANNEL_ID);
-        await (fieldHospitalRooivalk as any).processMessage(msg);
+        const msg = buildRouteMessage([FH_ROLE_ID], FH_CHANNEL_ID);
+        await (routedRooivalk as any).processMessage(msg);
 
-        expect(mockFieldHospitalChat.createResponse).toHaveBeenCalledTimes(1);
+        expect(mockRoutedChat.createResponse).toHaveBeenCalledTimes(1);
         expect(mockChatClient.createResponse).not.toHaveBeenCalled();
       });
 
-      it('falls back to the default chat service when role or channel does not match', async () => {
-        const fieldHospitalRooivalk = new Rooivalk(
-          MOCK_CONFIG,
+      it('falls back to the default chat service when no route matches', async () => {
+        const routedRooivalk = new Rooivalk(
+          ROUTED_CONFIG,
           mockDiscordService,
           mockChatClient,
           mockOpenAIClient,
           undefined,
           undefined,
-          mockFieldHospitalChat,
+          routedChatServices,
         );
 
-        const msg = buildFieldHospitalMessage([FH_ROLE_ID], 'other-channel');
-        await (fieldHospitalRooivalk as any).processMessage(msg);
+        const msg = buildRouteMessage([FH_ROLE_ID], 'other-channel');
+        await (routedRooivalk as any).processMessage(msg);
 
         expect(mockChatClient.createResponse).toHaveBeenCalledTimes(1);
-        expect(mockFieldHospitalChat.createResponse).not.toHaveBeenCalled();
+        expect(mockRoutedChat.createResponse).not.toHaveBeenCalled();
       });
     });
 

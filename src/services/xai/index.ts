@@ -4,10 +4,14 @@ import type { MemoryRow } from '../memory/index.ts';
 import type {
   AttachmentForPrompt,
   InMemoryConfig,
+  InstructionsSelector,
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
 import { FUNCTION_TOOLS } from '../openai/tools.ts';
+
+const defaultInstructionsSelector: InstructionsSelector = (config) =>
+  config.instructions.xai;
 
 const XAI_BASE_URL = 'https://api.x.ai/v1';
 
@@ -32,15 +36,22 @@ class XAIService {
   private _model: string | undefined;
   private _imageModel: string | undefined;
   private _xai: OpenAI;
+  private _instructionsSelector: InstructionsSelector;
 
-  constructor(config: InMemoryConfig) {
+  constructor(
+    config: InMemoryConfig,
+    model?: string,
+    instructionsSelector?: InstructionsSelector,
+  ) {
     this._config = config;
     this._xai = new OpenAI({
       apiKey: process.env.XAI_API_KEY!,
       baseURL: XAI_BASE_URL,
     });
-    this._model = process.env.XAI_MODEL;
+    this._model = model || process.env.XAI_MODEL;
     this._imageModel = process.env.XAI_IMAGE_MODEL;
+    this._instructionsSelector =
+      instructionsSelector ?? defaultInstructionsSelector;
   }
 
   private requireChatModel(): string {
@@ -70,7 +81,9 @@ class XAIService {
     preferences: MemoryRow[] | null = null,
   ): Promise<OpenAIResponse> {
     try {
-      let instructions = this._config.instructions.xai;
+      let instructions =
+        this._instructionsSelector(this._config) ||
+        this._config.instructions.xai;
 
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);

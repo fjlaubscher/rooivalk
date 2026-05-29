@@ -4,3 +4,4 @@ node_modules
 .claude
 data/
 scripts/deploy.local.ps1
+config/routes.json

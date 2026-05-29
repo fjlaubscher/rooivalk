@@ -1,6 +1,8 @@
 import { userMention } from 'discord.js';
 import type { Message, User } from 'discord.js';
 
+import type { ChannelRoute } from '../../types.ts';
+
 export const isRooivalkThread = (
   message: Message<boolean>,
   discordClientId: string | undefined,
@@ -39,27 +41,38 @@ export const isReplyToRooivalk = async (
 export const buildPromptAuthor = (author: User) =>
   `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag) ${author.id} (discord_user_id — use this when querying the database for rows belonging to the speaker)`;
 
-export const shouldUseFieldHospitalModel = (
+const messageMatchesRoute = (
   message: Message<boolean>,
-  roleId: string | undefined,
-  channelId: string | undefined,
+  route: ChannelRoute,
 ): boolean => {
-  if (!roleId || !channelId) {
-    return false;
+  if (route.roleId) {
+    const hasRole = message.member?.roles?.cache?.has(route.roleId) ?? false;
+    if (!hasRole) {
+      return false;
+    }
   }
 
-  const hasRole = message.member?.roles?.cache?.has(roleId) ?? false;
-  if (!hasRole) {
-    return false;
-  }
-
-  if (message.channelId === channelId) {
+  if (message.channelId === route.channelId) {
     return true;
   }
 
-  if (message.channel.isThread() && message.channel.parentId === channelId) {
+  if (
+    message.channel.isThread() &&
+    message.channel.parentId === route.channelId
+  ) {
     return true;
   }
 
   return false;
 };
+
+/**
+ * Returns the first channel route a message matches, or `undefined` for none.
+ * A route matches when the message is in its channel (or a thread whose parent
+ * is that channel) and — if the route names a role — the author holds it.
+ */
+export const matchChannelRoute = (
+  message: Message<boolean>,
+  routes: ChannelRoute[],
+): ChannelRoute | undefined =>
+  routes.find((route) => messageMatchesRoute(message, route));

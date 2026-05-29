@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `chat` module is a thin factory layer that picks which provider class backs the chat handle and the image handle on `RooivalkService`. It exists so the rest of the codebase depends on a provider-agnostic union rather than a specific class, and so the field-hospital instance is constructed in one place.
+The `chat` module is a thin factory layer that picks which provider class backs the chat handle and the image handle on `RooivalkService`. It exists so the rest of the codebase depends on a provider-agnostic union rather than a specific class, and so the channel-routed instances are constructed in one place.
 
 ## Provider Types
 
@@ -38,18 +38,30 @@ Returns the image provider used by `_openai` on `RooivalkService` (MOTD + `/imag
 
 Chat and image are toggled independently — you can run chat through xAI while keeping images on OpenAI, or vice-versa.
 
-### `createFieldHospitalChatService(config, env)`
+### `createRoutedChatServices(config)`
 
-Returns a second `OpenAIService` instance with its own model and instruction set whenever **all** of the following are set:
+Builds one chat service per entry in `config.routes`, keyed by route `name`, and returns them as a `Map<string, ChatService>`. Each routed service swaps in the route's instruction profile (via the provider's `instructionsSelector` constructor option) and its `model` override; provider defaults to OpenAI but may be set to `xai` per route.
 
-- `OPENAI_MODEL_FIELD_HOSPITAL`
-- `DISCORD_FIELD_HOSPITAL_ROLE_ID`
-- `DISCORD_FIELD_HOSPITAL_CHANNEL_ID`
-- `config/instructions_field_hospital.md` (loaded as `config.fieldHospitalInstructions`)
+A route is skipped (with a warning) when its `instructions` profile file is missing, or when it targets xAI without `XAI_API_KEY` set. Skipping a route means `RooivalkService` falls back to the default chat service for that channel.
 
-Any missing piece disables the feature silently. Field hospital is **always** routed to OpenAI regardless of the `XAI_*` env vars — the field-hospital instructions are tuned for OpenAI's chat model and must not be routed elsewhere. The field-hospital instance swaps in its own instruction set via `OpenAIService`'s `instructionsSelector` constructor option.
+`RooivalkService` selects a route per incoming message via `matchChannelRoute` (channel match — with thread inheritance through `channel.parentId` — plus the route's optional role gate) and looks up the corresponding service in the map.
 
-`RooivalkService` selects between the default and field-hospital instances per incoming message via `shouldUseFieldHospitalModel` (role + channel match, with thread inheritance through `channel.parentId`).
+## Channel Routing
+
+Channel-specific behaviour is declarative config, not code. Routes live in `config/routes.json` (deployment-specific, gitignored; see `config/routes.example.json`). Each route is a [`ChannelRoute`](../../types.ts):
+
+| Field          | Required | Meaning                                                       |
+| -------------- | -------- | ------------------------------------------------------------- |
+| `name`         | yes      | Label, and the key the built service is stored under          |
+| `channelId`    | yes      | Channel the route applies to (threads inherit via `parentId`) |
+| `roleId`       | no       | When set, the message author must hold this role to match     |
+| `instructions` | yes      | Profile name → `config/instructions/<instructions>.md`        |
+| `model`        | no       | Model override; falls back to the provider's default model    |
+| `provider`     | no       | `openai` (default) or `xai`                                   |
+
+Adding a behaviour is two files and no code: a route entry plus a `config/instructions/<name>.md` profile. The field-hospital behaviour is one such route — an OpenAI route with its own model override and the `field-hospital` instruction profile.
+
+Instruction-profile edits hot-reload through the config watcher; adding or removing a route requires a restart (services are built once at construction).
 
 ## Conversation Continuity
 
