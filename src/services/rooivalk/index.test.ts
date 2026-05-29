@@ -1310,6 +1310,137 @@ describe('Rooivalk', () => {
     });
   });
 
+  describe('sendLeaderboardToMotdChannel', () => {
+    let mockChannel: {
+      isTextBased: () => boolean;
+      send: ReturnType<typeof vi.fn>;
+    };
+
+    const findField = (payload: any, name: string) =>
+      payload?.embeds?.[0]?.data?.fields?.find((f: any) => f.name === name);
+
+    beforeEach(() => {
+      mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockEmojiService.getTopMessages.mockReturnValue([]);
+      mockEmojiService.getTopGivers.mockReturnValue([]);
+      mockEmojiService.getTopEmojis.mockReturnValue([]);
+    });
+
+    const buildRooivalk = () =>
+      new Rooivalk(
+        MOCK_CONFIG,
+        mockDiscordService,
+        mockChatClient,
+        mockOpenAIClient,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        mockEmojiService,
+      );
+
+    it('renders an embed with all three sections and a message jump link', async () => {
+      mockEmojiService.getTopMessages.mockReturnValue([
+        {
+          message_id: 'm1',
+          channel_id: 'c1',
+          message_author_id: 'author-1',
+          count: 11,
+        },
+      ]);
+      mockEmojiService.getTopGivers.mockReturnValue([
+        {
+          user_id: 'giver-1',
+          count: 24,
+          fav_emoji_id: null,
+          fav_emoji_name: '🔥',
+          fav_emoji_animated: 0,
+        },
+      ]);
+      mockEmojiService.getTopEmojis.mockReturnValue([
+        { emoji_id: null, emoji_name: '❤️', emoji_animated: 0, count: 23 },
+      ]);
+
+      await buildRooivalk().sendLeaderboardToMotdChannel();
+
+      const payload = mockChannel.send.mock.calls[0]?.[0];
+      expect(payload?.embeds).toHaveLength(1);
+      expect(payload?.embeds?.[0]?.data?.title).toContain('Weekly Emoji Recap');
+
+      const messages = findField(payload, 'Most-loved messages');
+      expect(messages?.value).toContain('<@author-1>');
+      expect(messages?.value).toContain(
+        'https://discord.com/channels/test-guild-id/c1/m1',
+      );
+
+      const reactive = findField(payload, 'Most reactive');
+      expect(reactive?.value).toContain('<@giver-1>');
+      expect(reactive?.value).toContain('🔥');
+
+      const emojis = findField(payload, 'Top emojis');
+      expect(emojis?.value).toContain('❤️');
+      expect(emojis?.value).toContain('23');
+    });
+
+    it('pings every featured user exactly once via content and allowedMentions', async () => {
+      // A user who is both a top author and a top giver should appear once.
+      mockEmojiService.getTopMessages.mockReturnValue([
+        {
+          message_id: 'm1',
+          channel_id: 'c1',
+          message_author_id: 'dup',
+          count: 5,
+        },
+      ]);
+      mockEmojiService.getTopGivers.mockReturnValue([
+        {
+          user_id: 'dup',
+          count: 5,
+          fav_emoji_id: null,
+          fav_emoji_name: '🔥',
+          fav_emoji_animated: 0,
+        },
+        {
+          user_id: 'giver-2',
+          count: 3,
+          fav_emoji_id: null,
+          fav_emoji_name: '😀',
+          fav_emoji_animated: 0,
+        },
+      ]);
+
+      await buildRooivalk().sendLeaderboardToMotdChannel();
+
+      const payload = mockChannel.send.mock.calls[0]?.[0];
+      expect(payload?.content).toContain('<@dup>');
+      expect(payload?.content).toContain('<@giver-2>');
+      expect(payload?.allowedMentions).toEqual({ users: ['dup', 'giver-2'] });
+    });
+
+    it('sends an empty-state message that pings no one when there is no data', async () => {
+      await buildRooivalk().sendLeaderboardToMotdChannel();
+
+      const payload = mockChannel.send.mock.calls[0]?.[0];
+      expect(payload?.embeds).toBeUndefined();
+      expect(MOCK_CONFIG.leaderboardEmptyMessages).toContain(payload?.content);
+      expect(payload?.allowedMentions).toEqual({ users: [] });
+    });
+  });
+
   describe('when initialized', () => {
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady

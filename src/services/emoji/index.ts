@@ -85,6 +85,7 @@ class EmojiService {
                   ) AS rn
            FROM emoji_reactions
            WHERE guild_id = ? AND created_at >= ? AND created_at < ?
+             AND reactor_id IN (SELECT reactor_id FROM givers)
            GROUP BY reactor_id, emoji_id, emoji_name, emoji_animated
          )
          SELECT g.reactor_id AS user_id,
