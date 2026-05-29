@@ -13,7 +13,7 @@ import {
   CONFIG_FILE_ROUTES,
   getInstructionsProfilePath,
 } from '../constants.ts';
-import type { ChannelRoute, InMemoryConfig } from '../types.ts';
+import type { ChannelRoute, ChatProvider, InMemoryConfig } from '../types.ts';
 
 const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
@@ -97,10 +97,62 @@ const loadOptionalInstructions = async (
   }
 };
 
+const VALID_PROVIDERS: ChatProvider[] = ['openai', 'xai'];
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0;
+
+const isOptionalString = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string';
+
+/**
+ * Validates a single parsed route entry. Returns the typed route, or `null`
+ * (with a warning) when a required field is missing/mistyped or `provider` is
+ * not a known value — a malformed route is dropped rather than silently
+ * routing to nowhere or keying the service map by `undefined`.
+ */
+const parseRoute = (entry: unknown, index: number): ChannelRoute | null => {
+  const label = `${CONFIG_FILE_ROUTES}[${index}]`;
+
+  if (typeof entry !== 'object' || entry === null) {
+    console.warn(`[config/loader] ${label} is not an object — skipping`);
+    return null;
+  }
+
+  const route = entry as Record<string, unknown>;
+  const problems: string[] = [];
+
+  if (!isNonEmptyString(route.name)) problems.push('name must be a string');
+  if (!isNonEmptyString(route.channelId))
+    problems.push('channelId must be a string');
+  if (!isNonEmptyString(route.instructions))
+    problems.push('instructions must be a string');
+  if (!isOptionalString(route.roleId)) problems.push('roleId must be a string');
+  if (!isOptionalString(route.model)) problems.push('model must be a string');
+  if (
+    route.provider !== undefined &&
+    !VALID_PROVIDERS.includes(route.provider as ChatProvider)
+  ) {
+    problems.push(`provider must be one of ${VALID_PROVIDERS.join(', ')}`);
+  }
+
+  if (problems.length > 0) {
+    console.warn(
+      `[config/loader] ${label} is malformed (${problems.join('; ')}) — skipping`,
+    );
+    return null;
+  }
+
+  return entry as ChannelRoute;
+};
+
 /**
  * Loads the declarative channel routes from `config/routes.json`.
  * The file is deployment-specific (gitignored); a missing file means no
  * routes are configured and the default chat service handles every channel.
+ * Malformed entries are skipped, and a name reused across entries keeps the
+ * first occurrence (later duplicates are dropped) so the matcher and the
+ * service map stay in agreement.
  */
 const loadRoutes = async (): Promise<ChannelRoute[]> => {
   const filePath = getConfigFilePath(CONFIG_FILE_ROUTES);
@@ -129,7 +181,22 @@ const loadRoutes = async (): Promise<ChannelRoute[]> => {
     throw new Error(`[config/loader] ${CONFIG_FILE_ROUTES} must be an array`);
   }
 
-  return parsed as ChannelRoute[];
+  const seen = new Set<string>();
+  const routes: ChannelRoute[] = [];
+  parsed.forEach((entry, index) => {
+    const route = parseRoute(entry, index);
+    if (!route) return;
+    if (seen.has(route.name)) {
+      console.warn(
+        `[config/loader] duplicate route name "${route.name}" — keeping the first and skipping this one`,
+      );
+      return;
+    }
+    seen.add(route.name);
+    routes.push(route);
+  });
+
+  return routes;
 };
 
 /**

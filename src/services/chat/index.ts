@@ -87,6 +87,16 @@ export function createRoutedChatServices(
   const services = new Map<string, ChatService>();
 
   for (const route of config.routes) {
+    // `matchChannelRoute` resolves to the first route with a given name, so a
+    // duplicate name here would shadow the earlier route's service. The loader
+    // already dedupes; guard anyway since this can run on a hand-built config.
+    if (services.has(route.name)) {
+      console.warn(
+        `[chat] duplicate route name "${route.name}" — keeping the first and skipping this one`,
+      );
+      continue;
+    }
+
     const service = createRoutedChatService(config, route);
     if (service) {
       services.set(route.name, service);
