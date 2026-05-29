@@ -7,9 +7,9 @@ EmojiService records Discord reaction events and provides the three aggregation 
 ## Key Responsibilities
 
 - Inserting one row per `MessageReactionAdd` event that passes all filter rules
-- Querying top receivers (whose messages got the most reactions) for a time window
-- Querying top givers (who handed out the most reactions) for a time window
-- Querying per-emoji champions (top reactor per emoji by usage) for a time window
+- `getTopMessages` — individual messages that received the most reactions in a time window, with the author and channel/message IDs needed to build a jump link
+- `getTopGivers` — users who handed out the most reactions in a time window, each with their single most-used (favourite) emoji
+- `getTopEmojis` — the most-used emojis server-wide in a time window, by total reaction count
 
 ## Architecture Notes
 

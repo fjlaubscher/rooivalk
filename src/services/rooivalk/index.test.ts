@@ -92,9 +92,9 @@ const mockPeapixService = vi.mocked({
 
 const mockEmojiService = vi.mocked({
   recordReaction: vi.fn(),
-  getTopReceivers: vi.fn().mockReturnValue([]),
+  getTopMessages: vi.fn().mockReturnValue([]),
   getTopGivers: vi.fn().mockReturnValue([]),
-  getEmojiChampions: vi.fn().mockReturnValue([]),
+  getTopEmojis: vi.fn().mockReturnValue([]),
   close: vi.fn(),
 } as any);
 
