@@ -17,6 +17,7 @@ export const MOCK_CONFIG: InMemoryConfig = {
   greetingMessages: ['Hello!'],
   discordLimitMessages: ['Too long!'],
   leaderboardEmptyMessages: ['Ghost town this week.'],
+  instagramMessages: ['Target acquired: {{LINK}}'],
   instructions: {
     openai: 'System instructions {{CURRENT_DATE}}',
     xai: 'System instructions {{CURRENT_DATE}}',

@@ -38,6 +38,28 @@ export const isReplyToRooivalk = async (
   return false;
 };
 
+// Matches a message whose entire content is a single Instagram link and
+// nothing else. Subdomains (e.g. `www.`) are tolerated; the path must be
+// present so bare `instagram.com` doesn't trip it.
+const INSTAGRAM_ONLY_LINK_REGEX =
+  /^https?:\/\/(?:[a-z0-9-]+\.)*instagram\.com\/\S+$/i;
+
+/**
+ * If a message contains *only* an Instagram link (no other text), returns that
+ * link with the `instagram.com` host swapped for `kkclip.com` so the embed
+ * actually renders in Discord. Returns `null` for anything else — extra words,
+ * multiple links, or non-Instagram URLs are left untouched.
+ */
+export const rewriteInstagramLink = (content: string): string | null => {
+  const trimmed = content.trim();
+
+  if (!INSTAGRAM_ONLY_LINK_REGEX.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed.replace(/(?:[a-z0-9-]+\.)*instagram\.com/i, 'kkclip.com');
+};
+
 export const buildPromptAuthor = (author: User) =>
   `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag) ${author.id} (discord_user_id — use this when querying the database for rows belonging to the speaker)`;
 

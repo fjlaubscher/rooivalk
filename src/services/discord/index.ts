@@ -89,6 +89,9 @@ class DiscordService {
       case 'discordLimit':
         arrayToUse = this._config.discordLimitMessages;
         break;
+      case 'instagram':
+        arrayToUse = this._config.instagramMessages;
+        break;
       default:
         throw new Error('Invalid response type');
     }

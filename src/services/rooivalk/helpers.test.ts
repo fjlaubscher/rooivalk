@@ -4,6 +4,7 @@ import {
   isRooivalkThread,
   isReplyToRooivalk,
   matchProfile,
+  rewriteInstagramLink,
 } from './helpers.ts';
 import type { Profile } from '../../types.ts';
 import { createMockMessage } from '../../test-utils/createMockMessage.ts';
@@ -218,6 +219,48 @@ describe('rooivalk helpers', () => {
       const msg = buildMessage({});
       expect(matchProfile(msg, [other, PROFILE])).toBe(PROFILE);
       expect(matchProfile(msg, [])).toBeUndefined();
+    });
+  });
+
+  describe('rewriteInstagramLink', () => {
+    it('rewrites a lone Instagram link to the kkclip host', () => {
+      expect(
+        rewriteInstagramLink('https://www.instagram.com/reel/abc123/'),
+      ).toBe('https://kkclip.com/reel/abc123/');
+    });
+
+    it('handles links without a www subdomain', () => {
+      expect(rewriteInstagramLink('https://instagram.com/p/xyz')).toBe(
+        'https://kkclip.com/p/xyz',
+      );
+    });
+
+    it('preserves the path and query string', () => {
+      expect(
+        rewriteInstagramLink(
+          'https://www.instagram.com/reel/abc?igsh=token123',
+        ),
+      ).toBe('https://kkclip.com/reel/abc?igsh=token123');
+    });
+
+    it('ignores surrounding whitespace', () => {
+      expect(rewriteInstagramLink('  https://instagram.com/p/xyz  ')).toBe(
+        'https://kkclip.com/p/xyz',
+      );
+    });
+
+    it('returns null when the link is accompanied by other text', () => {
+      expect(
+        rewriteInstagramLink('look at this https://instagram.com/p/xyz'),
+      ).toBeNull();
+    });
+
+    it('returns null for non-Instagram links', () => {
+      expect(rewriteInstagramLink('https://example.com/p/xyz')).toBeNull();
+    });
+
+    it('returns null for non-link content', () => {
+      expect(rewriteInstagramLink('just a normal message')).toBeNull();
     });
   });
 });
