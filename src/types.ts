@@ -49,6 +49,7 @@ export type InMemoryConfig = {
   greetingMessages: string[];
   discordLimitMessages: string[];
   leaderboardEmptyMessages: string[];
+  instagramMessages: string[];
   instructions: {
     openai: string;
     xai: string;
@@ -60,7 +61,7 @@ export type InMemoryConfig = {
   motd: string;
 };
 
-export type ResponseType = 'error' | 'greeting' | 'discordLimit';
+export type ResponseType = 'error' | 'greeting' | 'discordLimit' | 'instagram';
 export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';
   content: string;

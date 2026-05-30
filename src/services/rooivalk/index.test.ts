@@ -137,6 +137,44 @@ describe('Rooivalk', () => {
     vi.unstubAllEnvs();
   });
 
+  describe('when processing an Instagram link', () => {
+    it('replies with the kkclip-fixed link and a targeting quip', async () => {
+      const userMessage = createMockMessage({
+        content: 'https://www.instagram.com/reel/abc123/',
+      } as Partial<Message<boolean>>);
+      mockDiscordService.getRooivalkResponse.mockReturnValueOnce(
+        'Target acquired: {{LINK}}',
+      );
+
+      await (rooivalk as any).processInstagramLink(
+        userMessage,
+        'https://kkclip.com/reel/abc123/',
+      );
+
+      expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
+        'instagram',
+      );
+      expect(userMessage.reply).toHaveBeenCalledWith({
+        content: 'Target acquired: https://kkclip.com/reel/abc123/',
+        allowedMentions: { repliedUser: false },
+      });
+    });
+
+    it('does not fall through to the chat model', async () => {
+      const userMessage = createMockMessage({
+        content: 'https://instagram.com/p/xyz',
+      } as Partial<Message<boolean>>);
+      mockDiscordService.getRooivalkResponse.mockReturnValueOnce('{{LINK}}');
+
+      await (rooivalk as any).processInstagramLink(
+        userMessage,
+        'https://kkclip.com/p/xyz',
+      );
+
+      expect(mockChatClient.createResponse).not.toHaveBeenCalled();
+    });
+  });
+
   describe('when processing a message', () => {
     describe('previous_response_id lookup', () => {
       it('passes null when the user message is a standalone mention', async () => {

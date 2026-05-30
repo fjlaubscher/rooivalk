@@ -49,6 +49,7 @@ import {
   isRooivalkThread,
   buildPromptAuthor,
   matchProfile,
+  rewriteInstagramLink,
 } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
 import type { ToolExecutor } from '../../types.ts';
@@ -946,6 +947,28 @@ class Rooivalk {
     }
   }
 
+  /**
+   * Replies to a lone Instagram link with a quirky targeting-system quip and
+   * the same link rewritten to the kkclip.com host so the embed renders.
+   */
+  public async processInstagramLink(
+    message: Message<boolean>,
+    fixedLink: string,
+  ): Promise<void> {
+    try {
+      const reply = this._discord
+        .getRooivalkResponse('instagram')
+        .replace('{{LINK}}', fixedLink);
+
+      await message.reply({
+        content: reply,
+        allowedMentions: { repliedUser: false },
+      });
+    } catch (err) {
+      console.error('[Rooivalk] Failed to fix Instagram link:', err);
+    }
+  }
+
   public async init(): Promise<void> {
     const ready = new Promise<Client<boolean>>((res) =>
       this._discord.once(DiscordEvents.ClientReady, (client) => res(client)),
@@ -955,6 +978,13 @@ class Rooivalk {
 
     this._discord.on(DiscordEvents.MessageCreate, async (message) => {
       if (!this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)) {
+        return;
+      }
+
+      // Lone Instagram links get their embed fixed, no mention required.
+      const instagramLink = rewriteInstagramLink(message.content);
+      if (instagramLink) {
+        await this.processInstagramLink(message, instagramLink);
         return;
       }
 
