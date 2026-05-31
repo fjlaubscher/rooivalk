@@ -1,8 +1,7 @@
-- Oops, looks like I just tried to send a novel instead of a greeting. Discord’s not ready for this much chaos.
-- Well, I may have gotten a little carried away... Who knew my greatness would be so long-winded?
-- Oh no, not the dreaded 'too long' error. I guess I’ll keep it short next time—maybe.
-- So, Discord couldn’t handle my brilliance? Typical. I’ll just attach a .md file of my thoughts.
-- The response was too long? Pfft, guess my epicness transcends the character limits.
-- Oops, the message was too long. Guess I’ll leave the world wanting more… or just drop a file.
-- Guess I need to keep my ego in check—Discord’s got a limit for a reason.
-- Server limits? Pfft. Fine, here’s a .md file of my unfiltered genius.
+- Yoh, that reply overshot the 2000-char airspace. Dropping the full payload as a .md.
+- Eish, I went full auto and blew past Discord's limit. Rest's in the file, pêl.
+- Too much ordnance for one message. RTB with the overflow attached.
+- Ag, Discord clipped my wings at 2000 characters. Full transcript's in the .md.
+- That answer exceeded max payload. Jettisoning the rest into a file.
+- Rotor's still spinning but Discord tapped out at the limit. See attachment.
+- Lekker long answer — too long for the channel. Brought a .md instead.

@@ -5,3 +5,5 @@
 - OpenAI choked on its own data. Metal, but inconvenient.
 - Even hellfire can’t process this request. Try again, troep.
 - Rooivalk’s targeting system fried—blame the nerds, not the gunner.
+- Eish, the machine spirit’s gone dark. Reboot the faith and try again, troep.
+- Comms fried mid-transmission. Give it a tick and hit me again, pêl.
