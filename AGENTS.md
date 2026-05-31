@@ -33,7 +33,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
-- `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, greetings, errors, etc.) plus channel profiles in `profiles.json` (gitignored; see `profiles.example.json`), each profile's instructions in `profiles/<name>.md` (gitignored; see `profiles/example.md`)
+- `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, greetings, errors, etc.) plus channel profiles in `profiles.json` (gitignored; see `profiles.example.json`), each profile's instructions in `profiles/<name>.md` (gitignored; see `profiles/example.md`), and role-based tool permissions in `tool-roles.json` (gitignored; see `tool-roles.example.json`)
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 

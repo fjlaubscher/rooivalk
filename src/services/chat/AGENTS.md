@@ -75,3 +75,26 @@ When adding a new tool:
 1. Add the name constant to `src/services/chat/tool-names.ts`
 2. Add the tool definition to `src/services/openai/tools.ts`
 3. Handle the name in `src/services/rooivalk/tool-executor.ts`
+
+## Role-Based Tool Permissions
+
+Tool access can be gated by Discord role, independent of channel profiles.
+`config/tool-roles.json` (deployment-specific, gitignored; see
+`tool-roles.example.json`) maps a role id to the tool names its holders may use:
+
+```json
+{ "<role_id>": ["run_bash", "query_sqlite", "describe_schema"] }
+```
+
+A tool listed under any role is restricted — only members holding a role that
+grants it may invoke it. Tools listed nowhere are unrestricted. The gate is
+channel-independent, so it applies in every channel whether or not a channel
+profile matches.
+
+Enforcement lives in `buildToolExecutor`
+(`src/services/rooivalk/tool-executor.ts`): before dispatching a call it checks
+the caller's roles, and on a miss returns a `deniedMessage` — a random line from
+`config/permission_denied.md` via `DiscordService.getRooivalkResponse`. The
+provider tool loop (`OpenAIService`/`XAIService`) stops on that signal and
+replies with the line rather than letting the model narrate the refusal. The
+file is read at startup, so changing it needs a restart.

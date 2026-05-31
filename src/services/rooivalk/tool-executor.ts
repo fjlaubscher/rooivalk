@@ -10,7 +10,11 @@ import type MemoryService from '../memory/index.ts';
 import type { MemoryKind } from '../memory/index.ts';
 import type SteamService from '../steam/index.ts';
 import type YrService from '../yr/index.ts';
-import type { ToolExecutionResult, ToolExecutor } from '../../types.ts';
+import type {
+  ToolExecutionResult,
+  ToolExecutor,
+  ToolRoles,
+} from '../../types.ts';
 
 export type ToolExecutorContext = {
   message: Message<boolean>;
@@ -23,6 +27,11 @@ export type ToolExecutorContext = {
     message: Message<boolean>,
     name?: string,
   ) => Promise<ThreadChannel | null>;
+  /**
+   * Role-based tool permissions (channel-independent). A tool listed under a
+   * role is restricted to members holding that role.
+   */
+  toolRoles?: ToolRoles;
 };
 
 function errorOutput(err: unknown): ToolExecutionResult {
@@ -33,7 +42,33 @@ function errorOutput(err: unknown): ToolExecutionResult {
 export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
   const { message, yr, discord, memory, steam, image, createThread } = ctx;
 
+  // Invert the role -> tools permission map into tool -> allowed role ids, so a
+  // call can be checked with a single lookup. A tool absent from this map is
+  // unrestricted.
+  const allowedRolesByTool = new Map<string, Set<string>>();
+  for (const [roleId, tools] of Object.entries(ctx.toolRoles ?? {})) {
+    for (const tool of tools) {
+      const roles = allowedRolesByTool.get(tool) ?? new Set<string>();
+      roles.add(roleId);
+      allowedRolesByTool.set(tool, roles);
+    }
+  }
+
   return async (name, args) => {
+    const allowedRoles = allowedRolesByTool.get(name);
+    if (allowedRoles) {
+      const memberRoles = message.member?.roles?.cache;
+      const hasRole = memberRoles
+        ? [...allowedRoles].some((roleId) => memberRoles.has(roleId))
+        : false;
+      if (!hasRole) {
+        return {
+          output: JSON.stringify({ error: 'permission_denied' }),
+          deniedMessage: discord.getRooivalkResponse('permissionDenied'),
+        };
+      }
+    }
+
     switch (name) {
       case TOOL_NAMES.GET_WEATHER: {
         const city = args.city as string;

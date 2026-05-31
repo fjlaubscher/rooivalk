@@ -207,6 +207,17 @@ class OpenAIService {
             const args = JSON.parse(call.arguments) as Record<string, unknown>;
             const result = await toolExecutor(call.name, args);
 
+            if (result.deniedMessage) {
+              return {
+                type: 'text',
+                content: result.deniedMessage,
+                base64Images: [],
+                createdThread,
+                responseId: response.id,
+                contextLost,
+              };
+            }
+
             if (result.createdThread) {
               createdThread = result.createdThread;
             }

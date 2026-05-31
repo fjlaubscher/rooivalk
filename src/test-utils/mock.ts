@@ -18,11 +18,13 @@ export const MOCK_CONFIG: InMemoryConfig = {
   discordLimitMessages: ['Too long!'],
   leaderboardEmptyMessages: ['Ghost town this week.'],
   instagramMessages: ['Target acquired: {{LINK}}'],
+  permissionDeniedMessages: ['Denied!'],
   instructions: {
     openai: 'System instructions {{CURRENT_DATE}}',
     xai: 'System instructions {{CURRENT_DATE}}',
   },
   profiles: [],
   profileInstructions: {},
+  toolRoles: {},
   motd: 'Message of the day',
 };

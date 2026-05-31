@@ -92,6 +92,9 @@ class DiscordService {
       case 'instagram':
         arrayToUse = this._config.instagramMessages;
         break;
+      case 'permissionDenied':
+        arrayToUse = this._config.permissionDeniedMessages;
+        break;
       default:
         throw new Error('Invalid response type');
     }

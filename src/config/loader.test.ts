@@ -12,9 +12,14 @@ const ENOENT = Object.assign(new Error('ENOENT: no such file'), {
 });
 
 let profilesJson: string | Error = ENOENT;
+let toolRolesJson: string | Error = ENOENT;
 
 const mockReadFile = (path: string): string => {
   if (path.endsWith('package.json')) return '{"version":"1.0.0"}';
+  if (path.endsWith('tool-roles.json')) {
+    if (toolRolesJson instanceof Error) throw toolRolesJson;
+    return toolRolesJson;
+  }
   if (path.endsWith('profiles.json')) {
     if (profilesJson instanceof Error) throw profilesJson;
     return profilesJson;
@@ -28,6 +33,7 @@ let warnSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   profilesJson = ENOENT;
+  toolRolesJson = ENOENT;
   readFile.mockImplementation((path: string) =>
     Promise.resolve(mockReadFile(path)),
   );
@@ -112,5 +118,52 @@ describe('loadConfig profiles', () => {
     profilesJson = JSON.stringify({ name: 'not-an-array' });
 
     await expect(loadConfig()).rejects.toThrow('must be an array');
+  });
+});
+
+describe('loadConfig tool roles', () => {
+  it('defaults to no restrictions when tool-roles.json is absent', async () => {
+    const config = await loadConfig();
+    expect(config.toolRoles).toEqual({});
+  });
+
+  it('loads a valid role -> tools map', async () => {
+    toolRolesJson = JSON.stringify({ 'role-1': ['run_bash', 'query_sqlite'] });
+
+    const config = await loadConfig();
+
+    expect(config.toolRoles).toEqual({
+      'role-1': ['run_bash', 'query_sqlite'],
+    });
+  });
+
+  it('skips a role whose value is not an array of tool names', async () => {
+    toolRolesJson = JSON.stringify({ 'role-1': 'run_bash' });
+
+    const config = await loadConfig();
+
+    expect(config.toolRoles).toEqual({});
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('must map to an array'),
+    );
+  });
+
+  it('keeps known tools but warns about unknown tool names', async () => {
+    toolRolesJson = JSON.stringify({ 'role-1': ['run_bash', 'not_a_tool'] });
+
+    const config = await loadConfig();
+
+    expect(config.toolRoles).toEqual({ 'role-1': ['run_bash', 'not_a_tool'] });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('unknown tool name'),
+    );
+  });
+
+  it('throws when tool-roles.json is not an object', async () => {
+    toolRolesJson = JSON.stringify(['run_bash']);
+
+    await expect(loadConfig()).rejects.toThrow(
+      'must be an object mapping role id to tool names',
+    );
   });
 });
