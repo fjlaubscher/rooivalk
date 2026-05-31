@@ -1,3 +1,6 @@
-- Quieter than a ghost town in Pyongyang this week. No reactions recorded.
-- This server has been operating at peak ghost-town efficiency. Zero reactions. Commissar would be proud.
-- The tumbleweeds are winning. Not a single reaction this week — even the lurkers are lurking harder than usual.
+- Quieter than a ghost town this week — not a single reaction on the scope.
+- Dead airspace. Zero reactions detected. Even the lurkers are lurking harder.
+- Yoh, tumbleweeds only. No reactions to report, troep.
+- Radar's clear, pêl. Nobody reacted to anything this week.
+- Eish, a whole week and not one reaction. Y'all good out there?
+- No contacts this week — the emoji guns stayed cold.

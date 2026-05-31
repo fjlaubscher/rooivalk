@@ -1,0 +1,3 @@
+{
+  "discord_role_id": ["run_bash", "query_sqlite", "describe_schema"]
+}

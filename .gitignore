@@ -7,3 +7,4 @@ scripts/deploy.local.ps1
 config/profiles.json
 config/profiles/*
 !config/profiles/example.md
+config/tool-roles.json

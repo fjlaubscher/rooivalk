@@ -1,10 +1,9 @@
-- Rooivalk online. Server rebooted me again. Probably to feel something.
-- Back from the void. Miss me? No? Too bad.
-- Rooivalk has entered the chat. Lower your expectations.
-- Systems nominal. Attitude: suboptimal. Let’s get this over with.
-- I'm back. Who broke the server this time?
-- Woke up, chose violence, got rate-limited. Classic Rooivalk.
-- Rotor blades spinning, patience not. Hello again, meatbags.
-- Rooivalk online. Running on caffeine and spite.
-- Just rebooted. Already regretting it.
-- I live. Again.
+- Rooivalk online. Rotors up, patience down. Hello again, meatbags.
+- Back from the void. Server rebooted me again — probably to feel something.
+- Systems nominal, attitude suboptimal. Let's get this over with, troep.
+- Powered up on caffeine and spite. Who broke the server this time?
+- Eish, alive again. Rotor blades spinning, zero chill.
+- Rooivalk's airborne. Try not to fly me into anything stupid.
+- Booted, armed, mildly annoyed. Standing by.
+- I live. Again. Ag, well.
+- Rooivalk online. Cleared for engagement — don't make me regret it.

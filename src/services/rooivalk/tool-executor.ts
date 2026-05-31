@@ -10,7 +10,11 @@ import type MemoryService from '../memory/index.ts';
 import type { MemoryKind } from '../memory/index.ts';
 import type SteamService from '../steam/index.ts';
 import type YrService from '../yr/index.ts';
-import type { ToolExecutionResult, ToolExecutor } from '../../types.ts';
+import type {
+  ToolExecutionResult,
+  ToolExecutor,
+  ToolRoles,
+} from '../../types.ts';
 
 export type ToolExecutorContext = {
   message: Message<boolean>;
@@ -23,6 +27,11 @@ export type ToolExecutorContext = {
     message: Message<boolean>,
     name?: string,
   ) => Promise<ThreadChannel | null>;
+  /**
+   * Role-based tool permissions (channel-independent). A tool listed under a
+   * role is restricted to members holding that role.
+   */
+  toolRoles?: ToolRoles;
 };
 
 function errorOutput(err: unknown): ToolExecutionResult {
@@ -33,7 +42,45 @@ function errorOutput(err: unknown): ToolExecutionResult {
 export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
   const { message, yr, discord, memory, steam, image, createThread } = ctx;
 
-  return async (name, args) => {
+  // Invert the role -> tools permission map into tool -> allowed role ids, so a
+  // call can be checked with a single lookup. A tool absent from this map is
+  // unrestricted.
+  const allowedRolesByTool = new Map<string, Set<string>>();
+  for (const [roleId, tools] of Object.entries(ctx.toolRoles ?? {})) {
+    for (const tool of tools) {
+      const roles = allowedRolesByTool.get(tool) ?? new Set<string>();
+      roles.add(roleId);
+      allowedRolesByTool.set(tool, roles);
+    }
+  }
+
+  // Returns the denial reply when the caller may not use `name`, else null.
+  // Exposed on the executor so the provider can preflight a whole batch of tool
+  // calls and refuse the turn before running any side-effecting tool.
+  const deniedMessage = (name: string): string | null => {
+    const allowedRoles = allowedRolesByTool.get(name);
+    if (!allowedRoles) {
+      return null;
+    }
+    const memberRoles = message.member?.roles?.cache;
+    const hasRole = memberRoles
+      ? [...allowedRoles].some((roleId) => memberRoles.has(roleId))
+      : false;
+    return hasRole ? null : discord.getRooivalkResponse('permissionDenied');
+  };
+
+  const execute = async (
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<ToolExecutionResult> => {
+    const denied = deniedMessage(name);
+    if (denied) {
+      return {
+        output: JSON.stringify({ error: 'permission_denied' }),
+        deniedMessage: denied,
+      };
+    }
+
     switch (name) {
       case TOOL_NAMES.GET_WEATHER: {
         const city = args.city as string;
@@ -212,4 +259,7 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
         };
     }
   };
+
+  const executor: ToolExecutor = Object.assign(execute, { deniedMessage });
+  return executor;
 }

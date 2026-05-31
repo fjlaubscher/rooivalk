@@ -341,6 +341,7 @@ class Rooivalk {
       memory: this._memory,
       steam: this._steam,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),
+      toolRoles: this._config.toolRoles,
     });
   }
 

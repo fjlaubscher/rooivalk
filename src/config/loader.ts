@@ -7,14 +7,22 @@ import {
   CONFIG_FILE_GREETINGS,
   CONFIG_FILE_DISCORD_LIMIT,
   CONFIG_FILE_INSTAGRAM,
+  CONFIG_FILE_PERMISSION_DENIED,
   CONFIG_FILE_INSTRUCTIONS_OPENAI,
   CONFIG_FILE_INSTRUCTIONS_XAI,
   CONFIG_FILE_LEADERBOARD,
   CONFIG_FILE_MOTD,
   CONFIG_FILE_PROFILES,
+  CONFIG_FILE_TOOL_ROLES,
   getProfileInstructionsPath,
 } from '../constants.ts';
-import type { ChatProvider, InMemoryConfig, Profile } from '../types.ts';
+import { TOOL_NAMES } from '../services/chat/tool-names.ts';
+import type {
+  ChatProvider,
+  InMemoryConfig,
+  Profile,
+  ToolRoles,
+} from '../types.ts';
 
 const getConfigFilePath = (filename: string): string =>
   join(CONFIG_DIR, filename);
@@ -233,6 +241,73 @@ const loadProfileInstructions = async (
   return profileInstructions;
 };
 
+const KNOWN_TOOL_NAMES = new Set<string>(Object.values(TOOL_NAMES));
+
+/**
+ * Loads the role-based tool permissions from `config/tool-roles.json`. The file
+ * is deployment-specific (gitignored); a missing file means no tool is
+ * restricted. The shape is `{ "<role_id>": ["tool_name", ...] }`. A role whose
+ * value is not an array of strings is dropped with a warning. Unknown tool
+ * names are kept but warned about — they simply never match a real tool call.
+ */
+const loadToolRoles = async (): Promise<ToolRoles> => {
+  const filePath = getConfigFilePath(CONFIG_FILE_TOOL_ROLES);
+  let content: string;
+  try {
+    content = await readFile(filePath, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return {};
+    }
+    throw new Error(
+      `[config/loader] Failed to read ${CONFIG_FILE_TOOL_ROLES}: ${(err as Error).message}`,
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (err) {
+    throw new Error(
+      `[config/loader] ${CONFIG_FILE_TOOL_ROLES} is not valid JSON: ${(err as Error).message}`,
+    );
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error(
+      `[config/loader] ${CONFIG_FILE_TOOL_ROLES} must be an object mapping role id to tool names`,
+    );
+  }
+
+  const toolRoles: ToolRoles = {};
+  for (const [roleId, tools] of Object.entries(
+    parsed as Record<string, unknown>,
+  )) {
+    // Fail closed: this is a permission boundary, so a malformed entry or a
+    // typo'd tool name must reject the config rather than silently leaving the
+    // intended sensitive tool ungated (and therefore public).
+    if (
+      !Array.isArray(tools) ||
+      !tools.every((tool) => typeof tool === 'string')
+    ) {
+      throw new Error(
+        `[config/loader] ${CONFIG_FILE_TOOL_ROLES} role "${roleId}" must map to an array of tool names`,
+      );
+    }
+
+    const unknownTools = tools.filter((tool) => !KNOWN_TOOL_NAMES.has(tool));
+    if (unknownTools.length > 0) {
+      throw new Error(
+        `[config/loader] ${CONFIG_FILE_TOOL_ROLES} role "${roleId}" lists unknown tool name(s): ${unknownTools.join(', ')}. A typo would silently leave a sensitive tool ungated — fix or remove them.`,
+      );
+    }
+
+    toolRoles[roleId] = tools;
+  }
+
+  return toolRoles;
+};
+
 export const loadConfig = async (): Promise<InMemoryConfig> => {
   const [
     errorMessages,
@@ -240,9 +315,11 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     discordLimitMessages,
     leaderboardEmptyMessages,
     instagramMessages,
+    permissionDeniedMessages,
     openaiInstructions,
     xaiInstructions,
     profiles,
+    toolRoles,
     motd,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
@@ -250,9 +327,11 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadMessageList(CONFIG_FILE_DISCORD_LIMIT),
     loadMessageList(CONFIG_FILE_LEADERBOARD),
     loadMessageList(CONFIG_FILE_INSTAGRAM),
+    loadMessageList(CONFIG_FILE_PERMISSION_DENIED),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_OPENAI),
     loadInstructions(CONFIG_FILE_INSTRUCTIONS_XAI),
     loadProfiles(),
+    loadToolRoles(),
     loadInstructions(CONFIG_FILE_MOTD),
   ]);
 
@@ -264,12 +343,14 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     discordLimitMessages,
     leaderboardEmptyMessages,
     instagramMessages,
+    permissionDeniedMessages,
     instructions: {
       openai: openaiInstructions,
       xai: xaiInstructions,
     },
     profiles,
     profileInstructions,
+    toolRoles,
     motd,
   };
 

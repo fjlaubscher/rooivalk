@@ -44,12 +44,22 @@ export type Profile = {
 /** Picks the system instructions for a request from the in-memory config. */
 export type InstructionsSelector = (config: InMemoryConfig) => string;
 
+/**
+ * Role-based tool permissions, independent of channel profiles. Maps a Discord
+ * role id to the tool names (from `TOOL_NAMES`) its holders may use. A tool
+ * listed under any role is restricted — only members holding a role that grants
+ * it may invoke it. Tools listed nowhere are unrestricted. The gate is
+ * channel-independent: it applies in every channel, profiled or not.
+ */
+export type ToolRoles = Record<string, string[]>;
+
 export type InMemoryConfig = {
   errorMessages: string[];
   greetingMessages: string[];
   discordLimitMessages: string[];
   leaderboardEmptyMessages: string[];
   instagramMessages: string[];
+  permissionDeniedMessages: string[];
   instructions: {
     openai: string;
     xai: string;
@@ -58,10 +68,17 @@ export type InMemoryConfig = {
   profiles: Profile[];
   /** Instruction text per profile, keyed by profile name. */
   profileInstructions: Record<string, string>;
+  /** Role-based tool permissions, independent of channel profiles. */
+  toolRoles: ToolRoles;
   motd: string;
 };
 
-export type ResponseType = 'error' | 'greeting' | 'discordLimit' | 'instagram';
+export type ResponseType =
+  | 'error'
+  | 'greeting'
+  | 'discordLimit'
+  | 'instagram'
+  | 'permissionDenied';
 export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';
   content: string;
@@ -75,12 +92,23 @@ export type ToolExecutionResult = {
   output: string;
   createdThread?: ThreadChannel;
   base64Image?: string;
+  /**
+   * Set when the caller lacked permission for the requested tool. The provider
+   * tool loop stops and replies with this text verbatim, so the refusal wording
+   * is deterministic rather than narrated by the model.
+   */
+  deniedMessage?: string;
 };
 
-export type ToolExecutor = (
-  name: string,
-  args: Record<string, unknown>,
-) => Promise<ToolExecutionResult>;
+export interface ToolExecutor {
+  (name: string, args: Record<string, unknown>): Promise<ToolExecutionResult>;
+  /**
+   * Returns the deterministic denial reply when `name` is gated for the current
+   * caller, or null when the tool is allowed. Lets a provider preflight a batch
+   * of tool calls and refuse the turn before running any side-effecting tool.
+   */
+  deniedMessage(name: string): string | null;
+}
 
 export type ConversationRefType = 'msg' | 'thread';
 
