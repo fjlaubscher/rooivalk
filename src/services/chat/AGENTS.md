@@ -92,9 +92,16 @@ channel-independent, so it applies in every channel whether or not a channel
 profile matches.
 
 Enforcement lives in `buildToolExecutor`
-(`src/services/rooivalk/tool-executor.ts`): before dispatching a call it checks
-the caller's roles, and on a miss returns a `deniedMessage` — a random line from
-`config/permission_denied.md` via `DiscordService.getRooivalkResponse`. The
-provider tool loop (`OpenAIService`/`XAIService`) stops on that signal and
-replies with the line rather than letting the model narrate the refusal. The
-file is read at startup, so changing it needs a restart.
+(`src/services/rooivalk/tool-executor.ts`), which exposes a `deniedMessage(name)`
+check. Before running a batch of tool calls, the provider tool loop
+(`OpenAIService`/`XAIService`) preflights every call: if any is gated for the
+caller it refuses the whole turn — replying with a random line from
+`config/permission_denied.md` (via `DiscordService.getRooivalkResponse`) instead
+of running any tool or letting the model narrate the refusal. Preflighting
+before dispatch means no side-effecting tool (e.g. `create_thread`) runs when a
+later call in the same batch is denied.
+
+`permission_denied.md` is a top-level `config/*.md` file, so the watcher
+hot-reloads edits to it like the other message lists. `tool-roles.json` is JSON
+and isn't watched, so permission changes there only take effect on the next
+restart (or the next reload triggered by some `.md` edit).

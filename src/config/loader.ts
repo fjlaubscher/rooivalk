@@ -283,20 +283,22 @@ const loadToolRoles = async (): Promise<ToolRoles> => {
   for (const [roleId, tools] of Object.entries(
     parsed as Record<string, unknown>,
   )) {
+    // Fail closed: this is a permission boundary, so a malformed entry or a
+    // typo'd tool name must reject the config rather than silently leaving the
+    // intended sensitive tool ungated (and therefore public).
     if (
       !Array.isArray(tools) ||
       !tools.every((tool) => typeof tool === 'string')
     ) {
-      console.warn(
-        `[config/loader] ${CONFIG_FILE_TOOL_ROLES} role "${roleId}" must map to an array of tool names — skipping`,
+      throw new Error(
+        `[config/loader] ${CONFIG_FILE_TOOL_ROLES} role "${roleId}" must map to an array of tool names`,
       );
-      continue;
     }
 
     const unknownTools = tools.filter((tool) => !KNOWN_TOOL_NAMES.has(tool));
     if (unknownTools.length > 0) {
-      console.warn(
-        `[config/loader] ${CONFIG_FILE_TOOL_ROLES} role "${roleId}" lists unknown tool name(s): ${unknownTools.join(', ')} — they will never match`,
+      throw new Error(
+        `[config/loader] ${CONFIG_FILE_TOOL_ROLES} role "${roleId}" lists unknown tool name(s): ${unknownTools.join(', ')}. A typo would silently leave a sensitive tool ungated — fix or remove them.`,
       );
     }
 

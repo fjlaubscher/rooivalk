@@ -137,26 +137,16 @@ describe('loadConfig tool roles', () => {
     });
   });
 
-  it('skips a role whose value is not an array of tool names', async () => {
+  it('rejects a role whose value is not an array of tool names (fail closed)', async () => {
     toolRolesJson = JSON.stringify({ 'role-1': 'run_bash' });
 
-    const config = await loadConfig();
-
-    expect(config.toolRoles).toEqual({});
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('must map to an array'),
-    );
+    await expect(loadConfig()).rejects.toThrow('must map to an array');
   });
 
-  it('keeps known tools but warns about unknown tool names', async () => {
+  it('rejects unknown tool names rather than leaving them ungated (fail closed)', async () => {
     toolRolesJson = JSON.stringify({ 'role-1': ['run_bash', 'not_a_tool'] });
 
-    const config = await loadConfig();
-
-    expect(config.toolRoles).toEqual({ 'role-1': ['run_bash', 'not_a_tool'] });
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('unknown tool name'),
-    );
+    await expect(loadConfig()).rejects.toThrow('unknown tool name');
   });
 
   it('throws when tool-roles.json is not an object', async () => {

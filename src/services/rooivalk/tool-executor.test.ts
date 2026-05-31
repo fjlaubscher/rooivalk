@@ -109,6 +109,29 @@ describe('buildToolExecutor role-based tool permissions', () => {
     expect(result.deniedMessage).toBeUndefined();
   });
 
+  it('exposes deniedMessage for batch preflight (gated, no role -> message)', () => {
+    const executor = buildToolExecutor(
+      buildContext({
+        message: messageWithRoles(['some-other-role']),
+        toolRoles: { [GRANTING_ROLE]: [TOOL_NAMES.RUN_BASH] },
+      }),
+    );
+
+    expect(executor.deniedMessage(TOOL_NAMES.RUN_BASH)).toBe(DENIED_MESSAGE);
+    expect(executor.deniedMessage(TOOL_NAMES.GET_WEATHER)).toBeNull();
+  });
+
+  it('deniedMessage returns null when the caller holds a granting role', () => {
+    const executor = buildToolExecutor(
+      buildContext({
+        message: messageWithRoles([GRANTING_ROLE]),
+        toolRoles: { [GRANTING_ROLE]: [TOOL_NAMES.RUN_BASH] },
+      }),
+    );
+
+    expect(executor.deniedMessage(TOOL_NAMES.RUN_BASH)).toBeNull();
+  });
+
   it('grants a tool when any one of several roles permits it', async () => {
     const execute = buildToolExecutor(
       buildContext({

@@ -100,10 +100,15 @@ export type ToolExecutionResult = {
   deniedMessage?: string;
 };
 
-export type ToolExecutor = (
-  name: string,
-  args: Record<string, unknown>,
-) => Promise<ToolExecutionResult>;
+export interface ToolExecutor {
+  (name: string, args: Record<string, unknown>): Promise<ToolExecutionResult>;
+  /**
+   * Returns the deterministic denial reply when `name` is gated for the current
+   * caller, or null when the tool is allowed. Lets a provider preflight a batch
+   * of tool calls and refuse the turn before running any side-effecting tool.
+   */
+  deniedMessage(name: string): string | null;
+}
 
 export type ConversationRefType = 'msg' | 'thread';
 

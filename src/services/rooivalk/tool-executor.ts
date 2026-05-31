@@ -54,19 +54,31 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
     }
   }
 
-  return async (name, args) => {
+  // Returns the denial reply when the caller may not use `name`, else null.
+  // Exposed on the executor so the provider can preflight a whole batch of tool
+  // calls and refuse the turn before running any side-effecting tool.
+  const deniedMessage = (name: string): string | null => {
     const allowedRoles = allowedRolesByTool.get(name);
-    if (allowedRoles) {
-      const memberRoles = message.member?.roles?.cache;
-      const hasRole = memberRoles
-        ? [...allowedRoles].some((roleId) => memberRoles.has(roleId))
-        : false;
-      if (!hasRole) {
-        return {
-          output: JSON.stringify({ error: 'permission_denied' }),
-          deniedMessage: discord.getRooivalkResponse('permissionDenied'),
-        };
-      }
+    if (!allowedRoles) {
+      return null;
+    }
+    const memberRoles = message.member?.roles?.cache;
+    const hasRole = memberRoles
+      ? [...allowedRoles].some((roleId) => memberRoles.has(roleId))
+      : false;
+    return hasRole ? null : discord.getRooivalkResponse('permissionDenied');
+  };
+
+  const execute = async (
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<ToolExecutionResult> => {
+    const denied = deniedMessage(name);
+    if (denied) {
+      return {
+        output: JSON.stringify({ error: 'permission_denied' }),
+        deniedMessage: denied,
+      };
     }
 
     switch (name) {
@@ -247,4 +259,7 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
         };
     }
   };
+
+  const executor: ToolExecutor = Object.assign(execute, { deniedMessage });
+  return executor;
 }

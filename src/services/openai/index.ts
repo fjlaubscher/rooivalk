@@ -199,6 +199,25 @@ class OpenAIService {
 
           if (functionCalls.length === 0) break;
 
+          // Preflight the batch: if any requested tool is gated for this
+          // caller, refuse the whole turn before running any (possibly
+          // side-effecting) tool. The denial reply omits responseId on purpose
+          // — this response still has an unanswered function_call, so chaining a
+          // follow-up onto it would be rejected by the API.
+          for (const call of functionCalls) {
+            if (call.type !== 'function_call') continue;
+            const denied = toolExecutor.deniedMessage(call.name);
+            if (denied) {
+              return {
+                type: 'text',
+                content: denied,
+                base64Images: [],
+                createdThread,
+                contextLost,
+              };
+            }
+          }
+
           const toolOutputs: OpenAI.Responses.ResponseInputItem[] = [];
 
           for (const call of functionCalls) {
@@ -206,17 +225,6 @@ class OpenAIService {
 
             const args = JSON.parse(call.arguments) as Record<string, unknown>;
             const result = await toolExecutor(call.name, args);
-
-            if (result.deniedMessage) {
-              return {
-                type: 'text',
-                content: result.deniedMessage,
-                base64Images: [],
-                createdThread,
-                responseId: response.id,
-                contextLost,
-              };
-            }
 
             if (result.createdThread) {
               createdThread = result.createdThread;
