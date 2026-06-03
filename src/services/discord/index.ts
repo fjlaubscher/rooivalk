@@ -95,6 +95,9 @@ class DiscordService {
       case 'permissionDenied':
         arrayToUse = this._config.permissionDeniedMessages;
         break;
+      case 'boast':
+        arrayToUse = this._config.boastMessages;
+        break;
       default:
         throw new Error('Invalid response type');
     }

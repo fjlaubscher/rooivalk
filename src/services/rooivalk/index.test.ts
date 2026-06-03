@@ -1543,6 +1543,65 @@ describe('Rooivalk', () => {
       expect(payload?.allowedMentions).toEqual({ users: ['dup', 'giver-2'] });
     });
 
+    it("boasts instead of pinging itself when rooivalk's own message lands on the board", async () => {
+      mockDiscordService.getRooivalkResponse.mockReturnValueOnce(
+        'All me, troep.',
+      );
+      mockEmojiService.getTopMessages.mockReturnValue([
+        {
+          message_id: 'm1',
+          channel_id: 'c1',
+          message_author_id: BOT_ID,
+          count: 9,
+        },
+      ]);
+      mockEmojiService.getTopGivers.mockReturnValue([
+        {
+          user_id: 'giver-1',
+          count: 4,
+          fav_emoji_id: null,
+          fav_emoji_name: '🔥',
+          fav_emoji_animated: 0,
+        },
+      ]);
+
+      await buildRooivalk().sendLeaderboardToMotdChannel();
+
+      const payload = mockChannel.send.mock.calls[0]?.[0];
+      // Rooivalk's own message still appears in the embed...
+      const messages = findField(payload, 'Most-loved messages');
+      expect(messages?.value).toContain(`<@${BOT_ID}>`);
+      // ...but it boasts in the content rather than pinging itself.
+      expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
+        'boast',
+      );
+      expect(payload?.content).toContain('All me, troep.');
+      expect(payload?.content).toContain('<@giver-1>');
+      expect(payload?.content).not.toContain(`<@${BOT_ID}>`);
+      expect(payload?.allowedMentions).toEqual({ users: ['giver-1'] });
+    });
+
+    it('boasts with no ping when rooivalk is the only featured entry', async () => {
+      mockDiscordService.getRooivalkResponse.mockReturnValueOnce(
+        'All me, troep.',
+      );
+      mockEmojiService.getTopMessages.mockReturnValue([
+        {
+          message_id: 'm1',
+          channel_id: 'c1',
+          message_author_id: BOT_ID,
+          count: 9,
+        },
+      ]);
+
+      await buildRooivalk().sendLeaderboardToMotdChannel();
+
+      const payload = mockChannel.send.mock.calls[0]?.[0];
+      expect(payload?.embeds).toHaveLength(1);
+      expect(payload?.content).toBe('All me, troep.');
+      expect(payload?.allowedMentions).toEqual({ users: [] });
+    });
+
     it('sends an empty-state message that pings no one when there is no data', async () => {
       await buildRooivalk().sendLeaderboardToMotdChannel();
 
