@@ -13,7 +13,7 @@ A Discord bot powered by OpenAI. Responds to mentions and replies, threads its o
 - **Per-user memory** in SQLite — the model can `remember`, `recall`, and `forget` facts. Capped preference set is injected on every turn.
 - **Tools**: weather (Yr.no), Steam store lookups, ad-hoc SQLite querying of the bot's own data, sandboxed `run_bash` for log/source inspection, server-event lookup.
 - **Daily MOTD** with AI-generated city artwork; Peapix (Bing image of the day) as a fallback.
-- **Hot-reloadable config** — edit `config/*.md` and changes take effect without redeploying.
+- **Hot-reloadable config** — edit `config/*.md` or `config/tool-roles.json` and changes take effect without redeploying.
 
 ### Rooivalk in action
 
