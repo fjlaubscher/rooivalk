@@ -1883,7 +1883,7 @@ describe('Rooivalk', () => {
       expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
     });
 
-    it('skips reactions on messages authored by a bot', async () => {
+    it('skips reactions on messages authored by another bot', async () => {
       const reaction = makeReaction({
         message: {
           partial: false,
@@ -1896,6 +1896,24 @@ describe('Rooivalk', () => {
       });
       await (rooivalk as any).processMessageReaction(reaction, makeUser());
       expect(mockEmojiService.recordReaction).not.toHaveBeenCalled();
+    });
+
+    it("records reactions on rooivalk's own messages", async () => {
+      const reaction = makeReaction({
+        message: {
+          partial: false,
+          id: 'msg-1',
+          channelId: 'channel-1',
+          guild: { id: GUILD_ID },
+          author: { id: BOT_ID, bot: true },
+          fetch: vi.fn(),
+        },
+      });
+      await (rooivalk as any).processMessageReaction(reaction, makeUser());
+      expect(mockEmojiService.recordReaction).toHaveBeenCalledOnce();
+      expect(mockEmojiService.recordReaction).toHaveBeenCalledWith(
+        expect.objectContaining({ messageAuthorId: BOT_ID }),
+      );
     });
 
     it('skips self-reactions', async () => {

@@ -941,7 +941,15 @@ class Rooivalk {
     if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) return;
     if (user.bot) return;
     if (!reaction.message.author) return;
-    if (reaction.message.author.bot) return;
+    // Allow bot-authored messages only when they're rooivalk's own — this lets
+    // the bot's messages compete on the leaderboard while still excluding every
+    // other bot.
+    const rooivalkId = this._discord.client.user?.id;
+    if (
+      reaction.message.author.bot &&
+      reaction.message.author.id !== rooivalkId
+    )
+      return;
     if (user.id === reaction.message.author.id) return;
 
     try {
