@@ -240,6 +240,42 @@ describe('Rooivalk', () => {
         );
       });
 
+      it('omits the channel context once a conversation is in progress', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> Follow up`,
+          reference: { messageId: 'prev-bot-msg' } as any,
+          channel: {
+            id: 'test-channel-id',
+            name: 'general',
+            topic: 'Chit-chat',
+            messages: { fetch: vi.fn() },
+            send: vi.fn(),
+            isThread: () => false,
+          } as any,
+        } as Partial<Message<boolean>>);
+
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'stored-resp-id',
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'ok',
+        });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-followup' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe('Follow up');
+      });
+
       it('passes the stored previous_response_id for replies to bot messages', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> Follow up`,
