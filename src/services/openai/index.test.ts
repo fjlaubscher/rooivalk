@@ -131,7 +131,7 @@ describe('OpenAIService', () => {
 
       expect(userEntry).toBeDefined();
       expect(userEntry.content).toEqual([
-        { type: 'input_text', text: 'hi' },
+        { type: 'input_text', text: '[Discord message from test user]\nhi' },
         {
           type: 'input_image',
           image_url: 'https://example.com/image.png',
@@ -142,6 +142,45 @@ describe('OpenAIService', () => {
           text: 'Attachment (name=data.txt, type=text/plain): https://example.com/data.txt',
         },
       ]);
+    });
+
+    it('embeds the speaker identity in the user turn, not a system message', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('Alice', 'hi');
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.input.some((entry: any) => entry.role === 'system')).toBe(
+        false,
+      );
+      const userEntry = callArgs.input.find(
+        (entry: any) => entry.role === 'user',
+      );
+      expect(userEntry.content[0]).toEqual({
+        type: 'input_text',
+        text: '[Discord message from Alice]\nhi',
+      });
+    });
+
+    it('does not tag rooivalk-authored prompts with a speaker line', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('rooivalk', 'generate the motd');
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      const userEntry = callArgs.input.find(
+        (entry: any) => entry.role === 'user',
+      );
+      expect(userEntry.content[0]).toEqual({
+        type: 'input_text',
+        text: 'generate the motd',
+      });
     });
 
     it('throws OpenAI error message', async () => {

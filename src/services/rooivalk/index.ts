@@ -48,6 +48,7 @@ import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
+  buildPromptChannel,
   matchProfile,
   rewriteInstagramLink,
 } from './helpers.ts';
@@ -380,12 +381,23 @@ class Rooivalk {
 
       let finalPrompt = prompt;
       let referencedAttachments: AttachmentForPrompt[] = [];
-      if (!previousResponseId && message.reference?.messageId) {
-        const referencedContext =
-          await this.loadReferencedMessageContext(message);
-        if (referencedContext) {
-          finalPrompt = `${referencedContext.prefix}${prompt}`;
-          referencedAttachments = referencedContext.attachments;
+      // Conversation-scoped context (referenced message + channel) is only
+      // attached on the first turn. Once `previousResponseId` exists the
+      // provider already retains it server-side, so re-sending it just bloats
+      // the prompt — channel descriptions alone can be up to 2000 chars.
+      if (!previousResponseId) {
+        if (message.reference?.messageId) {
+          const referencedContext =
+            await this.loadReferencedMessageContext(message);
+          if (referencedContext) {
+            finalPrompt = `${referencedContext.prefix}${prompt}`;
+            referencedAttachments = referencedContext.attachments;
+          }
+        }
+
+        const channelContext = buildPromptChannel(message);
+        if (channelContext) {
+          finalPrompt = `${channelContext}\n${finalPrompt}`;
         }
       }
 

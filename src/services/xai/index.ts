@@ -92,10 +92,20 @@ class XAIService {
         instructions += renderPreferences(preferences);
       }
 
+      // Attach the speaker identity to the user turn itself rather than a
+      // separate system message. With previous_response_id the model treats
+      // system messages as conversation-level framing and anchors on the first
+      // turn's author, so a different person replying mid-conversation would
+      // still be addressed as the initiator.
+      const userText =
+        author === 'rooivalk'
+          ? prompt
+          : `[Discord message from ${author}]\n${prompt}`;
+
       const inputContent: OpenAI.Responses.ResponseInputContent[] = [
         {
           type: 'input_text',
-          text: prompt,
+          text: userText,
         },
       ];
 
@@ -128,19 +138,12 @@ class XAIService {
         });
       }
 
-      const responseInput: OpenAI.Responses.ResponseInput = [];
-
-      if (author !== 'rooivalk') {
-        responseInput.push({
-          role: 'system',
-          content: `The following prompt is a discord message from ${author}`,
-        });
-      }
-
-      responseInput.push({
-        role: 'user',
-        content: inputContent,
-      });
+      const responseInput: OpenAI.Responses.ResponseInput = [
+        {
+          role: 'user',
+          content: inputContent,
+        },
+      ];
 
       // `web_search` is xAI's native server tool — distinct from OpenAI's
       // `web_search_preview` and not part of the SDK's `Tool` union, hence the
