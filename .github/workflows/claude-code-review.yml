@@ -3,48 +3,75 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
+    # Skip drafts, and skip Claude's own commits so a review can't trigger itself.
+    if: ${{ !github.event.pull_request.draft && github.actor != 'claude[bot]' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
-      issues: read
+      issues: write
       id-token: write
+      actions: read
+    # Supersede an in-flight review when the PR gets new commits.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      # Capture the prior review's comments now so they can be cleared after the
+      # new review posts, leaving a single up-to-date review per PR.
+      - name: Collect previous Claude review comment IDs
+        id: prev-comments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ids=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --paginate \
+            --jq '[.[] | select(.user.login == "claude[bot]") | .id] | join(" ")')
+          echo "ids=$ids" >> "$GITHUB_OUTPUT"
+
+      - name: Load PR review prompt
+        id: review_prompt
+        run: |
+          {
+            echo 'body<<CLAUDE_PROMPT_EOF'
+            cat .github/prompts/pr-review.md
+            echo CLAUDE_PROMPT_EOF
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code Review
-        id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # The action only allows read-only tools by default; the code-review
-          # plugin needs the inline-comment MCP tool and gh commands to fetch the
-          # diff and post findings, and Opus is the stronger reviewer.
+          # Tag mode wires up the GitHub MCP servers (including the inline-comment
+          # tool) the review needs to post; without it the action runs in agent
+          # mode and nothing gets posted.
+          track_progress: 'true'
+          show_full_output: 'true'
+          prompt: ${{ steps.review_prompt.outputs.body }}
           claude_args: |
             --model claude-opus-4-8
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*)"
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
 
+      - name: Delete previous Claude review comments
+        if: steps.prev-comments.outputs.ids != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for id in ${{ steps.prev-comments.outputs.ids }}; do
+            if ! gh api --method DELETE "repos/${{ github.repository }}/issues/comments/$id" 2>/tmp/gh_err; then
+              if ! grep -q "Not Found" /tmp/gh_err; then
+                cat /tmp/gh_err >&2
+                exit 1
+              fi
+            fi
+          done
