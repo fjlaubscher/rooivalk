@@ -60,7 +60,7 @@ Channel-specific behaviour is declarative config, not code. Profiles live in `co
 
 A profile's instructions are loaded from `config/profiles/<name>.md`, resolved from its `name`. Adding a behaviour is two files and no code: a profile entry plus its `config/profiles/<name>.md` instructions (see `config/profiles/example.md`). The field-hospital behaviour is one such profile — an OpenAI profile with its own model override and a `field-hospital.md` instructions file.
 
-The config watcher only picks up changes to top-level `config/*.md` files (it watches `CONFIG_DIR` non-recursively), so editing a profile's instructions under `config/profiles/` requires a restart — as does adding or removing a profile (services are built once at construction).
+The config watcher picks up changes to top-level `config/*.md` files plus `config/tool-roles.json` (it watches `CONFIG_DIR` non-recursively). Editing a profile's instructions under `config/profiles/` requires a restart — as does adding or removing a profile (services are built once at construction).
 
 ## Conversation Continuity
 
@@ -101,7 +101,11 @@ of running any tool or letting the model narrate the refusal. Preflighting
 before dispatch means no side-effecting tool (e.g. `create_thread`) runs when a
 later call in the same batch is denied.
 
-`permission_denied.md` is a top-level `config/*.md` file, so the watcher
-hot-reloads edits to it like the other message lists. `tool-roles.json` is JSON
-and isn't watched, so permission changes there only take effect on the next
-restart (or the next reload triggered by some `.md` edit).
+Both config files hot-reload. `permission_denied.md` is a top-level `config/*.md`
+file, picked up like the other message lists. The watcher also watches
+`tool-roles.json` specifically: the permission map is read live per message (via
+`buildToolExecutor` reading `this._config.toolRoles`), so an edit takes effect on
+the next message with no service reconstruction — unlike `profiles.json`, whose
+chat services are built once at construction. The loader fails closed, so a
+malformed or half-saved edit makes the reload throw and the last good permission
+map is kept.

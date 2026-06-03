@@ -1,11 +1,22 @@
 import { existsSync, watch } from 'fs';
 
-import { CONFIG_DIR } from '../constants.ts';
+import { CONFIG_DIR, CONFIG_FILE_TOOL_ROLES } from '../constants.ts';
 
 export type ConfigReloadCallback = (changedFile: string) => void;
 
 /**
- * Watches the config directory for changes to .md files and triggers the callback.
+ * Whether a changed top-level config file should trigger a reload. Every
+ * `*.md` message list and instruction file qualifies, plus `tool-roles.json`:
+ * unlike `profiles.json` (whose services are built once at construction), the
+ * tool permissions are read live per message, so reloading them takes effect on
+ * the next message with no reconstruction needed.
+ */
+const isReloadable = (filename: string): boolean =>
+  filename.endsWith('.md') || filename === CONFIG_FILE_TOOL_ROLES;
+
+/**
+ * Watches the config directory for changes to reloadable config files and
+ * triggers the callback.
  * @param onReload Callback to invoke when a config file changes.
  */
 export const watchConfigs = (onReload: ConfigReloadCallback): void => {
@@ -18,7 +29,7 @@ export const watchConfigs = (onReload: ConfigReloadCallback): void => {
   let lastChangedFile: string | null = null;
 
   watch(CONFIG_DIR, (_: string, filename: string | null) => {
-    if (filename && filename.endsWith('.md')) {
+    if (filename && isReloadable(filename)) {
       // Debounce rapid changes
       lastChangedFile = filename;
       if (debounceTimer) clearTimeout(debounceTimer);
