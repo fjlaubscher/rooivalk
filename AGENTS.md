@@ -30,7 +30,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/memory/` – MemoryService (SQLite-backed memory + preferences) - [See AGENTS.md](src/services/memory/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
 - `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
-- `src/config/` – Config loading and hot-reloading system (`loader.ts`, `watcher.ts`)
+- `src/config/` – Config loading and hot-reloading system. `loader.ts` orchestrates `loadConfig`; the loaders are split by concern: `messages.ts` (markdown message lists and instructions), `profiles.ts` and `tool-roles.ts` (each exposing a pure validator plus its loader), and `json-config.ts` (shared config-path + JSON read/parse helper). `watcher.ts` reloads on `config/*.md` and `tool-roles.json` changes.
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
 - `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, greetings, errors, etc.) plus channel profiles in `profiles.json` (gitignored; see `profiles.example.json`), each profile's instructions in `profiles/<name>.md` (gitignored; see `profiles/example.md`), and role-based tool permissions in `tool-roles.json` (gitignored; see `tool-roles.example.json`)
