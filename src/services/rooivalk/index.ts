@@ -48,6 +48,7 @@ import {
   isReplyToRooivalk,
   isRooivalkThread,
   buildPromptAuthor,
+  buildPromptChannel,
   matchProfile,
   rewriteInstagramLink,
 } from './helpers.ts';
@@ -387,6 +388,11 @@ class Rooivalk {
           finalPrompt = `${referencedContext.prefix}${prompt}`;
           referencedAttachments = referencedContext.attachments;
         }
+      }
+
+      const channelContext = buildPromptChannel(message);
+      if (channelContext) {
+        finalPrompt = `${channelContext}\n${finalPrompt}`;
       }
 
       const combinedAttachments = [...referencedAttachments, ...attachments];

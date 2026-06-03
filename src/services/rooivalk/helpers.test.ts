@@ -3,6 +3,7 @@ import type { ThreadChannel } from 'discord.js';
 import {
   isRooivalkThread,
   isReplyToRooivalk,
+  buildPromptChannel,
   matchProfile,
   rewriteInstagramLink,
 } from './helpers.ts';
@@ -219,6 +220,73 @@ describe('rooivalk helpers', () => {
       const msg = buildMessage({});
       expect(matchProfile(msg, [other, PROFILE])).toBe(PROFILE);
       expect(matchProfile(msg, [])).toBeUndefined();
+    });
+  });
+
+  describe('buildPromptChannel', () => {
+    it('includes the channel name and description when both are present', () => {
+      const msg = createMockMessage({
+        channel: {
+          name: 'general',
+          topic: 'Chit-chat about anything and everything',
+          isThread: () => false,
+        },
+      });
+
+      expect(buildPromptChannel(msg)).toBe(
+        '[Channel #general — description: "Chit-chat about anything and everything"]',
+      );
+    });
+
+    it('includes only the channel name when there is no description', () => {
+      const msg = createMockMessage({
+        channel: {
+          name: 'random',
+          topic: null,
+          isThread: () => false,
+        },
+      });
+
+      expect(buildPromptChannel(msg)).toBe('[Channel #random]');
+    });
+
+    it('trims whitespace and ignores blank descriptions', () => {
+      const msg = createMockMessage({
+        channel: {
+          name: '  announcements  ',
+          topic: '   ',
+          isThread: () => false,
+        },
+      });
+
+      expect(buildPromptChannel(msg)).toBe('[Channel #announcements]');
+    });
+
+    it('falls back to the parent channel description inside a thread', () => {
+      const msg = createMockMessage({
+        channel: {
+          name: 'help-thread',
+          isThread: () => true,
+          parent: {
+            name: 'support',
+            topic: 'Ask for help here',
+          },
+        },
+      });
+
+      expect(buildPromptChannel(msg)).toBe(
+        '[Channel #help-thread — description: "Ask for help here"]',
+      );
+    });
+
+    it('returns null when neither a name nor a description is available', () => {
+      const msg = createMockMessage({
+        channel: {
+          isThread: () => false,
+        },
+      });
+
+      expect(buildPromptChannel(msg)).toBeNull();
     });
   });
 

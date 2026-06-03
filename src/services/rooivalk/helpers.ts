@@ -63,6 +63,43 @@ export const rewriteInstagramLink = (content: string): string | null => {
 export const buildPromptAuthor = (author: User) =>
   `${author.displayName} (displayName) ${userMention(author.id)} (discord mention tag) ${author.id} (discord_user_id — use this when querying the database for rows belonging to the speaker)`;
 
+/**
+ * Builds a short context line describing the Discord channel a message was sent
+ * in — its name and, when set, its description (topic). Threads inherit the
+ * description from their parent channel. Returns `null` when neither a name nor
+ * a description is available (e.g. DMs or bare test mocks) so callers can omit
+ * the line entirely.
+ */
+export const buildPromptChannel = (
+  message: Message<boolean>,
+): string | null => {
+  const { channel } = message;
+
+  const name =
+    'name' in channel && channel.name ? channel.name.trim() || null : null;
+
+  let topic: string | null = null;
+  if ('topic' in channel && channel.topic) {
+    topic = channel.topic.trim() || null;
+  } else if (
+    channel.isThread() &&
+    channel.parent &&
+    'topic' in channel.parent &&
+    channel.parent.topic
+  ) {
+    topic = channel.parent.topic.trim() || null;
+  }
+
+  if (!name && !topic) {
+    return null;
+  }
+
+  const label = name ? `#${name}` : 'this channel';
+  return topic
+    ? `[Channel ${label} — description: "${topic}"]`
+    : `[Channel ${label}]`;
+};
+
 const messageMatchesProfile = (
   message: Message<boolean>,
   profile: Profile,
