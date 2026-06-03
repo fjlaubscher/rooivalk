@@ -24,7 +24,7 @@ Reactions are **not** recorded if:
 
 - The message guild does not match `DISCORD_GUILD_ID`
 - The reactor is a bot
-- The message author is a bot
+- The message author is a bot **other than rooivalk itself** — rooivalk's own messages are recorded so they can feature on the leaderboard
 - The reactor and message author are the same user (self-reaction)
 - Partial fetch throws (reaction or user data unresolvable)
 

@@ -60,6 +60,7 @@ export type InMemoryConfig = {
   leaderboardEmptyMessages: string[];
   instagramMessages: string[];
   permissionDeniedMessages: string[];
+  boastMessages: string[];
   instructions: {
     openai: string;
     xai: string;
@@ -78,7 +79,8 @@ export type ResponseType =
   | 'greeting'
   | 'discordLimit'
   | 'instagram'
-  | 'permissionDenied';
+  | 'permissionDenied'
+  | 'boast';
 export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';
   content: string;

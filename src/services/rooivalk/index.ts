@@ -735,20 +735,31 @@ class Rooivalk {
 
       // Mentions inside an embed never notify — to actually ping the
       // featured users they must appear in the message content, and the
-      // same IDs must be whitelisted in allowedMentions.
+      // same IDs must be whitelisted in allowedMentions. Rooivalk never pings
+      // itself: when its own message lands on the board it boasts instead.
+      const rooivalkId = this._discord.client.user?.id;
+      const rooivalkFeatured = messages.some(
+        (m) => m.message_author_id === rooivalkId,
+      );
       const featuredIds = [
         ...new Set([
           ...messages.map((m) => m.message_author_id),
           ...givers.map((g) => g.user_id),
         ]),
-      ];
+      ].filter((id) => id !== rooivalkId);
+
+      const bowLine = featuredIds.length
+        ? `🏆 This week's emoji recap — take a bow ${featuredIds
+            .map((id) => userMention(id))
+            .join(' ')}`
+        : null;
+      const boastLine = rooivalkFeatured
+        ? this._discord.getRooivalkResponse('boast')
+        : null;
+      const content = [bowLine, boastLine].filter(Boolean).join('\n\n');
 
       await (channel as SendableChannels).send({
-        content: featuredIds.length
-          ? `🏆 This week's emoji recap — take a bow ${featuredIds
-              .map((id) => userMention(id))
-              .join(' ')}`
-          : undefined,
+        content: content || undefined,
         embeds: [embed],
         allowedMentions: { users: featuredIds },
       });
@@ -941,7 +952,15 @@ class Rooivalk {
     if (reaction.message.guild?.id !== process.env.DISCORD_GUILD_ID) return;
     if (user.bot) return;
     if (!reaction.message.author) return;
-    if (reaction.message.author.bot) return;
+    // Allow bot-authored messages only when they're rooivalk's own — this lets
+    // the bot's messages compete on the leaderboard while still excluding every
+    // other bot.
+    const rooivalkId = this._discord.client.user?.id;
+    if (
+      reaction.message.author.bot &&
+      reaction.message.author.id !== rooivalkId
+    )
+      return;
     if (user.id === reaction.message.author.id) return;
 
     try {
