@@ -21,7 +21,7 @@ createResponse(
 
 Behaviour:
 
-- Builds a single-turn input (optional system note identifying the speaker + the user prompt + any image/file attachments). Conversation history is **not** assembled — OpenAI chains turns server-side via `previous_response_id`.
+- Builds a single-turn input (the user prompt + any image/file attachments). When the author is not `rooivalk`, the speaker identity is prefixed to the user text as a `[Discord message from <author>]` line — **not** a separate system message. System messages get treated as conversation-level framing, so with `previous_response_id` the model would anchor on the first turn's author and keep addressing a later replier as the initiator. Conversation history is **not** assembled — OpenAI chains turns server-side via `previous_response_id`.
 - Passes `previous_response_id` through when provided. If the SDK returns a 404 with `param === 'previous_response_id'`, the call is retried once with no chain and the returned `OpenAIResponse` is flagged `contextLost: true`. Callers (`RooivalkService`) use that flag to surface a "context was lost" notice and clear the stale id from the store.
 - Returns the new `response.id` as `responseId`. The caller persists it under the appropriate `ConversationRef` keys.
 - Tool execution loop: up to `MAX_TOOL_ITERATIONS` (10) round-trips. On the final iteration, tools are stripped from the request so the model must produce a text response instead of yet another function call.
