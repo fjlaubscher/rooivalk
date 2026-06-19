@@ -8,6 +8,7 @@ import type {
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
+import { generateMotdImagePrompt } from '../chat/motd-image-prompt.ts';
 import { FUNCTION_TOOLS } from '../openai/tools.ts';
 
 const defaultInstructionsSelector: InstructionsSelector = (config) =>
@@ -353,34 +354,12 @@ class XAIService {
     }
   }
 
-  async generateMotdImagePrompt(cityName: string): Promise<string | null> {
-    try {
-      const instructions = `
-        You craft prompts for an AI image generator.
-        Given a city name, output ONE vivid, detailed image-generation prompt
-        depicting that city in an interesting way.
-        Pick an evocative art style (for example: watercolour, oil painting,
-        ukiyo-e woodblock, retro travel poster, pixel art, art nouveau,
-        isometric illustration, comic book panel, or invent your own) and an
-        interesting subject (a landmark, hidden gem, local cuisine, market,
-        skyline at golden hour, natural landscape, festival, native wildlife,
-        everyday street life, or a historical scene).
-        Vary both the style and the subject so repeated runs differ.
-        Output only the prompt, max 80 words, no explanations or quotes.
-      `;
-
-      const response = await this._xai.responses.create({
-        model: this.requireChatModel(),
-        instructions,
-        input: cityName,
-      });
-
-      const imagePrompt = response.output_text.trim();
-      return imagePrompt.length > 0 ? imagePrompt : null;
-    } catch (error) {
-      console.error('Error generating MOTD image prompt:', error);
-      return null;
-    }
+  async generateMotdImagePrompt(location: string): Promise<string | null> {
+    return generateMotdImagePrompt(
+      this._xai,
+      this.requireChatModel(),
+      location,
+    );
   }
 }
 

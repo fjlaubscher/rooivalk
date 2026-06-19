@@ -43,15 +43,17 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 The daily MOTD uses a two-tier image fallback strategy:
 
-1. **AI-generated image** (primary): Calls `ImageService.createImage()` on the active image provider with a randomly composed prompt combining a style and city aspect for the selected city
+1. **AI-generated image** (primary): Calls `ImageService.createImage()` on the active image provider with the prompt for the selected location
 2. **Peapix** (fallback): Fetches Bing's image of the day via `PeapixService.getImage()`
 
-Image prompt composition uses two module-level arrays:
+The image prompt itself is also composed in two tiers, for variety:
 
-- `MOTD_IMAGE_STYLES` — 15 art styles (watercolour, pixel art, retro travel poster, etc.)
-- `MOTD_CITY_ASPECTS` — 12 subject topics (landmarks, cuisine, wildlife, etc.)
+1. **LLM-generated** (primary): `ImageService.generateMotdImagePrompt(location)` asks the chat model for a fresh prompt per location. The configured location string is passed through verbatim, so it may be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt).
+2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, a random combination of two module-level arrays is used —
+   - `MOTD_IMAGE_STYLES` — art styles (watercolour, pixel art, retro travel poster, etc.)
+   - `MOTD_CITY_ASPECTS` — subject topics (landmarks, cuisine, wildlife, etc.)
 
-A random style + aspect + city name are combined into the prompt each day for variety.
+The fallback combines a random style + aspect + location name into the prompt.
 
 ## Bot Behavior Logic
 
