@@ -48,7 +48,7 @@ The daily MOTD uses a two-tier image fallback strategy:
 
 The image prompt itself is also composed in two tiers, for variety:
 
-1. **LLM-generated** (primary): `ImageService.generateMotdImagePrompt(location)` asks the chat model for a fresh prompt per location. The configured location string is passed through verbatim, so it may be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt).
+1. **LLM-generated** (primary): `ImageService.generateMotdImagePrompt(location)` asks the chat model for a fresh prompt per location. The configured location string is passed through verbatim, so it may be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
 2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, a random combination of two module-level arrays is used —
    - `MOTD_IMAGE_STYLES` — art styles (watercolour, pixel art, retro travel poster, etc.)
    - `MOTD_CITY_ASPECTS` — subject topics (landmarks, cuisine, wildlife, etc.)

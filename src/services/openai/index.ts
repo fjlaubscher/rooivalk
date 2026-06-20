@@ -379,6 +379,7 @@ class OpenAIService {
     return generateMotdImagePrompt(
       this._openai,
       this.requireChatModel(),
+      this._config.motdImagePrompt,
       location,
     );
   }

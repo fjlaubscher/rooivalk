@@ -51,6 +51,7 @@ export const CONFIG_FILE_INSTRUCTIONS_XAI = 'instructions/xai.md';
 export const CONFIG_FILE_PROFILES = 'profiles.json';
 export const CONFIG_FILE_TOOL_ROLES = 'tool-roles.json';
 export const CONFIG_FILE_MOTD = 'motd.md';
+export const CONFIG_FILE_MOTD_IMAGE_PROMPT = 'motd-image-prompt.md';
 
 // Each channel profile's instructions live in its own markdown file, addressed
 // by profile name. Deployment-specific, separate from the per-provider defaults.

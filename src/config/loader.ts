@@ -9,6 +9,7 @@ import {
   CONFIG_FILE_INSTRUCTIONS_XAI,
   CONFIG_FILE_LEADERBOARD,
   CONFIG_FILE_MOTD,
+  CONFIG_FILE_MOTD_IMAGE_PROMPT,
 } from '../constants.ts';
 import type { InMemoryConfig } from '../types.ts';
 import { loadInstructions, loadMessageList } from './messages.ts';
@@ -29,6 +30,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     profiles,
     toolRoles,
     motd,
+    motdImagePrompt,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
     loadMessageList(CONFIG_FILE_GREETINGS),
@@ -42,6 +44,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadProfiles(),
     loadToolRoles(),
     loadInstructions(CONFIG_FILE_MOTD),
+    loadInstructions(CONFIG_FILE_MOTD_IMAGE_PROMPT),
   ]);
 
   const profileInstructions = await loadProfileInstructions(profiles);
@@ -62,6 +65,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     profileInstructions,
     toolRoles,
     motd,
+    motdImagePrompt,
   };
 
   return config;

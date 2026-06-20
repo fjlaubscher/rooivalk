@@ -78,20 +78,25 @@ When adding a new tool:
 
 ## MOTD Image Prompt
 
-`motd-image-prompt.ts` is the single source of truth for the daily MOTD image
-prompt, shared by both provider classes so they stay in sync.
+`motd-image-prompt.ts` holds the shared request logic for the daily MOTD image
+prompt, used by both provider classes so they stay in sync.
 
-- `MOTD_IMAGE_PROMPT_INSTRUCTIONS` — the system instructions that tell the model
-  to craft one vivid image-generation prompt for a location.
-- `generateMotdImagePrompt(client, model, location)` — runs the request against
-  any OpenAI-compatible client (`_openai` or `_xai`) and returns the prompt, or
-  `null` on error / empty output so callers can fall back to a stored prompt.
+- `generateMotdImagePrompt(client, model, instructions, location)` — runs the
+  request against any OpenAI-compatible client (`_openai` or `_xai`) and returns
+  the prompt, or `null` on error / empty output so callers can fall back to a
+  stored prompt.
+
+The system instructions are **not** hardcoded — they live in
+`config/motd-image-prompt.md` and are hot-reloaded into `config.motdImagePrompt`
+like every other `config/*.md` file (see [`loader.ts`](../../config/loader.ts)).
+Editing that file changes the prompt with no redeploy.
 
 The `location` is the configured place string passed through verbatim — it may
 be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). Each
 provider's `generateMotdImagePrompt(location)` method is a thin wrapper that
-supplies its own client and `requireChatModel()`. `RooivalkService` consumes
-this via the `ImageService` union (see `src/services/rooivalk/AGENTS.md`).
+supplies its own client, `requireChatModel()`, and `this._config.motdImagePrompt`.
+`RooivalkService` consumes this via the `ImageService` union (see
+`src/services/rooivalk/AGENTS.md`).
 
 ## Role-Based Tool Permissions
 

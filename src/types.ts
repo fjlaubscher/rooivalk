@@ -72,6 +72,8 @@ export type InMemoryConfig = {
   /** Role-based tool permissions, independent of channel profiles. */
   toolRoles: ToolRoles;
   motd: string;
+  /** Instructions the chat model follows to craft the daily MOTD image prompt. */
+  motdImagePrompt: string;
 };
 
 export type ResponseType =

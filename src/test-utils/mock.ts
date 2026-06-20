@@ -28,4 +28,5 @@ export const MOCK_CONFIG: InMemoryConfig = {
   profileInstructions: {},
   toolRoles: {},
   motd: 'Message of the day',
+  motdImagePrompt: 'Craft an image prompt for {{LOCATION}}',
 };

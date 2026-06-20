@@ -358,6 +358,7 @@ class XAIService {
     return generateMotdImagePrompt(
       this._xai,
       this.requireChatModel(),
+      this._config.motdImagePrompt,
       location,
     );
   }
