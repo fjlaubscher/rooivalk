@@ -8,6 +8,7 @@ import type {
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
+import { generateMotdImagePrompt } from '../chat/motd-image-prompt.ts';
 import { FUNCTION_TOOLS } from '../openai/tools.ts';
 
 const defaultInstructionsSelector: InstructionsSelector = (config) =>
@@ -351,6 +352,15 @@ class XAIService {
 
       throw new Error('Error creating thread name');
     }
+  }
+
+  async generateMotdImagePrompt(location: string): Promise<string | null> {
+    return generateMotdImagePrompt(
+      this._xai,
+      this.requireChatModel(),
+      this._config.motdImagePrompt,
+      location,
+    );
   }
 }
 

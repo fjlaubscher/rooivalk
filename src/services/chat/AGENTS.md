@@ -14,7 +14,7 @@ Two classes implement the provider surface:
 The factories return either, narrowed via union types:
 
 - `ChatService = OpenAIService | XAIService` — the chat surface (`createResponse`, `generateThreadName`, `reloadConfig`).
-- `ImageService = OpenAIService | XAIService` — the image surface (`createImage`, `reloadConfig`).
+- `ImageService = OpenAIService | XAIService` — the image surface (`createImage`, `generateMotdImagePrompt`, `reloadConfig`).
 
 Both classes are kept as parallel implementations rather than a unified class with provider branches. The two providers diverge in subtle ways (native server tool support, image API response shape, image params), and duplicating the SDK-using code keeps each path readable on its own.
 
@@ -75,6 +75,28 @@ When adding a new tool:
 1. Add the name constant to `src/services/chat/tool-names.ts`
 2. Add the tool definition to `src/services/openai/tools.ts`
 3. Handle the name in `src/services/rooivalk/tool-executor.ts`
+
+## MOTD Image Prompt
+
+`motd-image-prompt.ts` holds the shared request logic for the daily MOTD image
+prompt, used by both provider classes so they stay in sync.
+
+- `generateMotdImagePrompt(client, model, instructions, location)` — runs the
+  request against any OpenAI-compatible client (`_openai` or `_xai`) and returns
+  the prompt, or `null` on error / empty output so callers can fall back to a
+  stored prompt.
+
+The system instructions are **not** hardcoded — they live in
+`config/motd-image-prompt.md` and are hot-reloaded into `config.motdImagePrompt`
+like every other `config/*.md` file (see [`loader.ts`](../../config/loader.ts)).
+Editing that file changes the prompt with no redeploy.
+
+The `location` is the configured place string passed through verbatim — it may
+be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). Each
+provider's `generateMotdImagePrompt(location)` method is a thin wrapper that
+supplies its own client, `requireChatModel()`, and `this._config.motdImagePrompt`.
+`RooivalkService` consumes this via the `ImageService` union (see
+`src/services/rooivalk/AGENTS.md`).
 
 ## Role-Based Tool Permissions
 

@@ -82,6 +82,7 @@ const mockOpenAIClient = vi.mocked({
   createResponse: vi.fn(),
   createImage: vi.fn(),
   generateThreadName: vi.fn(),
+  generateMotdImagePrompt: vi.fn(),
   reloadConfig: vi.fn(),
 } as any);
 
@@ -108,6 +109,7 @@ describe('Rooivalk', () => {
     mockChatClient.createResponse.mockResolvedValue('Mocked AI Response');
     mockChatClient.generateThreadName.mockResolvedValue('Thread Title');
     mockOpenAIClient.createImage.mockReset();
+    mockOpenAIClient.generateMotdImagePrompt.mockResolvedValue(null);
     mockPeapixService.getImage.mockResolvedValue(null);
     mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
@@ -1344,8 +1346,158 @@ describe('Rooivalk', () => {
       expect(sendPayload?.embeds).toHaveLength(1);
     });
 
-    it('falls back to Peapix when AI image generation returns null', async () => {
-      mockOpenAIClient.createImage.mockResolvedValue(null);
+    it('uses the LLM-generated image prompt when available', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = 'Good morning!';
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockChatClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: motdContent,
+      });
+
+      const generatedPrompt =
+        'A dreamy isometric illustration of a hidden rooftop garden.';
+      mockOpenAIClient.generateMotdImagePrompt.mockResolvedValue(
+        generatedPrompt,
+      );
+      mockOpenAIClient.createImage.mockResolvedValue(
+        Buffer.from('fake-image').toString('base64'),
+      );
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockChatClient,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      expect(mockOpenAIClient.generateMotdImagePrompt).toHaveBeenCalledTimes(1);
+      expect(mockOpenAIClient.createImage).toHaveBeenCalledWith(
+        generatedPrompt,
+      );
+    });
+
+    it('falls back to a stored style/aspect prompt when LLM prompt generation fails', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = 'Good morning!';
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockChatClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: motdContent,
+      });
+
+      // generateMotdImagePrompt resolves null via beforeEach default.
+      mockOpenAIClient.createImage.mockResolvedValue(
+        Buffer.from('fake-image').toString('base64'),
+      );
+
+      const mockYrService = {
+        getAllForecasts: vi.fn().mockResolvedValue([]),
+      } as any;
+      const motdRooivalk = new Rooivalk(
+        motdConfig,
+        mockDiscordService,
+        mockChatClient,
+        mockOpenAIClient,
+        mockYrService,
+        mockPeapixService,
+      );
+
+      await motdRooivalk.sendMotdToMotdChannel();
+
+      expect(mockOpenAIClient.createImage).toHaveBeenCalledTimes(1);
+      const usedPrompt = mockOpenAIClient.createImage.mock.calls[0]?.[0];
+      expect(usedPrompt).toMatch(/Vivid, detailed, atmospheric\.$/);
+    });
+
+    it('falls back to Wikimedia when AI generation returns null', async () => {
+      const motdConfig = {
+        ...MOCK_CONFIG,
+        motd: 'Prompt {{WEATHER_FORECASTS_JSON}} {{EVENTS_JSON}}',
+      };
+      const motdContent = ['Intro line', 'Footer line'].join('\n');
+      const forecast = {
+        location: 'TABLEVIEW',
+        friendlyName: 'Table View, South Africa',
+        minTemp: 12,
+        maxTemp: 21,
+        avgWindSpeed: 4,
+        avgWindDirection: 'SE',
+        avgHumidity: 72,
+        totalPrecipitation: 0,
+      };
+      const mockChannel = { isTextBased: () => true, send: vi.fn() };
+
+      Object.defineProperty(mockDiscordService, 'motdChannelId', {
+        get: () => 'motd-channel-id',
+        configurable: true,
+      });
+      Object.defineProperty(mockDiscordService, 'client', {
+        get: () => ({
+          user: { id: BOT_ID, tag: 'TestBot#0000' },
+          channels: { fetch: vi.fn().mockResolvedValue(mockChannel) },
+        }),
+        configurable: true,
+      });
+
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue([]);
+      mockChatClient.createResponse.mockResolvedValue({
+        type: 'text',
+        content: motdContent,
+        base64Images: [],
+      });
+      mockDiscordService.buildMessageReply.mockReturnValue({
+        content: motdContent,
+      });
       mockPeapixService.getImage.mockResolvedValue({
         title: 'Dune Patrol',
         copyright: '© Eric Yang/Getty Image',

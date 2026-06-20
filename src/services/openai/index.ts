@@ -8,6 +8,7 @@ import type {
   OpenAIResponse,
   ToolExecutor,
 } from '../../types.ts';
+import { generateMotdImagePrompt } from '../chat/motd-image-prompt.ts';
 import { FUNCTION_TOOLS } from './tools.ts';
 
 function renderPreferences(preferences: MemoryRow[]): string {
@@ -368,6 +369,19 @@ class OpenAIService {
 
       throw new Error('Error creating thread name');
     }
+  }
+
+  /**
+   * Ask the model to invent a fresh, vivid image-generation prompt for a city.
+   * Returns null on any failure so callers can fall back to a stored prompt.
+   */
+  async generateMotdImagePrompt(location: string): Promise<string | null> {
+    return generateMotdImagePrompt(
+      this._openai,
+      this.requireChatModel(),
+      this._config.motdImagePrompt,
+      location,
+    );
   }
 }
 
