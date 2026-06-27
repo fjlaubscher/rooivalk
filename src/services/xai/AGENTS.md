@@ -10,7 +10,7 @@ The class is a deliberate parallel implementation rather than a subclass or an e
 
 - `createResponse(author, prompt, previousResponseId?, attachments?, toolExecutor?, preferences?)` — chat via the xAI Responses API, including the function-tool execution loop and the same 404 → retry-without-id flow that flips `contextLost: true`.
 - `createImage(prompt)` — direct image generation via `images.generate`. Requests `response_format: 'b64_json'` (the standard OpenAI-compat field) instead of OpenAI's `output_format` (which is `gpt-image-1`-specific).
-- `generateMotdImagePrompt(location)` — asks the chat model for a fresh MOTD image prompt for the given location. Thin wrapper over the shared helper in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); supplies this provider's client, `requireChatModel()`, and the hot-reloaded instructions from `this._config.motdImagePrompt` (`config/motd-image-prompt.md`).
+- `generateMotdImagePrompt(location, recentPrompts?)` — asks the chat model for a fresh MOTD image prompt for the given location, steering away from `recentPrompts`. Thin wrapper over the shared helper in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); supplies this provider's client, `requireChatModel()`, and the hot-reloaded instructions from `this._config.motdImagePrompt` (`config/motd-image-prompt.md`).
 - `generateThreadName(prompt)` — one-shot thread title generation, capped to 100 chars.
 - `reloadConfig(newConfig)` — hot-reload entry point.
 

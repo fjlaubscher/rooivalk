@@ -81,10 +81,17 @@ When adding a new tool:
 `motd-image-prompt.ts` holds the shared request logic for the daily MOTD image
 prompt, used by both provider classes so they stay in sync.
 
-- `generateMotdImagePrompt(client, model, instructions, location)` — runs the
-  request against any OpenAI-compatible client (`_openai` or `_xai`) and returns
-  the prompt, or `null` on error / empty output so callers can fall back to a
-  stored prompt.
+- `generateMotdImagePrompt(client, model, instructions, location, recentPrompts)`
+  — runs the request against any OpenAI-compatible client (`_openai` or `_xai`)
+  and returns the prompt, or `null` on error / empty output so callers can fall
+  back to a stored prompt.
+
+`recentPrompts` (newest first, may be empty) is appended to the instructions as
+an "avoid anything similar to these" list, so the model deliberately picks a
+different style and subject than it used on recent days. Blank entries are
+skipped; an empty list adds nothing. `RooivalkService` supplies these from
+`MemoryService.getRecentMotdPrompts()` and records each new prompt via
+`recordMotdPrompt()` (see `src/services/memory/AGENTS.md`).
 
 The system instructions are **not** hardcoded — they live in
 `config/motd-image-prompt.md` and are hot-reloaded into `config.motdImagePrompt`

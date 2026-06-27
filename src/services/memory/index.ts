@@ -184,6 +184,86 @@ class MemoryService {
     return result.changes as number;
   }
 
+  /**
+   * Picks a MOTD city from `cities`, avoiding any used in the current rotation
+   * cycle. When every city has been used the rotation resets and starts over,
+   * so no city repeats until all of them have appeared. The pick is recorded
+   * atomically. Returns the chosen city name.
+   */
+  public pickMotdCity(cities: readonly string[]): string {
+    if (cities.length === 0) {
+      throw new Error('Cannot pick a MOTD city from an empty list');
+    }
+
+    this._writeDb.exec('BEGIN IMMEDIATE');
+    let committed = false;
+    try {
+      const usedRows = this._writeDb
+        .prepare('SELECT city FROM motd_city_rotation')
+        .all() as { city: string }[];
+      const used = new Set(usedRows.map((r) => r.city));
+
+      let available = cities.filter((c) => !used.has(c));
+      if (available.length === 0) {
+        // Every city has been used — reset the cycle and start over.
+        this._writeDb.exec('DELETE FROM motd_city_rotation');
+        available = [...cities];
+      }
+
+      const chosen = available[Math.floor(Math.random() * available.length)]!;
+      this._writeDb
+        .prepare(
+          'INSERT OR REPLACE INTO motd_city_rotation (city, used_at) VALUES (?, ?)',
+        )
+        .run(chosen, Date.now());
+
+      this._writeDb.exec('COMMIT');
+      committed = true;
+      return chosen;
+    } finally {
+      if (!committed) {
+        this._writeDb.exec('ROLLBACK');
+      }
+    }
+  }
+
+  /**
+   * Records a MOTD image prompt and prunes the history to the newest `keep`
+   * rows, so the recent-prompt context stays bounded.
+   */
+  public recordMotdPrompt(prompt: string, keep = 20): void {
+    const trimmed = prompt?.trim();
+    if (!trimmed) {
+      return;
+    }
+    this._writeDb
+      .prepare(
+        'INSERT INTO motd_prompt_history (prompt, created_at) VALUES (?, ?)',
+      )
+      .run(trimmed, Date.now());
+
+    const safeKeep = Math.max(0, Math.floor(keep));
+    this._writeDb
+      .prepare(
+        `DELETE FROM motd_prompt_history
+         WHERE id NOT IN (
+           SELECT id FROM motd_prompt_history ORDER BY created_at DESC, id DESC LIMIT ?
+         )`,
+      )
+      .run(safeKeep);
+  }
+
+  /** Returns the most recent MOTD image prompts, newest first. */
+  public getRecentMotdPrompts(limit = 10): string[] {
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100);
+    const rows = this._readDb
+      .prepare(
+        'SELECT prompt FROM motd_prompt_history ORDER BY created_at DESC, id DESC LIMIT ?',
+      )
+      .all(safeLimit) as { prompt: string }[];
+    return rows.map((r) => r.prompt);
+  }
+
   public close(): void {
     if (this._closed) {
       return;

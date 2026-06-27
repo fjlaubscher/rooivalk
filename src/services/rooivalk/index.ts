@@ -55,13 +55,6 @@ import {
 import { buildToolExecutor } from './tool-executor.ts';
 import type { ToolExecutor } from '../../types.ts';
 
-function shuffleArray<T>(items: T[]): T[] {
-  return items
-    .map((item) => ({ item, sort: Math.random() }))
-    .sort((a, b) => a.sort - b.sort)
-    .map(({ item }) => item);
-}
-
 const MOTD_IMAGE_ATTACHMENT_NAME = 'rooivalk_motd.jpg';
 
 const LEADERBOARD_EMBED_COLOR = 0xe74c3c;
@@ -553,45 +546,51 @@ class Rooivalk {
         buffer: Buffer;
       } | null = null;
 
-      const locations = Object.values(YR_COORDINATES);
-      const shuffled = shuffleArray(locations);
-      const selectedCity = shuffled[0];
+      // Rotate through the cities so none repeats until all have been used,
+      // and gather recent prompts so the model can steer away from them.
+      const cityNames = Object.values(YR_COORDINATES).map((l) => l.name);
+      const selectedCityName = this._memory.pickMotdCity(cityNames);
+      const recentPrompts = this._memory.getRecentMotdPrompts();
 
       const style =
         MOTD_IMAGE_STYLES[Math.floor(Math.random() * MOTD_IMAGE_STYLES.length)];
       const aspect =
         MOTD_CITY_ASPECTS[Math.floor(Math.random() * MOTD_CITY_ASPECTS.length)];
-      const fallbackImagePrompt = `${style} depicting ${aspect} of ${selectedCity.name}. Vivid, detailed, atmospheric.`;
+      const fallbackImagePrompt = `${style} depicting ${aspect} of ${selectedCityName}. Vivid, detailed, atmospheric.`;
 
       // Prefer a fresh LLM-generated prompt for variety; fall back to a random
       // style/aspect combo if the model is unavailable or returns nothing.
       let imagePrompt = fallbackImagePrompt;
       try {
         const generatedPrompt = await this._openai.generateMotdImagePrompt(
-          selectedCity.name,
+          selectedCityName,
+          recentPrompts,
         );
         if (generatedPrompt) {
           imagePrompt = generatedPrompt;
         }
       } catch (err) {
         console.error(
-          `AI image prompt generation failed for ${selectedCity.name}:`,
+          `AI image prompt generation failed for ${selectedCityName}:`,
           err,
         );
       }
+
+      // Remember the chosen prompt so future MOTDs avoid repeating it.
+      this._memory.recordMotdPrompt(imagePrompt);
 
       try {
         const base64Image = await this._openai.createImage(imagePrompt);
         if (base64Image) {
           motdImage = {
-            heading: selectedCity.name,
+            heading: selectedCityName,
             attribution: imagePrompt,
             buffer: Buffer.from(base64Image, 'base64'),
           };
         }
       } catch (err) {
         console.error(
-          `AI image generation failed for ${selectedCity.name}:`,
+          `AI image generation failed for ${selectedCityName}:`,
           err,
         );
       }

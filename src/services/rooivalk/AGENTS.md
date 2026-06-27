@@ -48,12 +48,19 @@ The daily MOTD uses a two-tier image fallback strategy:
 
 The image prompt itself is also composed in two tiers, for variety:
 
-1. **LLM-generated** (primary): `ImageService.generateMotdImagePrompt(location)` asks the chat model for a fresh prompt per location. The configured location string is passed through verbatim, so it may be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
+1. **LLM-generated** (primary): `ImageService.generateMotdImagePrompt(location, recentPrompts)` asks the chat model for a fresh prompt per location. The configured location string is passed through verbatim, so it may be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
 2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, a random combination of two module-level arrays is used —
    - `MOTD_IMAGE_STYLES` — art styles (watercolour, pixel art, retro travel poster, etc.)
    - `MOTD_CITY_ASPECTS` — subject topics (landmarks, cuisine, wildlife, etc.)
 
 The fallback combines a random style + aspect + location name into the prompt.
+
+#### Avoiding repetition (memory)
+
+Both the city choice and the prompt are de-duplicated across days via `MemoryService` (persisted in SQLite, so it survives restarts — see [`src/services/memory/AGENTS.md`](../memory/AGENTS.md#motd-image-variety)):
+
+- **City rotation**: `pickMotdCity(cityNames)` picks a `YR_COORDINATES` location that hasn't been used in the current cycle. No city repeats until every one has appeared, then the cycle resets.
+- **Prompt avoidance**: `getRecentMotdPrompts()` feeds recent prompts into the LLM call as an avoid-list, and the chosen prompt is saved with `recordMotdPrompt()`. This is what stops the model defaulting to the same style (e.g. "retro travel poster") every day.
 
 ## Bot Behavior Logic
 
