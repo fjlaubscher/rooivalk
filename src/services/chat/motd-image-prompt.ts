@@ -1,43 +1,34 @@
 import type OpenAI from 'openai';
 
 /**
- * Builds the avoid-list block appended to the instructions so the model steers
- * away from prompts it recently produced. Returns an empty string when there is
- * nothing to avoid.
- */
-const buildAvoidBlock = (recentPrompts: readonly string[]): string => {
-  const cleaned = recentPrompts.map((p) => p.trim()).filter(Boolean);
-  if (cleaned.length === 0) {
-    return '';
-  }
-  const list = cleaned.map((p) => `- ${p}`).join('\n');
-  return `\n\nDo NOT produce a prompt similar in art style or subject to any of these recent ones. Deliberately pick a different style and subject:\n${list}`;
-};
-
-/**
- * Generate a fresh MOTD image-generation prompt for the given location using
- * an OpenAI-compatible chat client (OpenAI or xAI). Returns null on error or
- * when the model produces no output, so callers can fall back to a stored
- * prompt.
+ * Generate a fresh MOTD image-generation prompt for a *pre-chosen*
+ * location/style/subject combination, using an OpenAI-compatible chat client
+ * (OpenAI or xAI). The caller picks the style and subject deterministically
+ * (see `src/services/memory/motd-rotation.ts`); the model only renders that
+ * fixed combination into a vivid prompt and must not substitute its own style
+ * or subject. Returns null on error or empty output, so callers can fall back
+ * to a stored prompt.
  *
  * @param client - OpenAI-compatible client
  * @param model - chat model id to use
  * @param instructions - system instructions from config (`config/motd-image-prompt.md`, hot-reloaded)
  * @param location - configured location string (city, suburb, or full place name)
- * @param recentPrompts - recently used prompts to steer away from (newest first)
+ * @param style - the art style the prompt must use
+ * @param subject - the subject/aspect the prompt must depict
  */
 export async function generateMotdImagePrompt(
   client: OpenAI,
   model: string,
   instructions: string,
   location: string,
-  recentPrompts: readonly string[] = [],
+  style: string,
+  subject: string,
 ): Promise<string | null> {
   try {
     const response = await client.responses.create({
       model,
-      instructions: `${instructions}${buildAvoidBlock(recentPrompts)}`,
-      input: location,
+      instructions,
+      input: `Location: ${location}\nArt style: ${style}\nSubject: ${subject}`,
     });
 
     const imagePrompt = response.output_text.trim();

@@ -75,9 +75,11 @@ const mockMemoryService = vi.mocked({
   recall: vi.fn(),
   remember: vi.fn(),
   forgetMemory: vi.fn(),
-  pickMotdCity: vi.fn().mockReturnValue('Test City, Testland'),
-  getRecentMotdPrompts: vi.fn().mockReturnValue([]),
-  recordMotdPrompt: vi.fn(),
+  pickMotdSelection: vi.fn().mockReturnValue({
+    city: 'Test City, Testland',
+    style: 'watercolour painting',
+    aspect: 'a famous landmark or monument',
+  }),
   close: vi.fn(),
 } as any);
 
@@ -113,8 +115,11 @@ describe('Rooivalk', () => {
     mockChatClient.generateThreadName.mockResolvedValue('Thread Title');
     mockOpenAIClient.createImage.mockReset();
     mockOpenAIClient.generateMotdImagePrompt.mockResolvedValue(null);
-    mockMemoryService.pickMotdCity.mockReturnValue('Test City, Testland');
-    mockMemoryService.getRecentMotdPrompts.mockReturnValue([]);
+    mockMemoryService.pickMotdSelection.mockReturnValue({
+      city: 'Test City, Testland',
+      style: 'watercolour painting',
+      aspect: 'a famous landmark or monument',
+    });
     mockPeapixService.getImage.mockResolvedValue(null);
     mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
@@ -1359,11 +1364,12 @@ describe('Rooivalk', () => {
       expect(sendPayload?.embeds).toHaveLength(1);
     });
 
-    it('rotates cities and passes recent prompts to the model, then records the prompt', async () => {
-      mockMemoryService.pickMotdCity.mockReturnValue('Gdańsk, Poland');
-      mockMemoryService.getRecentMotdPrompts.mockReturnValue([
-        'watercolour of Dubai',
-      ]);
+    it('passes the deterministically chosen city, style and aspect to the model', async () => {
+      mockMemoryService.pickMotdSelection.mockReturnValue({
+        city: 'Gdańsk, Poland',
+        style: 'oil painting',
+        aspect: 'a bustling local market scene',
+      });
       mockOpenAIClient.generateMotdImagePrompt.mockResolvedValue(
         'oil painting of a Gdańsk market',
       );
@@ -1373,20 +1379,19 @@ describe('Rooivalk', () => {
 
       await buildRooivalk().sendMotdToMotdChannel();
 
-      // City rotation drives selection from the configured location names.
-      expect(mockMemoryService.pickMotdCity).toHaveBeenCalledTimes(1);
-      const cityArg = mockMemoryService.pickMotdCity.mock.calls[0]![0];
-      expect(cityArg).toContain('Dubai, United Arab Emirates');
+      // Selection is driven from the configured location names + style/aspect
+      // pools, all chosen in code (not by the model).
+      expect(mockMemoryService.pickMotdSelection).toHaveBeenCalledTimes(1);
+      const poolsArg = mockMemoryService.pickMotdSelection.mock.calls[0]![0];
+      expect(poolsArg.cities).toContain('Dubai, United Arab Emirates');
+      expect(poolsArg.styles.length).toBeGreaterThan(0);
+      expect(poolsArg.aspects.length).toBeGreaterThan(0);
 
-      // Recent prompts are forwarded to the prompt generator for the chosen city.
+      // The model only renders that exact fixed combination.
       expect(mockOpenAIClient.generateMotdImagePrompt).toHaveBeenCalledWith(
         'Gdańsk, Poland',
-        ['watercolour of Dubai'],
-      );
-
-      // The final prompt is recorded so future MOTDs steer away from it.
-      expect(mockMemoryService.recordMotdPrompt).toHaveBeenCalledWith(
-        'oil painting of a Gdańsk market',
+        'oil painting',
+        'a bustling local market scene',
       );
 
       // The chosen city is used as the image heading (embed description).

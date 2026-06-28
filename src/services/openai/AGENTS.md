@@ -31,7 +31,7 @@ Behaviour:
 ## Other methods
 
 - `createImage(prompt)` — direct image generation via `images.generate`, used by the `/image` slash command and the daily MOTD.
-- `generateMotdImagePrompt(location, recentPrompts?)` — asks the chat model for a fresh MOTD image prompt for the given location, steering away from `recentPrompts`. Thin wrapper over the shared helper in `src/services/chat/motd-image-prompt.ts`; supplies this provider's client, `requireChatModel()`, and the hot-reloaded instructions from `this._config.motdImagePrompt` (`config/motd-image-prompt.md`).
+- `generateMotdImagePrompt(location, style, subject)` — asks the chat model to render a pre-chosen `location`/`style`/`subject` combination into a fresh MOTD image prompt (the combination is picked deterministically by the caller — see `src/services/memory/motd-rotation.ts`). Thin wrapper over the shared helper in `src/services/chat/motd-image-prompt.ts`; supplies this provider's client, `requireChatModel()`, and the hot-reloaded instructions from `this._config.motdImagePrompt` (`config/motd-image-prompt.md`).
 - `generateThreadName(prompt)` — one-shot title generation, capped to 100 chars.
 - `reloadConfig(newConfig)` — hot-reload entry point.
 

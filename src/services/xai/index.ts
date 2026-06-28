@@ -356,14 +356,16 @@ class XAIService {
 
   async generateMotdImagePrompt(
     location: string,
-    recentPrompts: readonly string[] = [],
+    style: string,
+    subject: string,
   ): Promise<string | null> {
     return generateMotdImagePrompt(
       this._xai,
       this.requireChatModel(),
       this._config.motdImagePrompt,
       location,
-      recentPrompts,
+      style,
+      subject,
     );
   }
 }

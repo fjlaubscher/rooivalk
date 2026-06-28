@@ -18,53 +18,28 @@ describe('generateMotdImagePrompt', () => {
       'model-x',
       'base instructions',
       'Cape Town',
+      'watercolour',
+      'a harbour at dawn',
     );
     expect(result).toBe('a vivid prompt');
   });
 
-  it('passes the base instructions and location through', async () => {
+  it('passes the instructions and the chosen location/style/subject through', async () => {
     const { client, create } = makeClient('prompt');
     await generateMotdImagePrompt(
       client,
       'model-x',
       'base instructions',
       'Cape Town',
+      'ukiyo-e woodblock print',
+      'a bustling local market scene',
     );
     const args = create.mock.calls[0]![0];
     expect(args.model).toBe('model-x');
-    expect(args.input).toBe('Cape Town');
-    expect(args.instructions).toContain('base instructions');
-  });
-
-  it('appends recent prompts as an avoid-list', async () => {
-    const { client, create } = makeClient('prompt');
-    await generateMotdImagePrompt(
-      client,
-      'model-x',
-      'base instructions',
-      'Cape Town',
-      ['watercolour of Dubai', 'retro travel poster of Gdańsk'],
-    );
-    const { instructions } = create.mock.calls[0]![0];
-    expect(instructions).toContain('Do NOT produce a prompt similar');
-    expect(instructions).toContain('- watercolour of Dubai');
-    expect(instructions).toContain('- retro travel poster of Gdańsk');
-  });
-
-  it('omits the avoid-list when there are no recent prompts', async () => {
-    const { client, create } = makeClient('prompt');
-    await generateMotdImagePrompt(client, 'model-x', 'base', 'Cape Town', []);
-    const { instructions } = create.mock.calls[0]![0];
-    expect(instructions).not.toContain('Do NOT produce a prompt similar');
-  });
-
-  it('skips blank recent prompts', async () => {
-    const { client, create } = makeClient('prompt');
-    await generateMotdImagePrompt(client, 'model-x', 'base', 'Cape Town', [
-      '   ',
-    ]);
-    const { instructions } = create.mock.calls[0]![0];
-    expect(instructions).not.toContain('Do NOT produce a prompt similar');
+    expect(args.instructions).toBe('base instructions');
+    expect(args.input).toContain('Cape Town');
+    expect(args.input).toContain('ukiyo-e woodblock print');
+    expect(args.input).toContain('a bustling local market scene');
   });
 
   it('returns null when the model output is empty', async () => {
@@ -74,6 +49,8 @@ describe('generateMotdImagePrompt', () => {
       'model-x',
       'base',
       'Cape Town',
+      'oil painting',
+      'the skyline at golden hour',
     );
     expect(result).toBeNull();
   });
@@ -87,6 +64,8 @@ describe('generateMotdImagePrompt', () => {
       'model-x',
       'base',
       'Cape Town',
+      'pixel art',
+      'a cultural festival',
     );
     expect(result).toBeNull();
     expect(errSpy).toHaveBeenCalled();

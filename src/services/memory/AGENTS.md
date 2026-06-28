@@ -6,7 +6,7 @@
 
 1. **Memories** — free-form notes the model decides to keep about a user (`memory` kind), plus a capped set of stable user preferences (`preference` kind) injected into every turn.
 2. **Conversation response ids** — per-conversation OpenAI `response.id` values used to chain turns via `previous_response_id`.
-3. **MOTD image history** — the city rotation cycle and recent image prompts that keep the daily MOTD image varied (see MOTD section below).
+3. **MOTD image history** — recent city/style/aspect selections that keep the daily MOTD image varied (see MOTD section below).
 
 The service holds two connections to the same DB file: a writable one for mutations and a `readOnly: true` one used for reads (`recall`, `getPreferences`, `forgetMemory` lookup, `getConversationResponseId`, ad-hoc `query`). Read-only is enforced **at the SQLite level**, so even a programming bug that issues a write through the read handle fails in the engine.
 
@@ -20,16 +20,15 @@ The service holds two connections to the same DB file: a writable one for mutati
 
 - `memories(id, discord_user_id, content, kind, created_at)` — composite index on `(discord_user_id, kind)`. `kind` is `'memory'` or `'preference'`, enforced by a CHECK constraint.
 - `conversation_responses(type, ref_id, response_id, updated_at)` — composite PK on `(type, ref_id)`. `type` is `'msg'` (a bot reply id) or `'thread'` (a thread id), enforced by a CHECK constraint. Upserted via `ON CONFLICT(type, ref_id)`. Read/written via `getConversationResponseId(ref)` / `setConversationResponseId(ref, id)` / `clearConversationResponseId(ref)`. Index on `updated_at` supports the TTL prune. `pruneConversationResponses(olderThanMs)` deletes any row past its expiry — wired to a daily cron in `src/index.ts` with `CONVERSATION_RESPONSE_TTL_MS` (30 days) since OpenAI's response retention window is the upper bound on usefulness.
-- `motd_city_rotation(city, used_at)` — cities used in the current MOTD rotation cycle. `city` is the PK.
-- `motd_prompt_history(id, prompt, created_at)` — recent MOTD image prompts, pruned to the newest N. Index on `created_at` supports ordered recall and pruning.
+- `motd_history(id, city, style, aspect, used_at)` — one row per daily MOTD selection, pruned to the newest N. Index on `used_at` supports ordered recall and pruning.
 
 ## MOTD image variety
 
-These methods keep the daily MOTD image from repeating, and back the city rotation and recent-prompt avoidance in `RooivalkService.sendMotdToMotdChannel()`:
+The daily MOTD image is kept varied **deterministically in code**, not by asking the model to avoid things. `RooivalkService.sendMotdToMotdChannel()` calls one method:
 
-- `pickMotdCity(cities)` — returns a city not yet used in the current cycle, recording the pick atomically (wrapped in `BEGIN IMMEDIATE` so concurrent calls can't double-pick or skip the reset). When every city has been used the rotation table is cleared and the cycle restarts, so no city repeats until all have appeared. Throws on an empty list.
-- `recordMotdPrompt(prompt, keep = 20)` — stores a prompt and prunes the history to the newest `keep` rows. Blank prompts are ignored.
-- `getRecentMotdPrompts(limit = 10)` — returns recent prompts newest-first; fed to the model as an avoid-list so it steers away from repeating a style or subject.
+- `pickMotdSelection(pools)` — given `{ cities, styles, aspects }`, deterministically picks one of each, steering away from recently-used values, records the pick, and prunes history — all inside a single `BEGIN IMMEDIATE` transaction so concurrent calls can't double-pick or read stale history. Throws if any pool is empty.
+
+The selection algorithm itself is a pure, separately-tested function in [`motd-rotation.ts`](./motd-rotation.ts). The key idea: each dimension's cooldown (how many of the most-recently-used values are excluded) is **derived from that pool's size** via `cooldownFor(N) = min(N - 1, round(N * 0.7))`, so larger lists space their picks further apart and a single-value pool never deadlocks. For a once-a-day job the cooldown count doubles as a rough number of days (cities ≈ 5 days, aspects ≈ 3 weeks, styles ≈ 1 month). An exact `city/style/aspect` combo is also re-rolled if it matches a recent one, as belt-and-braces.
 
 ## Memory kinds
 
@@ -51,7 +50,8 @@ Every memory tool resolves the subject from `message.author.id` at the **executo
 ## Testing
 
 - Tests use a temp directory (`mkdtempSync` in `os.tmpdir()`). `:memory:` won't work because two connections to it are independent DBs.
-- `index.test.ts` covers: writes, scoped recall, limit clamping, cross-user delete refusal, structural read-only enforcement, ad-hoc `query` (parameterised SELECT, row-limit truncation, write rejection), persistence across reopens, MOTD city rotation (no repeat until cycle reset, single-city lists, persistence) and MOTD prompt history (ordering, pruning, blank handling).
+- `index.test.ts` covers: writes, scoped recall, limit clamping, cross-user delete refusal, structural read-only enforcement, ad-hoc `query` (parameterised SELECT, row-limit truncation, write rejection), persistence across reopens, and MOTD selection (pool membership, recording, city cooldown + release, history pruning, persistence, empty-pool guard).
+- `motd-rotation.test.ts` covers the pure selection algorithm: cooldown derivation, per-dimension avoidance, deadlock-free small pools, exact-combo re-roll, and termination.
 
 ## Out of Scope (for now)
 

@@ -134,83 +134,87 @@ describe('MemoryService', () => {
     });
   });
 
-  describe('MOTD city rotation', () => {
-    const CITIES = ['Cape Town', 'Gdańsk', 'Dubai'];
+  describe('MOTD selection', () => {
+    const POOLS = {
+      cities: [
+        'Cape Town',
+        'Gdańsk',
+        'Dubai',
+        'Tamarin',
+        'Lakeside',
+        'Table View',
+      ],
+      styles: ['watercolour', 'oil painting', 'pixel art', 'pop art'],
+      aspects: ['landmark', 'cuisine', 'wildlife', 'skyline'],
+    };
 
-    it('throws when the city list is empty', () => {
-      expect(() => memory.pickMotdCity([])).toThrow(/empty list/);
+    it('throws when any pool is empty', () => {
+      expect(() => memory.pickMotdSelection({ ...POOLS, cities: [] })).toThrow(
+        /empty pool/,
+      );
     });
 
-    it('returns a city from the provided list', () => {
-      const city = memory.pickMotdCity(CITIES);
-      expect(CITIES).toContain(city);
+    it('returns a selection drawn from each pool', () => {
+      const sel = memory.pickMotdSelection(POOLS);
+      expect(POOLS.cities).toContain(sel.city);
+      expect(POOLS.styles).toContain(sel.style);
+      expect(POOLS.aspects).toContain(sel.aspect);
     });
 
-    it('does not repeat a city until all have been used, then resets', () => {
-      const first = memory.pickMotdCity(CITIES);
-      const second = memory.pickMotdCity(CITIES);
-      const third = memory.pickMotdCity(CITIES);
-
-      // First full cycle covers every city exactly once.
-      expect(new Set([first, second, third])).toEqual(new Set(CITIES));
-
-      // Cycle reset: the fourth pick is allowed to be any city again.
-      const fourth = memory.pickMotdCity(CITIES);
-      expect(CITIES).toContain(fourth);
-      // The rotation table now holds only the post-reset pick.
-      const { rows } = memory.query('SELECT city FROM motd_city_rotation');
-      expect(rows).toEqual([{ city: fourth }]);
+    it('records each pick in motd_history', () => {
+      memory.pickMotdSelection(POOLS);
+      memory.pickMotdSelection(POOLS);
+      const { rows } = memory.query(
+        'SELECT city, style, aspect FROM motd_history',
+      );
+      expect(rows).toHaveLength(2);
     });
 
-    it('handles a single-city list by resetting each time', () => {
-      expect(memory.pickMotdCity(['Solo'])).toBe('Solo');
-      expect(memory.pickMotdCity(['Solo'])).toBe('Solo');
+    it('does not repeat a city while it is on cooldown', () => {
+      // 6 cities → cooldown round(6 * 0.7) = 4, so 5 consecutive picks each
+      // exclude the prior ones and must all be distinct.
+      const picks = Array.from(
+        { length: 5 },
+        () => memory.pickMotdSelection(POOLS).city,
+      );
+      expect(new Set(picks).size).toBe(5);
     });
 
-    it('persists rotation state across reopens', () => {
-      const first = memory.pickMotdCity(CITIES);
+    it('frees the oldest city once newer picks fill the cooldown window', () => {
+      const picks = Array.from(
+        { length: 5 },
+        () => memory.pickMotdSelection(POOLS).city,
+      );
+      const sixth = memory.pickMotdSelection(POOLS).city;
+      // The 4 freshest picks are still on cooldown; the sixth pick must be the
+      // oldest released city or the as-yet-unused one.
+      const stillOnCooldown = new Set(picks.slice(1));
+      expect(stillOnCooldown.has(sixth)).toBe(false);
+    });
+
+    it('prunes history to a bounded size', () => {
+      // keep = max(60, maxPool * 3) = 60 for these pools.
+      for (let i = 0; i < 65; i++) {
+        memory.pickMotdSelection(POOLS);
+      }
+      const { rows } = memory.query(
+        'SELECT COUNT(*) as count FROM motd_history',
+      );
+      expect((rows[0] as { count: number }).count).toBeLessThanOrEqual(60);
+    });
+
+    it('persists history across reopens', () => {
+      const first = memory.pickMotdSelection(POOLS);
       memory.close();
       memory = new MemoryService(dbPath);
-      const second = memory.pickMotdCity(CITIES);
-      expect(second).not.toBe(first);
-    });
-  });
-
-  describe('MOTD prompt history', () => {
-    it('records prompts and returns them newest first', () => {
-      memory.recordMotdPrompt('first prompt');
-      memory.recordMotdPrompt('second prompt');
-      expect(memory.getRecentMotdPrompts()).toEqual([
-        'second prompt',
-        'first prompt',
-      ]);
-    });
-
-    it('ignores empty prompts', () => {
-      memory.recordMotdPrompt('   ');
-      expect(memory.getRecentMotdPrompts()).toHaveLength(0);
-    });
-
-    it('prunes history to the newest `keep` rows', () => {
-      for (let i = 0; i < 5; i++) {
-        memory.recordMotdPrompt(`prompt ${i}`, 3);
-      }
-      const recent = memory.getRecentMotdPrompts();
-      expect(recent).toEqual(['prompt 4', 'prompt 3', 'prompt 2']);
-    });
-
-    it('respects the recall limit', () => {
-      for (let i = 0; i < 4; i++) {
-        memory.recordMotdPrompt(`p${i}`);
-      }
-      expect(memory.getRecentMotdPrompts(2)).toEqual(['p3', 'p2']);
-    });
-
-    it('persists prompt history across reopens', () => {
-      memory.recordMotdPrompt('durable prompt');
-      memory.close();
-      memory = new MemoryService(dbPath);
-      expect(memory.getRecentMotdPrompts()).toEqual(['durable prompt']);
+      const { rows } = memory.query(
+        'SELECT city, style, aspect FROM motd_history',
+      );
+      expect(rows).toContainEqual({
+        city: first.city,
+        style: first.style,
+        aspect: first.aspect,
+      });
     });
   });
 
