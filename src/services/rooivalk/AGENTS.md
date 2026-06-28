@@ -46,14 +46,18 @@ The daily MOTD uses a two-tier image fallback strategy:
 1. **AI-generated image** (primary): Calls `ImageService.createImage()` on the active image provider with the prompt for the selected location
 2. **Peapix** (fallback): Fetches Bing's image of the day via `PeapixService.getImage()`
 
-The image prompt itself is also composed in two tiers, for variety:
+The image prompt is built around a **deterministically chosen** `city / style / aspect` combination. `MemoryService.pickMotdSelection({ cities, styles, aspects })` picks all three in code, steering away from recently-used values (see [`src/services/memory/AGENTS.md`](../memory/AGENTS.md#motd-image-variety)). The pools are:
 
-1. **LLM-generated** (primary): `ImageService.generateMotdImagePrompt(location)` asks the chat model for a fresh prompt per location. The configured location string is passed through verbatim, so it may be a city, a suburb, or a full place name (e.g. `Sea Point, Cape Town`). The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
-2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, a random combination of two module-level arrays is used —
-   - `MOTD_IMAGE_STYLES` — art styles (watercolour, pixel art, retro travel poster, etc.)
-   - `MOTD_CITY_ASPECTS` — subject topics (landmarks, cuisine, wildlife, etc.)
+- `YR_COORDINATES` location names — the candidate cities
+- `MOTD_IMAGE_STYLES` — art styles (watercolour, pixel art, retro travel poster, etc.)
+- `MOTD_CITY_ASPECTS` — subject topics (landmarks, cuisine, wildlife, etc.)
 
-The fallback combines a random style + aspect + location name into the prompt.
+The chosen combination then drives the prompt in two tiers:
+
+1. **LLM-rendered** (primary): `ImageService.generateMotdImagePrompt(city, style, aspect)` asks the chat model to render _that exact_ combination into vivid prose. The model does **not** choose the style or subject — that's the whole point, and it's what stops the image defaulting to the same style (e.g. "retro travel poster") every day. The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
+2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, the same chosen `style`/`aspect`/`city` are dropped into a template string — `` `${style} depicting ${aspect} of ${city}. Vivid, detailed, atmospheric.` ``.
+
+Because the selection is recorded inside `pickMotdSelection`, the day's combo is remembered even if image generation fails and the MOTD falls back to Peapix.
 
 ## Bot Behavior Logic
 

@@ -19,4 +19,15 @@ CREATE TABLE IF NOT EXISTS conversation_responses (
 
 CREATE INDEX IF NOT EXISTS idx_conversation_responses_updated_at
   ON conversation_responses(updated_at);
+
+CREATE TABLE IF NOT EXISTS motd_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  city TEXT NOT NULL,
+  style TEXT NOT NULL,
+  aspect TEXT NOT NULL,
+  used_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_motd_history_used_at
+  ON motd_history(used_at);
 `;

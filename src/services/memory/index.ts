@@ -3,6 +3,11 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 import { SCHEMA_SQL } from './schema.ts';
+import {
+  selectMotdCombo,
+  type MotdPools,
+  type MotdSelection,
+} from './motd-rotation.ts';
 import type { ConversationRef } from '../../types.ts';
 
 export type MemoryKind = 'memory' | 'preference';
@@ -16,6 +21,9 @@ export type MemoryRow = {
 };
 
 const MAX_PREFERENCES = 5;
+
+/** Lower bound on retained MOTD history rows (see `pickMotdSelection`). */
+const MOTD_HISTORY_MIN_KEEP = 60;
 
 class MemoryService {
   private _writeDb: DatabaseSync;
@@ -182,6 +190,59 @@ class MemoryService {
       .prepare('DELETE FROM conversation_responses WHERE updated_at < ?')
       .run(cutoff);
     return result.changes as number;
+  }
+
+  /**
+   * Deterministically picks the next MOTD city/style/aspect, steering away from
+   * recently-used values (the cooldown per dimension scales with that pool's
+   * size — see `motd-rotation.ts`). The pick is recorded and the history pruned,
+   * all inside a single `BEGIN IMMEDIATE` transaction so concurrent callers
+   * can't double-pick or read stale history. Throws if any pool is empty.
+   */
+  public pickMotdSelection(pools: MotdPools): MotdSelection {
+    const maxPool = Math.max(
+      pools.cities.length,
+      pools.styles.length,
+      pools.aspects.length,
+    );
+    // Keep comfortably more rows than the largest possible cooldown so every
+    // dimension has enough history to evaluate, while staying bounded.
+    const keep = Math.max(MOTD_HISTORY_MIN_KEEP, maxPool * 3);
+
+    this._writeDb.exec('BEGIN IMMEDIATE');
+    let committed = false;
+    try {
+      const history = this._writeDb
+        .prepare(
+          'SELECT city, style, aspect FROM motd_history ORDER BY used_at DESC, id DESC LIMIT ?',
+        )
+        .all(keep) as MotdSelection[];
+
+      const selection = selectMotdCombo(pools, history);
+
+      this._writeDb
+        .prepare(
+          'INSERT INTO motd_history (city, style, aspect, used_at) VALUES (?, ?, ?, ?)',
+        )
+        .run(selection.city, selection.style, selection.aspect, Date.now());
+
+      this._writeDb
+        .prepare(
+          `DELETE FROM motd_history
+           WHERE id NOT IN (
+             SELECT id FROM motd_history ORDER BY used_at DESC, id DESC LIMIT ?
+           )`,
+        )
+        .run(keep);
+
+      this._writeDb.exec('COMMIT');
+      committed = true;
+      return selection;
+    } finally {
+      if (!committed) {
+        this._writeDb.exec('ROLLBACK');
+      }
+    }
   }
 
   public close(): void {

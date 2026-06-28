@@ -75,6 +75,11 @@ const mockMemoryService = vi.mocked({
   recall: vi.fn(),
   remember: vi.fn(),
   forgetMemory: vi.fn(),
+  pickMotdSelection: vi.fn().mockReturnValue({
+    city: 'Test City, Testland',
+    style: 'watercolour painting',
+    aspect: 'a famous landmark or monument',
+  }),
   close: vi.fn(),
 } as any);
 
@@ -110,6 +115,11 @@ describe('Rooivalk', () => {
     mockChatClient.generateThreadName.mockResolvedValue('Thread Title');
     mockOpenAIClient.createImage.mockReset();
     mockOpenAIClient.generateMotdImagePrompt.mockResolvedValue(null);
+    mockMemoryService.pickMotdSelection.mockReturnValue({
+      city: 'Test City, Testland',
+      style: 'watercolour painting',
+      aspect: 'a famous landmark or monument',
+    });
     mockPeapixService.getImage.mockResolvedValue(null);
     mockDiscordService.mentionRegex = new RegExp(`<@${BOT_ID}>`, 'g');
 
@@ -1125,6 +1135,8 @@ describe('Rooivalk', () => {
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
+        undefined,
+        mockMemoryService,
       );
 
       await weatherRooivalk.handleWeatherCommand(interaction);
@@ -1153,6 +1165,8 @@ describe('Rooivalk', () => {
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
+        undefined,
+        mockMemoryService,
       );
 
       await weatherRooivalk.handleWeatherCommand(interaction);
@@ -1183,6 +1197,8 @@ describe('Rooivalk', () => {
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
+        undefined,
+        mockMemoryService,
       );
 
       await weatherRooivalk.handleWeatherCommand(interaction);
@@ -1330,6 +1346,8 @@ describe('Rooivalk', () => {
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
+        undefined,
+        mockMemoryService,
       );
 
     it('uses the AI-generated image when createImage succeeds', async () => {
@@ -1344,6 +1362,43 @@ describe('Rooivalk', () => {
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.files).toHaveLength(1);
       expect(sendPayload?.embeds).toHaveLength(1);
+    });
+
+    it('passes the deterministically chosen city, style and aspect to the model', async () => {
+      mockMemoryService.pickMotdSelection.mockReturnValue({
+        city: 'Gdańsk, Poland',
+        style: 'oil painting',
+        aspect: 'a bustling local market scene',
+      });
+      mockOpenAIClient.generateMotdImagePrompt.mockResolvedValue(
+        'oil painting of a Gdańsk market',
+      );
+      mockOpenAIClient.createImage.mockResolvedValue(
+        Buffer.from('img').toString('base64'),
+      );
+
+      await buildRooivalk().sendMotdToMotdChannel();
+
+      // Selection is driven from the configured location names + style/aspect
+      // pools, all chosen in code (not by the model).
+      expect(mockMemoryService.pickMotdSelection).toHaveBeenCalledTimes(1);
+      const poolsArg = mockMemoryService.pickMotdSelection.mock.calls[0]![0];
+      expect(poolsArg.cities).toContain('Dubai, United Arab Emirates');
+      expect(poolsArg.styles.length).toBeGreaterThan(0);
+      expect(poolsArg.aspects.length).toBeGreaterThan(0);
+
+      // The model only renders that exact fixed combination.
+      expect(mockOpenAIClient.generateMotdImagePrompt).toHaveBeenCalledWith(
+        'Gdańsk, Poland',
+        'oil painting',
+        'a bustling local market scene',
+      );
+
+      // The chosen city is used as the image heading (embed description).
+      const sendPayload = mockChannel.send.mock.calls[0]?.[0];
+      expect(sendPayload?.embeds?.[0]?.data?.description).toContain(
+        'Gdańsk, Poland',
+      );
     });
 
     it('uses the LLM-generated image prompt when available', async () => {
@@ -1395,6 +1450,8 @@ describe('Rooivalk', () => {
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
+        undefined,
+        mockMemoryService,
       );
 
       await motdRooivalk.sendMotdToMotdChannel();
@@ -1450,6 +1507,8 @@ describe('Rooivalk', () => {
         mockOpenAIClient,
         mockYrService,
         mockPeapixService,
+        undefined,
+        mockMemoryService,
       );
 
       await motdRooivalk.sendMotdToMotdChannel();

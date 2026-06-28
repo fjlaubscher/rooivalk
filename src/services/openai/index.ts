@@ -372,15 +372,23 @@ class OpenAIService {
   }
 
   /**
-   * Ask the model to invent a fresh, vivid image-generation prompt for a city.
-   * Returns null on any failure so callers can fall back to a stored prompt.
+   * Render a pre-chosen location/style/subject combination into a fresh, vivid
+   * image-generation prompt. The combination is picked deterministically by the
+   * caller; the model only does the wording. Returns null on any failure so
+   * callers can fall back to a stored prompt.
    */
-  async generateMotdImagePrompt(location: string): Promise<string | null> {
+  async generateMotdImagePrompt(
+    location: string,
+    style: string,
+    subject: string,
+  ): Promise<string | null> {
     return generateMotdImagePrompt(
       this._openai,
       this.requireChatModel(),
       this._config.motdImagePrompt,
       location,
+      style,
+      subject,
     );
   }
 }

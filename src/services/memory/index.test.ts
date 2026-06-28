@@ -134,6 +134,90 @@ describe('MemoryService', () => {
     });
   });
 
+  describe('MOTD selection', () => {
+    const POOLS = {
+      cities: [
+        'Cape Town',
+        'Gdańsk',
+        'Dubai',
+        'Tamarin',
+        'Lakeside',
+        'Table View',
+      ],
+      styles: ['watercolour', 'oil painting', 'pixel art', 'pop art'],
+      aspects: ['landmark', 'cuisine', 'wildlife', 'skyline'],
+    };
+
+    it('throws when any pool is empty', () => {
+      expect(() => memory.pickMotdSelection({ ...POOLS, cities: [] })).toThrow(
+        /empty pool/,
+      );
+    });
+
+    it('returns a selection drawn from each pool', () => {
+      const sel = memory.pickMotdSelection(POOLS);
+      expect(POOLS.cities).toContain(sel.city);
+      expect(POOLS.styles).toContain(sel.style);
+      expect(POOLS.aspects).toContain(sel.aspect);
+    });
+
+    it('records each pick in motd_history', () => {
+      memory.pickMotdSelection(POOLS);
+      memory.pickMotdSelection(POOLS);
+      const { rows } = memory.query(
+        'SELECT city, style, aspect FROM motd_history',
+      );
+      expect(rows).toHaveLength(2);
+    });
+
+    it('does not repeat a city while it is on cooldown', () => {
+      // 6 cities → cooldown round(6 * 0.7) = 4, so 5 consecutive picks each
+      // exclude the prior ones and must all be distinct.
+      const picks = Array.from(
+        { length: 5 },
+        () => memory.pickMotdSelection(POOLS).city,
+      );
+      expect(new Set(picks).size).toBe(5);
+    });
+
+    it('frees the oldest city once newer picks fill the cooldown window', () => {
+      const picks = Array.from(
+        { length: 5 },
+        () => memory.pickMotdSelection(POOLS).city,
+      );
+      const sixth = memory.pickMotdSelection(POOLS).city;
+      // The 4 freshest picks are still on cooldown; the sixth pick must be the
+      // oldest released city or the as-yet-unused one.
+      const stillOnCooldown = new Set(picks.slice(1));
+      expect(stillOnCooldown.has(sixth)).toBe(false);
+    });
+
+    it('prunes history to a bounded size', () => {
+      // keep = max(60, maxPool * 3) = 60 for these pools.
+      for (let i = 0; i < 65; i++) {
+        memory.pickMotdSelection(POOLS);
+      }
+      const { rows } = memory.query(
+        'SELECT COUNT(*) as count FROM motd_history',
+      );
+      expect((rows[0] as { count: number }).count).toBeLessThanOrEqual(60);
+    });
+
+    it('persists history across reopens', () => {
+      const first = memory.pickMotdSelection(POOLS);
+      memory.close();
+      memory = new MemoryService(dbPath);
+      const { rows } = memory.query(
+        'SELECT city, style, aspect FROM motd_history',
+      );
+      expect(rows).toContainEqual({
+        city: first.city,
+        style: first.style,
+        aspect: first.aspect,
+      });
+    });
+  });
+
   describe('read-only handle', () => {
     it('rejects writes at the SQLite level', () => {
       const readDb = (

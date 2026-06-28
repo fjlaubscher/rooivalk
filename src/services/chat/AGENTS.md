@@ -81,10 +81,18 @@ When adding a new tool:
 `motd-image-prompt.ts` holds the shared request logic for the daily MOTD image
 prompt, used by both provider classes so they stay in sync.
 
-- `generateMotdImagePrompt(client, model, instructions, location)` — runs the
-  request against any OpenAI-compatible client (`_openai` or `_xai`) and returns
-  the prompt, or `null` on error / empty output so callers can fall back to a
-  stored prompt.
+- `generateMotdImagePrompt(client, model, instructions, location, style, subject)`
+  — runs the request against any OpenAI-compatible client (`_openai` or `_xai`)
+  and returns the prompt, or `null` on error / empty output so callers can fall
+  back to a stored prompt.
+
+`location`, `style`, and `subject` are chosen **deterministically by the caller**
+(`MemoryService.pickMotdSelection()`, see `src/services/memory/AGENTS.md`) and
+sent as the model input. The model's only job is to render that fixed
+combination into vivid prose — it must not pick its own style or subject. This
+is deliberate: letting the model choose is what made it default to the same
+style (e.g. "retro travel poster") every day. Variety now comes from code, not
+from instructing the model to avoid things.
 
 The system instructions are **not** hardcoded — they live in
 `config/motd-image-prompt.md` and are hot-reloaded into `config.motdImagePrompt`
