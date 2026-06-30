@@ -118,6 +118,9 @@ const LINK_FIXER_RULES: LinkFixer[] = [
     embedHost: 'rxddit.com',
     canonicalize: resolveRedditShareLink,
   },
+  // X tweets live on two domains, each with its own fxtwitter host.
+  { type: 'twitter', domain: 'twitter.com', embedHost: 'fxtwitter.com' },
+  { type: 'twitter', domain: 'x.com', embedHost: 'fixupx.com' },
 ];
 
 const LINK_FIXERS = LINK_FIXER_RULES.map((fixer) => ({

@@ -19,6 +19,7 @@ export const MOCK_CONFIG: InMemoryConfig = {
   leaderboardEmptyMessages: ['Ghost town this week.'],
   instagramMessages: ['Target acquired: {{LINK}}'],
   redditMessages: ['Reddit locked: {{LINK}}'],
+  twitterMessages: ['X locked: {{LINK}}'],
   permissionDeniedMessages: ['Denied!'],
   boastMessages: ['All me, obviously.'],
   instructions: {

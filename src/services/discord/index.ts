@@ -95,6 +95,9 @@ class DiscordService {
       case 'reddit':
         arrayToUse = this._config.redditMessages;
         break;
+      case 'twitter':
+        arrayToUse = this._config.twitterMessages;
+        break;
       case 'permissionDenied':
         arrayToUse = this._config.permissionDeniedMessages;
         break;
