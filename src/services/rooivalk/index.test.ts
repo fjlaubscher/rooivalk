@@ -158,10 +158,10 @@ describe('Rooivalk', () => {
         'Target acquired: {{LINK}}',
       );
 
-      await (rooivalk as any).processInstagramLink(
-        userMessage,
-        'https://kkclip.com/reel/abc123/',
-      );
+      await (rooivalk as any).processEmbedLink(userMessage, {
+        type: 'instagram',
+        link: 'https://kkclip.com/reel/abc123/',
+      });
 
       expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
         'instagram',
@@ -178,10 +178,10 @@ describe('Rooivalk', () => {
       } as Partial<Message<boolean>>);
       mockDiscordService.getRooivalkResponse.mockReturnValueOnce('{{LINK}}');
 
-      await (rooivalk as any).processInstagramLink(
-        userMessage,
-        'https://kkclip.com/p/xyz',
-      );
+      await (rooivalk as any).processEmbedLink(userMessage, {
+        type: 'instagram',
+        link: 'https://kkclip.com/p/xyz',
+      });
 
       expect(mockChatClient.createResponse).not.toHaveBeenCalled();
     });

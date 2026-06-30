@@ -50,8 +50,9 @@ import {
   buildPromptAuthor,
   buildPromptChannel,
   matchProfile,
-  rewriteInstagramLink,
+  rewriteEmbedLink,
 } from './helpers.ts';
+import type { RewrittenLink } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
 import type { ToolExecutor } from '../../types.ts';
 
@@ -1031,24 +1032,25 @@ class Rooivalk {
   }
 
   /**
-   * Replies to a lone Instagram link with a quirky targeting-system quip and
-   * the same link rewritten to the kkclip.com host so the embed renders.
+   * Replies to a lone social link (Instagram, Reddit, …) with a quirky
+   * targeting-system quip and the same link rewritten to that platform's embed
+   * host so the post renders in Discord.
    */
-  public async processInstagramLink(
+  public async processEmbedLink(
     message: Message<boolean>,
-    fixedLink: string,
+    { type, link }: RewrittenLink,
   ): Promise<void> {
     try {
       const reply = this._discord
-        .getRooivalkResponse('instagram')
-        .replace('{{LINK}}', fixedLink);
+        .getRooivalkResponse(type)
+        .replace('{{LINK}}', link);
 
       await message.reply({
         content: reply,
         allowedMentions: { repliedUser: false },
       });
     } catch (err) {
-      console.error('[Rooivalk] Failed to fix Instagram link:', err);
+      console.error(`[Rooivalk] Failed to fix ${type} link:`, err);
     }
   }
 
@@ -1064,10 +1066,11 @@ class Rooivalk {
         return;
       }
 
-      // Lone Instagram links get their embed fixed, no mention required.
-      const instagramLink = rewriteInstagramLink(message.content);
-      if (instagramLink) {
-        await this.processInstagramLink(message, instagramLink);
+      // Lone social links (Instagram, Reddit, …) get their embed fixed, no
+      // mention required.
+      const embedLink = await rewriteEmbedLink(message.content);
+      if (embedLink) {
+        await this.processEmbedLink(message, embedLink);
         return;
       }
 

@@ -59,6 +59,7 @@ export type InMemoryConfig = {
   discordLimitMessages: string[];
   leaderboardEmptyMessages: string[];
   instagramMessages: string[];
+  redditMessages: string[];
   permissionDeniedMessages: string[];
   boastMessages: string[];
   instructions: {
@@ -81,6 +82,7 @@ export type ResponseType =
   | 'greeting'
   | 'discordLimit'
   | 'instagram'
+  | 'reddit'
   | 'permissionDenied'
   | 'boast';
 export type OpenAIResponse = {

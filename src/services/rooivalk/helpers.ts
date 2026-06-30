@@ -1,7 +1,7 @@
 import { userMention } from 'discord.js';
 import type { Message, User } from 'discord.js';
 
-import type { Profile } from '../../types.ts';
+import type { Profile, ResponseType } from '../../types.ts';
 
 export const isRooivalkThread = (
   message: Message<boolean>,
@@ -38,26 +38,120 @@ export const isReplyToRooivalk = async (
   return false;
 };
 
-// Matches a message whose entire content is a single Instagram link and
-// nothing else. Subdomains (e.g. `www.`) are tolerated; the path must be
-// present so bare `instagram.com` doesn't trip it.
-const INSTAGRAM_ONLY_LINK_REGEX =
-  /^https?:\/\/(?:[a-z0-9-]+\.)*instagram\.com\/\S+$/i;
+/** A lone social link rewritten to a Discord-friendly embed host. */
+export type RewrittenLink = {
+  /** Which flavour-message pool (and `ResponseType`) the reply draws from. */
+  type: ResponseType;
+  /** The rewritten, embed-friendly URL. */
+  link: string;
+};
 
 /**
- * If a message contains *only* an Instagram link (no other text), returns that
- * link with the `instagram.com` host swapped for `kkclip.com` so the embed
- * actually renders in Discord. Returns `null` for anything else — extra words,
- * multiple links, or non-Instagram URLs are left untouched.
+ * Declarative rule for swapping a social platform's host for one that renders
+ * proper embeds in Discord. Adding a platform (TikTok, Twitter/X, …) is a new
+ * entry here plus a matching `<type>.md` flavour-message file — no new
+ * detection or reply code.
  */
-export const rewriteInstagramLink = (content: string): string | null => {
-  const trimmed = content.trim();
+type LinkFixer = {
+  /** Flavour-message pool to draw the reply quip from. */
+  type: ResponseType;
+  /** Base domain to match, e.g. `instagram.com`. */
+  domain: string;
+  /** Embed-friendly replacement host, e.g. `kkclip.com`. */
+  embedHost: string;
+  /**
+   * Optional async step to canonicalize the URL before the host swap — used by
+   * Reddit to resolve `/s/` share-link redirects. Must always resolve to a
+   * usable URL (the original on failure), never reject.
+   */
+  canonicalize?: (url: string) => Promise<string>;
+};
 
-  if (!INSTAGRAM_ONLY_LINK_REGEX.test(trimmed)) {
-    return null;
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Matches a message whose entire content is a single link for `domain` and
+// nothing else. Subdomains (e.g. `www.`, `old.`) are tolerated; a path must be
+// present so a bare `domain.com` doesn't trip it.
+const loneLinkRegex = (domain: string): RegExp =>
+  new RegExp(`^https?://(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}/\\S+$`, 'i');
+
+// Matches the host (with optional subdomains) for in-place replacement.
+const hostRegex = (domain: string): RegExp =>
+  new RegExp(`(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}`, 'i');
+
+// Reddit mobile/app "share" links (`/r/<sub>/s/<id>` or a bare `/s/<id>`) are
+// redirect stubs, not canonical post URLs. The embed service can't resolve
+// them, so we follow the redirect to the real `/comments/` URL first.
+const REDDIT_SHARE_LINK_REGEX = /reddit\.com\/(?:r\/[^/]+\/)?s\//i;
+const REDDIT_LINK_REGEX = loneLinkRegex('reddit.com');
+
+/**
+ * Follows a Reddit `/s/` share link to its canonical post URL. Returns the
+ * resolved reddit.com URL, or the original `url` unchanged if it isn't a share
+ * link, the request fails, or it lands somewhere unexpected.
+ */
+const resolveRedditShareLink = async (url: string): Promise<string> => {
+  if (!REDDIT_SHARE_LINK_REGEX.test(url)) {
+    return url;
   }
 
-  return trimmed.replace(/(?:[a-z0-9-]+\.)*instagram\.com/i, 'kkclip.com');
+  try {
+    const response = await fetch(url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(5000),
+    });
+    // We only need the resolved URL, not the page body — release the socket.
+    response.body?.cancel().catch(() => {});
+    return REDDIT_LINK_REGEX.test(response.url) ? response.url : url;
+  } catch (err) {
+    console.error('[Rooivalk] Failed to resolve Reddit share link:', err);
+    return url;
+  }
+};
+
+const LINK_FIXER_RULES: LinkFixer[] = [
+  { type: 'instagram', domain: 'instagram.com', embedHost: 'kkclip.com' },
+  {
+    type: 'reddit',
+    domain: 'reddit.com',
+    embedHost: 'rxddit.com',
+    canonicalize: resolveRedditShareLink,
+  },
+];
+
+const LINK_FIXERS = LINK_FIXER_RULES.map((fixer) => ({
+  ...fixer,
+  match: loneLinkRegex(fixer.domain),
+  host: hostRegex(fixer.domain),
+}));
+
+/**
+ * If a message contains *only* a supported social link (no other text), returns
+ * the link rewritten to that platform's embed host — which renders the post in
+ * Discord, including muxed audio+video for Reddit video posts. The embed
+ * service resolves the post type (text/image/gallery/video) server-side, so we
+ * don't branch on it. Returns `null` for anything else — extra words, multiple
+ * links, or unsupported URLs are left untouched.
+ */
+export const rewriteEmbedLink = async (
+  content: string,
+): Promise<RewrittenLink | null> => {
+  const trimmed = content.trim();
+
+  for (const fixer of LINK_FIXERS) {
+    if (!fixer.match.test(trimmed)) {
+      continue;
+    }
+
+    const url = fixer.canonicalize
+      ? await fixer.canonicalize(trimmed)
+      : trimmed;
+
+    return { type: fixer.type, link: url.replace(fixer.host, fixer.embedHost) };
+  }
+
+  return null;
 };
 
 export const buildPromptAuthor = (author: User) =>
