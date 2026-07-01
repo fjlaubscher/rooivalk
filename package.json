@@ -55,6 +55,9 @@
     "overrides": {
       "vite": "^7.3.2",
       "ws": "^8.20.1"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
