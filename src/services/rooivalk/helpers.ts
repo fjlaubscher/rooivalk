@@ -48,9 +48,9 @@ export type RewrittenLink = {
 
 /**
  * Declarative rule for swapping a social platform's host for one that renders
- * proper embeds in Discord. Adding a platform (TikTok, Twitter/X, …) is a new
- * entry here plus a matching `<type>.md` flavour-message file — no new
- * detection or reply code.
+ * proper embeds in Discord. Adding a platform (TikTok, …) is a new entry here
+ * plus a matching `<type>.md` flavour-message file — no new detection or
+ * reply code.
  */
 type LinkFixer = {
   /** Flavour-message pool to draw the reply quip from. */
@@ -118,9 +118,6 @@ const LINK_FIXER_RULES: LinkFixer[] = [
     embedHost: 'rxddit.com',
     canonicalize: resolveRedditShareLink,
   },
-  // X tweets live on two domains, each with its own fxtwitter host.
-  { type: 'twitter', domain: 'twitter.com', embedHost: 'fxtwitter.com' },
-  { type: 'twitter', domain: 'x.com', embedHost: 'fixupx.com' },
 ];
 
 const LINK_FIXERS = LINK_FIXER_RULES.map((fixer) => ({

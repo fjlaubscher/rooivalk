@@ -386,24 +386,6 @@ describe('rooivalk helpers', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('rewrites a lone x.com link to the fixupx host', async () => {
-      await expect(
-        rewriteEmbedLink('https://x.com/jack/status/20'),
-      ).resolves.toEqual({
-        type: 'twitter',
-        link: 'https://fixupx.com/jack/status/20',
-      });
-    });
-
-    it('rewrites a lone twitter.com link to the fxtwitter host', async () => {
-      await expect(
-        rewriteEmbedLink('https://www.twitter.com/jack/status/20?s=46'),
-      ).resolves.toEqual({
-        type: 'twitter',
-        link: 'https://fxtwitter.com/jack/status/20?s=46',
-      });
-    });
-
     it('returns null when the link is accompanied by other text', async () => {
       await expect(
         rewriteEmbedLink('look at this https://instagram.com/p/xyz'),
