@@ -11,4 +11,6 @@ export const TOOL_NAMES = Object.freeze({
   QUERY_SQLITE: 'query_sqlite',
   DESCRIBE_SCHEMA: 'describe_schema',
   GENERATE_IMAGE: 'generate_image',
+  CREATE_GITHUB_ISSUE: 'create_github_issue',
+  SEARCH_GITHUB_ISSUES: 'search_github_issues',
 });

@@ -72,6 +72,17 @@ export const YR_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 export const STEAM_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 export const STEAM_CC = 'ZA';
 
+// GitHub related constants
+export const GITHUB_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
+export const GITHUB_API_BASE = 'https://api.github.com';
+
+// Allowlisted repos the create/search issue tools may operate on. Key is the
+// short slug the model picks; value is the `owner/repo` GitHub identifier.
+export const GITHUB_REPOS: Record<string, string> = {
+  warren: 'fjlaubscher/warren',
+  rooivalk: 'fjlaubscher/rooivalk',
+};
+
 export const YR_COORDINATES: Record<string, WeatherLocation> = {
   BONNIEVALE: {
     name: 'Bonnievale, South Africa',

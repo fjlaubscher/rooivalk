@@ -34,6 +34,7 @@ import {
 import type { ChatService, ImageService } from '../chat/index.ts';
 import DiscordService from '../discord/index.ts';
 import EmojiService from '../emoji/index.ts';
+import GithubService from '../github/index.ts';
 import MemoryService from '../memory/index.ts';
 import PeapixService from '../peapix/index.ts';
 import SteamService from '../steam/index.ts';
@@ -163,6 +164,7 @@ class Rooivalk {
   protected _emoji: EmojiService;
   protected _memory: MemoryService;
   protected _steam: SteamService;
+  protected _github: GithubService;
   private _allowedAppIds: string[];
 
   constructor(
@@ -176,6 +178,7 @@ class Rooivalk {
     memoryService?: MemoryService,
     steamService?: SteamService,
     emojiService?: EmojiService,
+    githubService?: GithubService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -197,6 +200,7 @@ class Rooivalk {
     this._emoji =
       emojiService ??
       new EmojiService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
+    this._github = githubService ?? new GithubService(process.env.GITHUB_TOKEN);
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -377,6 +381,7 @@ class Rooivalk {
       image: this._openai,
       memory: this._memory,
       steam: this._steam,
+      github: this._github,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),
       toolRoles: this._config.toolRoles,
     });

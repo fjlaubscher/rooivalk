@@ -1,11 +1,14 @@
 import type { Message, ThreadChannel } from 'discord.js';
 
+import { GITHUB_REPOS } from '../../constants.ts';
 import { runBash } from '../bash/index.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 import type { ImageService } from '../chat/index.ts';
 import { QUERY_SQLITE_SCHEMA } from '../openai/tools.ts';
 import { validateQuerySql } from './query-sqlite-guard.ts';
 import type DiscordService from '../discord/index.ts';
+import type GithubService from '../github/index.ts';
+import type { GithubIssueState } from '../github/types.ts';
 import type MemoryService from '../memory/index.ts';
 import type { MemoryKind } from '../memory/index.ts';
 import type SteamService from '../steam/index.ts';
@@ -22,6 +25,7 @@ export type ToolExecutorContext = {
   discord: DiscordService;
   memory: MemoryService;
   steam: SteamService;
+  github: GithubService;
   image: ImageService;
   createThread: (
     message: Message<boolean>,
@@ -40,7 +44,8 @@ function errorOutput(err: unknown): ToolExecutionResult {
 }
 
 export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
-  const { message, yr, discord, memory, steam, image, createThread } = ctx;
+  const { message, yr, discord, memory, steam, github, image, createThread } =
+    ctx;
 
   // Invert the role -> tools permission map into tool -> allowed role ids, so a
   // call can be checked with a single lookup. A tool absent from this map is
@@ -199,6 +204,48 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           }
 
           return { output: JSON.stringify(details) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.CREATE_GITHUB_ISSUE: {
+        const repo = args.repo as string;
+        const slug = GITHUB_REPOS[repo];
+        if (!slug) {
+          return {
+            output: JSON.stringify({ error: `Unknown repo: ${repo}` }),
+          };
+        }
+
+        try {
+          const title = args.title as string;
+          const body = args.body as string | null;
+          const author = message.author.displayName ?? message.author.username;
+          const footer = `\n\n_Filed via rooivalk by ${author}_`;
+          const issue = await github.createIssue(
+            slug,
+            title,
+            (body ?? '') + footer,
+          );
+          return { output: JSON.stringify(issue) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+      case TOOL_NAMES.SEARCH_GITHUB_ISSUES: {
+        const repo = args.repo as string;
+        const slug = GITHUB_REPOS[repo];
+        if (!slug) {
+          return {
+            output: JSON.stringify({ error: `Unknown repo: ${repo}` }),
+          };
+        }
+
+        try {
+          const query = args.query as string | null;
+          const state = (args.state as GithubIssueState | null) ?? 'open';
+          const issues = await github.searchIssues(slug, query, state);
+          return { output: JSON.stringify(issues) };
         } catch (err) {
           return errorOutput(err);
         }

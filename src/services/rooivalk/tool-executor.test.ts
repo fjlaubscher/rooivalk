@@ -22,6 +22,7 @@ function buildContext(
     discord: { getRooivalkResponse: () => DENIED_MESSAGE } as any,
     memory: {} as any,
     steam: {} as any,
+    github: {} as any,
     image: {} as any,
     createThread: vi.fn(),
     ...overrides,
@@ -147,5 +148,111 @@ describe('buildToolExecutor role-based tool permissions', () => {
 
     expect(runBashMock).toHaveBeenCalledWith('ls');
     expect(result.deniedMessage).toBeUndefined();
+  });
+});
+
+describe('buildToolExecutor github tools', () => {
+  it('creates an issue on a known repo and appends the attribution footer', async () => {
+    const createIssue = vi
+      .fn()
+      .mockResolvedValue({ number: 1, url: 'https://example.com/1' });
+    const execute = buildToolExecutor(
+      buildContext({ github: { createIssue } as any }),
+    );
+
+    const result = await execute(TOOL_NAMES.CREATE_GITHUB_ISSUE, {
+      repo: 'rooivalk',
+      title: 'Bug title',
+      body: 'Bug body',
+    });
+
+    expect(createIssue).toHaveBeenCalledWith(
+      'fjlaubscher/rooivalk',
+      'Bug title',
+      expect.stringContaining('Bug body\n\n_Filed via rooivalk by'),
+    );
+    expect(JSON.parse(result.output)).toEqual({
+      number: 1,
+      url: 'https://example.com/1',
+    });
+  });
+
+  it('returns an error for create_github_issue on an unknown repo', async () => {
+    const createIssue = vi.fn();
+    const execute = buildToolExecutor(
+      buildContext({ github: { createIssue } as any }),
+    );
+
+    const result = await execute(TOOL_NAMES.CREATE_GITHUB_ISSUE, {
+      repo: 'not-a-repo',
+      title: 'Bug title',
+      body: null,
+    });
+
+    expect(createIssue).not.toHaveBeenCalled();
+    expect(JSON.parse(result.output)).toEqual({
+      error: 'Unknown repo: not-a-repo',
+    });
+  });
+
+  it('searches issues on a known repo, defaulting state to open', async () => {
+    const searchIssues = vi.fn().mockResolvedValue([
+      {
+        number: 2,
+        title: 'Login bug',
+        state: 'open',
+        url: 'https://example.com/2',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    const execute = buildToolExecutor(
+      buildContext({ github: { searchIssues } as any }),
+    );
+
+    const result = await execute(TOOL_NAMES.SEARCH_GITHUB_ISSUES, {
+      repo: 'warren',
+      query: 'login',
+      state: null,
+    });
+
+    expect(searchIssues).toHaveBeenCalledWith(
+      'fjlaubscher/warren',
+      'login',
+      'open',
+    );
+    expect(JSON.parse(result.output)).toHaveLength(1);
+  });
+
+  it('returns an error for search_github_issues on an unknown repo', async () => {
+    const searchIssues = vi.fn();
+    const execute = buildToolExecutor(
+      buildContext({ github: { searchIssues } as any }),
+    );
+
+    const result = await execute(TOOL_NAMES.SEARCH_GITHUB_ISSUES, {
+      repo: 'not-a-repo',
+      query: null,
+      state: null,
+    });
+
+    expect(searchIssues).not.toHaveBeenCalled();
+    expect(JSON.parse(result.output)).toEqual({
+      error: 'Unknown repo: not-a-repo',
+    });
+  });
+
+  it('wraps a thrown error from createIssue in the error output', async () => {
+    const createIssue = vi.fn().mockRejectedValue(new Error('boom'));
+    const execute = buildToolExecutor(
+      buildContext({ github: { createIssue } as any }),
+    );
+
+    const result = await execute(TOOL_NAMES.CREATE_GITHUB_ISSUE, {
+      repo: 'rooivalk',
+      title: 'Bug title',
+      body: null,
+    });
+
+    expect(JSON.parse(result.output)).toEqual({ error: 'boom' });
   });
 });
