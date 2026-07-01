@@ -15,6 +15,7 @@ GithubService creates and searches issues on an allowlisted set of Francois's ow
 - `GITHUB_TOKEN` is optional; if unset, both methods throw `GITHUB_TOKEN not configured` so the executor can surface a graceful error instead of crashing
 - Results are capped to 10 items in `searchIssues`
 - All types live in `src/services/github/types.ts`
+- The chat model composes the `create_github_issue` body per `config/github_issue_template.md` (hot-reloaded into `config.githubIssueTemplate` — see `src/services/chat/AGENTS.md#github-issue-template`), not per any formatting logic in this service
 
 ## Common Tasks
 

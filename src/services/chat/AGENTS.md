@@ -106,6 +106,16 @@ supplies its own client, `requireChatModel()`, and `this._config.motdImagePrompt
 `RooivalkService` consumes this via the `ImageService` union (see
 `src/services/rooivalk/AGENTS.md`).
 
+## GitHub Issue Template
+
+`config/github_issue_template.md` is hot-reloaded into
+`config.githubIssueTemplate` like every other `config/*.md` file. Both
+`OpenAIService.createResponse` and `XAIService.createResponse` append it to the
+system instructions — but only when a `toolExecutor` is passed in (i.e. only for
+the main chat flow, not one-shot calls like MOTD generation) — so the model has
+a consistent structure to follow when it calls `create_github_issue`. Editing
+the file changes the template with no redeploy.
+
 ## Role-Based Tool Permissions
 
 Tool access can be gated by Discord role, independent of channel profiles.

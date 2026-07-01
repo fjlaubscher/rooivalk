@@ -75,6 +75,8 @@ export type InMemoryConfig = {
   motd: string;
   /** Instructions the chat model follows to craft the daily MOTD image prompt. */
   motdImagePrompt: string;
+  /** Template the chat model follows when composing a `create_github_issue` body. */
+  githubIssueTemplate: string;
 };
 
 export type ResponseType =
