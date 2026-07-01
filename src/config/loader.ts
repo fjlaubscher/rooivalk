@@ -11,6 +11,7 @@ import {
   CONFIG_FILE_LEADERBOARD,
   CONFIG_FILE_MOTD,
   CONFIG_FILE_MOTD_IMAGE_PROMPT,
+  CONFIG_FILE_GITHUB_ISSUE_TEMPLATE,
 } from '../constants.ts';
 import type { InMemoryConfig } from '../types.ts';
 import { loadInstructions, loadMessageList } from './messages.ts';
@@ -33,6 +34,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     toolRoles,
     motd,
     motdImagePrompt,
+    githubIssueTemplate,
   ] = await Promise.all([
     loadMessageList(CONFIG_FILE_ERRORS),
     loadMessageList(CONFIG_FILE_GREETINGS),
@@ -48,6 +50,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     loadToolRoles(),
     loadInstructions(CONFIG_FILE_MOTD),
     loadInstructions(CONFIG_FILE_MOTD_IMAGE_PROMPT),
+    loadInstructions(CONFIG_FILE_GITHUB_ISSUE_TEMPLATE),
   ]);
 
   const profileInstructions = await loadProfileInstructions(profiles);
@@ -70,6 +73,7 @@ export const loadConfig = async (): Promise<InMemoryConfig> => {
     toolRoles,
     motd,
     motdImagePrompt,
+    githubIssueTemplate,
   };
 
   return config;

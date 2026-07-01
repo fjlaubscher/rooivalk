@@ -30,4 +30,5 @@ export const MOCK_CONFIG: InMemoryConfig = {
   toolRoles: {},
   motd: 'Message of the day',
   motdImagePrompt: 'Craft an image prompt for {{LOCATION}}',
+  githubIssueTemplate: 'Follow this issue template.',
 };

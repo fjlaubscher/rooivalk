@@ -335,6 +335,39 @@ describe('OpenAIService', () => {
     });
   });
 
+  describe('github issue template injection', () => {
+    it('appends the template when a toolExecutor is provided', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse(
+        'test user',
+        'hi',
+        null,
+        null,
+        vi.fn() as any,
+      );
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).toContain('[GitHub issue template');
+      expect(callArgs.instructions).toContain(MOCK_CONFIG.githubIssueTemplate);
+    });
+
+    it('omits the template when no toolExecutor is provided', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('test user', 'hi');
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).not.toContain('[GitHub issue template');
+    });
+  });
+
   describe('createImage', () => {
     it('returns base64 image on success', async () => {
       imagesGenerateMock.mockResolvedValueOnce({ data: [{ b64_json: 'img' }] });

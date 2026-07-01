@@ -53,6 +53,7 @@ export const CONFIG_FILE_PROFILES = 'profiles.json';
 export const CONFIG_FILE_TOOL_ROLES = 'tool-roles.json';
 export const CONFIG_FILE_MOTD = 'motd.md';
 export const CONFIG_FILE_MOTD_IMAGE_PROMPT = 'motd-image-prompt.md';
+export const CONFIG_FILE_GITHUB_ISSUE_TEMPLATE = 'github_issue_template.md';
 
 // Each channel profile's instructions live in its own markdown file, addressed
 // by profile name. Deployment-specific, separate from the per-provider defaults.
@@ -71,6 +72,18 @@ export const YR_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 // Steam related constants
 export const STEAM_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
 export const STEAM_CC = 'ZA';
+
+// GitHub related constants
+export const GITHUB_USER_AGENT = 'rooivalk github.com/fjlaubscher/rooivalk';
+export const GITHUB_API_BASE = 'https://api.github.com';
+
+// Allowlisted repos the create/search issue tools may operate on. Key is the
+// short slug the model picks; value is the `owner/repo` GitHub identifier.
+export const GITHUB_REPOS: Record<string, string> = {
+  warren: 'fjlaubscher/warren',
+  rooivalk: 'fjlaubscher/rooivalk',
+  depot: 'fjlaubscher/depot',
+};
 
 export const YR_COORDINATES: Record<string, WeatherLocation> = {
   BONNIEVALE: {

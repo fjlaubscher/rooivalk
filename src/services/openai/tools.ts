@@ -1,6 +1,6 @@
 import type OpenAI from 'openai';
 
-import { YR_COORDINATES } from '../../constants.ts';
+import { GITHUB_REPOS, YR_COORDINATES } from '../../constants.ts';
 import { TOOL_NAMES } from '../chat/tool-names.ts';
 
 export const QUERY_SQLITE_SCHEMA = {
@@ -281,6 +281,62 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
         },
       },
       required: ['query', 'store'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.CREATE_GITHUB_ISSUE,
+    description:
+      'File a new GitHub issue on one of a predefined set of repos. Only use when the user explicitly asks to file, open, or report an issue/bug. Only the listed repos are available.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        repo: {
+          type: 'string',
+          enum: Object.keys(GITHUB_REPOS),
+          description: 'The repo to file the issue on.',
+        },
+        title: {
+          type: 'string',
+          description: 'A short, descriptive issue title.',
+        },
+        body: {
+          type: ['string', 'null'],
+          description: 'The issue body/description. Null for no body.',
+        },
+      },
+      required: ['repo', 'title', 'body'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.SEARCH_GITHUB_ISSUES,
+    description:
+      'Search or list GitHub issues on one of a predefined set of repos. Use to check whether a bug/issue exists or has already been fixed.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        repo: {
+          type: 'string',
+          enum: Object.keys(GITHUB_REPOS),
+          description: 'The repo to search issues on.',
+        },
+        query: {
+          type: ['string', 'null'],
+          description:
+            'Free-text search terms. Null to list without filtering.',
+        },
+        state: {
+          type: 'string',
+          enum: ['open', 'closed', 'all'],
+          description: 'Filter issues by state.',
+        },
+      },
+      required: ['repo', 'query', 'state'],
       additionalProperties: false,
     },
   },

@@ -27,6 +27,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
 - `src/services/peapix/` – PeapixService (Bing image-of-the-day fallback for MOTD) - [See AGENTS.md](src/services/peapix/AGENTS.md)
 - `src/services/emoji/` – EmojiService (SQLite-backed emoji reaction tracking + leaderboard queries) - [See AGENTS.md](src/services/emoji/AGENTS.md)
+- `src/services/github/` – GithubService (create/search issues on an allowlisted set of repos) - [See AGENTS.md](src/services/github/AGENTS.md)
 - `src/services/memory/` – MemoryService (SQLite-backed memory + preferences) - [See AGENTS.md](src/services/memory/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
 - `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
@@ -56,7 +57,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 - Copy `.env.example` to `.env` and configure required credentials.
 - Required: `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `DISCORD_STARTUP_CHANNEL_ID`, `DISCORD_MOTD_CHANNEL_ID`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL`, `ROOIVALK_MOTD_CRON`.
-- Optional: `OPENAI_MODEL` (chat), `XAI_API_KEY` + `XAI_MODEL` (chat → xAI), `XAI_IMAGE_MODEL` (image gen → xAI), `STEAM_API_KEY` (nightly Steam app catalogue sync), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `LOG_LEVEL` (`debug` enables prompt-metric logging).
+- Optional: `OPENAI_MODEL` (chat), `XAI_API_KEY` + `XAI_MODEL` (chat → xAI), `XAI_IMAGE_MODEL` (image gen → xAI), `STEAM_API_KEY` (nightly Steam app catalogue sync), `GITHUB_TOKEN` (enables the create/search GitHub issue tools on the repos allowlisted in `GITHUB_REPOS`), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `LOG_LEVEL` (`debug` enables prompt-metric logging).
 - Channel-specific chat behaviour (e.g. field hospital) is configured as profiles in `config/profiles.json`, not env — see `src/services/chat/AGENTS.md`.
 
 ## Coding Conventions
