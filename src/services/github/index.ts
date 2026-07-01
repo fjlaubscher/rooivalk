@@ -9,6 +9,21 @@ import type {
 
 const SEARCH_ISSUES_LIMIT = 10;
 
+// Strips qualifiers/operators a caller could use to widen a search beyond the
+// repo we already scoped it to via `repo:${slug}` (e.g. `repo:other/repo`,
+// `org:x`, or a boolean `OR`). GitHub only treats `OR` as boolean when
+// uppercase, so lowercase "or" in free text is left untouched.
+const SCOPE_WIDENING_QUALIFIER = /\b(?:repo|org|user|owner):\S+/gi;
+const BOOLEAN_OR = /\bOR\b/g;
+
+function sanitizeSearchQuery(query: string): string {
+  return query
+    .replace(SCOPE_WIDENING_QUALIFIER, '')
+    .replace(BOOLEAN_OR, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 class GithubService {
   private _token?: string;
 
@@ -58,9 +73,13 @@ class GithubService {
     query: string | null | undefined,
     state: GithubIssueState = 'open',
   ): Promise<GithubIssueSummary[]> {
-    const qParts = [`repo:${slug}`, 'type:issue', `state:${state}`];
-    if (query) {
-      qParts.push(query);
+    const qParts = [`repo:${slug}`, 'type:issue'];
+    if (state !== 'all') {
+      qParts.push(`state:${state}`);
+    }
+    const sanitizedQuery = query ? sanitizeSearchQuery(query) : '';
+    if (sanitizedQuery) {
+      qParts.push(sanitizedQuery);
     }
 
     const url = new URL(`${GITHUB_API_BASE}/search/issues`);
@@ -76,7 +95,7 @@ class GithubService {
     }
 
     const data = (await response.json()) as SearchIssuesResponse;
-    return data.items.slice(0, SEARCH_ISSUES_LIMIT).map((item) => ({
+    return data.items.map((item) => ({
       number: item.number,
       title: item.title,
       state: item.state,

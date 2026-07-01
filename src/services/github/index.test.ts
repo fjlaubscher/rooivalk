@@ -128,6 +128,58 @@ describe('GithubService', () => {
       );
     });
 
+    it('omits the state qualifier entirely when state is "all"', async () => {
+      const service = new GithubService('test-token');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ items: [] }),
+      });
+
+      await service.searchIssues('fjlaubscher/warren', null, 'all');
+
+      const [url] = mockFetch.mock.calls[0]!;
+      expect(url).toContain('q=repo%3Afjlaubscher%2Fwarren+type%3Aissue');
+      expect(url).not.toContain('state%3A');
+    });
+
+    it('strips repo/org/user/owner qualifiers from the free-text query', async () => {
+      const service = new GithubService('test-token');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ items: [] }),
+      });
+
+      await service.searchIssues(
+        'fjlaubscher/warren',
+        'login bug repo:other/repo org:someorg',
+        'open',
+      );
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const q = decodeURIComponent(new URL(url).searchParams.get('q')!);
+      expect(q).toBe('repo:fjlaubscher/warren type:issue state:open login bug');
+    });
+
+    it('strips a boolean OR from the free-text query', async () => {
+      const service = new GithubService('test-token');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ items: [] }),
+      });
+
+      await service.searchIssues(
+        'fjlaubscher/warren',
+        'login OR crash',
+        'open',
+      );
+
+      const [url] = mockFetch.mock.calls[0]!;
+      const q = decodeURIComponent(new URL(url).searchParams.get('q')!);
+      expect(q).toBe(
+        'repo:fjlaubscher/warren type:issue state:open login crash',
+      );
+    });
+
     it('throws when the API returns a non-ok HTTP status', async () => {
       const service = new GithubService('test-token');
       mockFetch.mockResolvedValue({
