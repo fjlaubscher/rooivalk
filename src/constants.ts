@@ -91,11 +91,6 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     latitude: -33.9255,
     longitude: 20.0827,
   },
-  GDANSK: {
-    name: 'Gdańsk, Poland',
-    latitude: 54.352,
-    longitude: 18.6466,
-  },
   LAKESIDE: {
     name: 'Lakeside, South Africa',
     latitude: -34.0867,
@@ -110,6 +105,11 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     name: 'Dubai, United Arab Emirates',
     latitude: 25.2048,
     longitude: 55.2708,
+  },
+  GDANSK: {
+    name: 'Gdańsk, Poland',
+    latitude: 54.352,
+    longitude: 18.6466,
   },
   TAMARIN: {
     name: 'Tamarin, Mauritius',
