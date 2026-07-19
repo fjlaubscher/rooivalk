@@ -1037,7 +1037,7 @@ class Rooivalk {
   }
 
   /**
-   * Replies to a lone social link (Instagram, Reddit, …) with a quirky
+   * Replies to a lone social link (Instagram, …) with a quirky
    * targeting-system quip and the same link rewritten to that platform's embed
    * host so the post renders in Discord.
    */
@@ -1071,9 +1071,9 @@ class Rooivalk {
         return;
       }
 
-      // Lone social links (Instagram, Reddit, …) get their embed fixed, no
-      // mention required.
-      const embedLink = await rewriteEmbedLink(message.content);
+      // Lone social links (Instagram, …) get their embed fixed, no mention
+      // required.
+      const embedLink = rewriteEmbedLink(message.content);
       if (embedLink) {
         await this.processEmbedLink(message, embedLink);
         return;
