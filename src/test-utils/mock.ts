@@ -18,7 +18,6 @@ export const MOCK_CONFIG: InMemoryConfig = {
   discordLimitMessages: ['Too long!'],
   leaderboardEmptyMessages: ['Ghost town this week.'],
   instagramMessages: ['Target acquired: {{LINK}}'],
-  redditMessages: ['Reddit locked: {{LINK}}'],
   permissionDeniedMessages: ['Denied!'],
   boastMessages: ['All me, obviously.'],
   instructions: {

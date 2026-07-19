@@ -1,4 +1,4 @@
-import { vi, describe, it, expect, afterEach } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 import type { ThreadChannel } from 'discord.js';
 import {
   isRooivalkThread,
@@ -291,117 +291,50 @@ describe('rooivalk helpers', () => {
   });
 
   describe('rewriteEmbedLink', () => {
-    afterEach(() => {
-      vi.unstubAllGlobals();
-    });
-
-    it('rewrites a lone Instagram link to the kkclip host', async () => {
-      await expect(
+    it('rewrites a lone Instagram link to the kkclip host', () => {
+      expect(
         rewriteEmbedLink('https://www.instagram.com/reel/abc123/'),
-      ).resolves.toEqual({
+      ).toEqual({
         type: 'instagram',
         link: 'https://kkclip.com/reel/abc123/',
       });
     });
 
-    it('handles Instagram links without a www subdomain', async () => {
-      await expect(
-        rewriteEmbedLink('https://instagram.com/p/xyz'),
-      ).resolves.toEqual({
+    it('handles Instagram links without a www subdomain', () => {
+      expect(rewriteEmbedLink('https://instagram.com/p/xyz')).toEqual({
         type: 'instagram',
         link: 'https://kkclip.com/p/xyz',
       });
     });
 
-    it('preserves the path and query string', async () => {
-      await expect(
+    it('preserves the path and query string', () => {
+      expect(
         rewriteEmbedLink('https://www.instagram.com/reel/abc?igsh=token123'),
-      ).resolves.toEqual({
+      ).toEqual({
         type: 'instagram',
         link: 'https://kkclip.com/reel/abc?igsh=token123',
       });
     });
 
-    it('ignores surrounding whitespace', async () => {
-      await expect(
-        rewriteEmbedLink('  https://instagram.com/p/xyz  '),
-      ).resolves.toEqual({
+    it('ignores surrounding whitespace', () => {
+      expect(rewriteEmbedLink('  https://instagram.com/p/xyz  ')).toEqual({
         type: 'instagram',
         link: 'https://kkclip.com/p/xyz',
       });
     });
 
-    it('rewrites a lone Reddit link to the rxddit host', async () => {
-      await expect(
-        rewriteEmbedLink('https://www.reddit.com/r/aww/comments/abc123/a_cat/'),
-      ).resolves.toEqual({
-        type: 'reddit',
-        link: 'https://rxddit.com/r/aww/comments/abc123/a_cat/',
-      });
-    });
-
-    it('handles old.reddit.com subdomains', async () => {
-      await expect(
-        rewriteEmbedLink('https://old.reddit.com/r/aww/comments/abc/x'),
-      ).resolves.toEqual({
-        type: 'reddit',
-        link: 'https://rxddit.com/r/aww/comments/abc/x',
-      });
-    });
-
-    it('resolves a Reddit /s/ share link before swapping hosts', async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        url: 'https://www.reddit.com/r/aww/comments/abc123/a_cat/',
-        body: null,
-      });
-      vi.stubGlobal('fetch', fetchMock);
-
-      await expect(
-        rewriteEmbedLink('https://www.reddit.com/r/aww/s/Xy7zAbCdEf'),
-      ).resolves.toEqual({
-        type: 'reddit',
-        link: 'https://rxddit.com/r/aww/comments/abc123/a_cat/',
-      });
-      expect(fetchMock).toHaveBeenCalledOnce();
-    });
-
-    it('falls back to the original Reddit /s/ link when resolution fails', async () => {
-      const fetchMock = vi.fn().mockRejectedValue(new Error('network down'));
-      vi.stubGlobal('fetch', fetchMock);
-
-      await expect(
-        rewriteEmbedLink('https://www.reddit.com/r/aww/s/Xy7zAbCdEf'),
-      ).resolves.toEqual({
-        type: 'reddit',
-        link: 'https://rxddit.com/r/aww/s/Xy7zAbCdEf',
-      });
-    });
-
-    it('does not make a network call for non-share Reddit links', async () => {
-      const fetchMock = vi.fn();
-      vi.stubGlobal('fetch', fetchMock);
-
-      await rewriteEmbedLink('https://www.reddit.com/r/aww/comments/abc/x');
-
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it('returns null when the link is accompanied by other text', async () => {
-      await expect(
+    it('returns null when the link is accompanied by other text', () => {
+      expect(
         rewriteEmbedLink('look at this https://instagram.com/p/xyz'),
-      ).resolves.toBeNull();
+      ).toBeNull();
     });
 
-    it('returns null for unsupported links', async () => {
-      await expect(
-        rewriteEmbedLink('https://example.com/p/xyz'),
-      ).resolves.toBeNull();
+    it('returns null for unsupported links', () => {
+      expect(rewriteEmbedLink('https://example.com/p/xyz')).toBeNull();
     });
 
-    it('returns null for non-link content', async () => {
-      await expect(
-        rewriteEmbedLink('just a normal message'),
-      ).resolves.toBeNull();
+    it('returns null for non-link content', () => {
+      expect(rewriteEmbedLink('just a normal message')).toBeNull();
     });
   });
 });

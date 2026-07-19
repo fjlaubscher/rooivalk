@@ -59,12 +59,6 @@ type LinkFixer = {
   domain: string;
   /** Embed-friendly replacement host, e.g. `kkclip.com`. */
   embedHost: string;
-  /**
-   * Optional async step to canonicalize the URL before the host swap — used by
-   * Reddit to resolve `/s/` share-link redirects. Must always resolve to a
-   * usable URL (the original on failure), never reject.
-   */
-  canonicalize?: (url: string) => Promise<string>;
 };
 
 const escapeRegExp = (value: string): string =>
@@ -80,44 +74,8 @@ const loneLinkRegex = (domain: string): RegExp =>
 const hostRegex = (domain: string): RegExp =>
   new RegExp(`(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}`, 'i');
 
-// Reddit mobile/app "share" links (`/r/<sub>/s/<id>` or a bare `/s/<id>`) are
-// redirect stubs, not canonical post URLs. The embed service can't resolve
-// them, so we follow the redirect to the real `/comments/` URL first.
-const REDDIT_SHARE_LINK_REGEX = /reddit\.com\/(?:r\/[^/]+\/)?s\//i;
-const REDDIT_LINK_REGEX = loneLinkRegex('reddit.com');
-
-/**
- * Follows a Reddit `/s/` share link to its canonical post URL. Returns the
- * resolved reddit.com URL, or the original `url` unchanged if it isn't a share
- * link, the request fails, or it lands somewhere unexpected.
- */
-const resolveRedditShareLink = async (url: string): Promise<string> => {
-  if (!REDDIT_SHARE_LINK_REGEX.test(url)) {
-    return url;
-  }
-
-  try {
-    const response = await fetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(5000),
-    });
-    // We only need the resolved URL, not the page body — release the socket.
-    response.body?.cancel().catch(() => {});
-    return REDDIT_LINK_REGEX.test(response.url) ? response.url : url;
-  } catch (err) {
-    console.error('[Rooivalk] Failed to resolve Reddit share link:', err);
-    return url;
-  }
-};
-
 const LINK_FIXER_RULES: LinkFixer[] = [
   { type: 'instagram', domain: 'instagram.com', embedHost: 'kkclip.com' },
-  {
-    type: 'reddit',
-    domain: 'reddit.com',
-    embedHost: 'rxddit.com',
-    canonicalize: resolveRedditShareLink,
-  },
 ];
 
 const LINK_FIXERS = LINK_FIXER_RULES.map((fixer) => ({
@@ -129,14 +87,11 @@ const LINK_FIXERS = LINK_FIXER_RULES.map((fixer) => ({
 /**
  * If a message contains *only* a supported social link (no other text), returns
  * the link rewritten to that platform's embed host — which renders the post in
- * Discord, including muxed audio+video for Reddit video posts. The embed
- * service resolves the post type (text/image/gallery/video) server-side, so we
- * don't branch on it. Returns `null` for anything else — extra words, multiple
- * links, or unsupported URLs are left untouched.
+ * Discord. The embed service resolves the post type (text/image/gallery/video)
+ * server-side, so we don't branch on it. Returns `null` for anything else —
+ * extra words, multiple links, or unsupported URLs are left untouched.
  */
-export const rewriteEmbedLink = async (
-  content: string,
-): Promise<RewrittenLink | null> => {
+export const rewriteEmbedLink = (content: string): RewrittenLink | null => {
   const trimmed = content.trim();
 
   for (const fixer of LINK_FIXERS) {
@@ -144,11 +99,10 @@ export const rewriteEmbedLink = async (
       continue;
     }
 
-    const url = fixer.canonicalize
-      ? await fixer.canonicalize(trimmed)
-      : trimmed;
-
-    return { type: fixer.type, link: url.replace(fixer.host, fixer.embedHost) };
+    return {
+      type: fixer.type,
+      link: trimmed.replace(fixer.host, fixer.embedHost),
+    };
   }
 
   return null;
