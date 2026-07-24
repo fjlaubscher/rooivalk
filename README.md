@@ -70,7 +70,7 @@ For architecture and conventions, see [AGENTS.md](./AGENTS.md).
 ### Prompt tuning
 
 - `config/instructions.md` is the live system prompt. Hot-reloaded.
-- Placeholders: `{{CURRENT_DATE}}` (ISO date), `{{EMOJIS}}` (server's allowed custom emojis).
+- Placeholders: `{{CURRENT_DATE}}` (ISO date) and `{{VERSION}}` (package version). Custom emoji come from the `get_emojis` tool, not a placeholder.
 - `LOG_LEVEL=debug` emits per-request prompt metrics.
 - Channel-specific behaviours are declared as profiles in `config/profiles.json` (copy `config/profiles.example.json`); each profile's instructions live in `config/profiles/<name>.md` and it may override the model.
 
