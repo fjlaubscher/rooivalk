@@ -24,11 +24,11 @@ The RooivalkService contains the core business logic for the bot. It processes m
 ### Thread Handling
 
 - Automatically responds to ALL messages in bot-created threads (no mentions needed).
-- Thread names are generated one-shot from the current message content via `ChatService.generateThreadName` (the active chat provider — OpenAI by default, xAI when `XAI_MODEL` is set).
+- Thread names are generated one-shot from the current message content via `ChatService.generateThreadName`.
 
 ### Conversation Continuity
 
-- `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to the active `ChatService.createResponse`.
+- `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to the selected `ChatService.createResponse`.
 - After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn).
 - When the chat provider reports `contextLost: true` (an aged-out `previous_response_id` triggers a one-shot retry without it), the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
 - When a Discord reply has no stored `previous_response_id` (e.g., replying to a non-bot message while mentioning the bot), `loadReferencedMessageContext` fetches the referenced message and prepends a `[Replying to <author>: "<content>" (N attachments)]` block to the prompt. Allowed attachments from the referenced message are merged ahead of the current message's attachments so the model can see both. Fetch failures fall back silently to the bare prompt.
@@ -43,7 +43,7 @@ The RooivalkService contains the core business logic for the bot. It processes m
 
 The daily MOTD uses a two-tier image fallback strategy:
 
-1. **AI-generated image** (primary): Calls `ImageService.createImage()` on the active image provider with the prompt for the selected location
+1. **AI-generated image** (primary): Calls `ImageService.createImage()` with the prompt for the selected location
 2. **Peapix** (fallback): Fetches Bing's image of the day via `PeapixService.getImage()`
 
 The image prompt is built around a **deterministically chosen** `city / style / aspect` combination. `MemoryService.pickMotdSelection({ cities, styles, aspects })` picks all three in code, steering away from recently-used values (see [`src/services/memory/AGENTS.md`](../memory/AGENTS.md#motd-image-variety)). The pools are:
@@ -54,7 +54,7 @@ The image prompt is built around a **deterministically chosen** `city / style / 
 
 The chosen combination then drives the prompt in two tiers:
 
-1. **LLM-rendered** (primary): `ImageService.generateMotdImagePrompt(city, style, aspect)` asks the chat model to render _that exact_ combination into vivid prose. The model does **not** choose the style or subject — that's the whole point, and it's what stops the image defaulting to the same style (e.g. "retro travel poster") every day. The shared implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
+1. **LLM-rendered** (primary): `ImageService.generateMotdImagePrompt(city, style, aspect)` asks the chat model to render _that exact_ combination into vivid prose. The model does **not** choose the style or subject — that's the whole point, and it's what stops the image defaulting to the same style (e.g. "retro travel poster") every day. The implementation lives in [`src/services/chat/motd-image-prompt.ts`](../chat/AGENTS.md#motd-image-prompt); the model's instructions are hot-reloaded from `config/motd-image-prompt.md` (`config.motdImagePrompt`), so the prompt can be tuned without a redeploy.
 2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, the same chosen `style`/`aspect`/`city` are dropped into a template string — `` `${style} depicting ${aspect} of ${city}. Vivid, detailed, atmospheric.` ``.
 
 Because the selection is recorded inside `pickMotdSelection`, the day's combo is remembered even if image generation fails and the MOTD falls back to Peapix.
@@ -72,7 +72,7 @@ Because the selection is recorded inside `pickMotdSelection`, the day's combo is
 
 - Uses class-based TypeScript with private `_underscore` properties
 - Integrates with DiscordService for Discord operations
-- Integrates with the active chat provider (`OpenAIService` or `XAIService`, via `createChatService`) for AI responses
+- Integrates with `OpenAIService` for AI responses
 - Integrates with YrService for weather data
 - Coordinates overall bot behavior and decision-making
 

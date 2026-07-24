@@ -8,7 +8,7 @@ A Discord bot powered by OpenAI. Responds to mentions and replies, threads its o
 ## Features
 
 - **Chat & reasoning** via the OpenAI Responses API. Conversation continuity is handled server-side through `previous_response_id`; per-conversation ids live in SQLite (`conversation_responses`).
-- **Image generation** via OpenAI `gpt-image-1` (or xAI `grok-imagine-image-quality` when configured), exposed as a slash command and as the `generate_image` function tool so the model can produce images inline.
+- **Image generation** via OpenAI `gpt-image-1`, exposed as a slash command and as the `generate_image` function tool so the model can produce images inline.
 - **Threads**: replying to a bot message auto-creates a thread; the bot responds to everything inside threads it owns.
 - **Per-user memory** in SQLite — the model can `remember`, `recall`, and `forget` facts. Capped preference set is injected on every turn.
 - **Tools**: weather (Yr.no), Steam store lookups, ad-hoc SQLite querying of the bot's own data, sandboxed `run_bash` for log/source inspection, server-event lookup.
@@ -48,7 +48,6 @@ Key env vars:
 | `OPENAI_IMAGE_MODEL` | Image generation model |
 | `ROOIVALK_MOTD_CRON` | Cron expression for the daily MOTD (e.g. `"0 8 * * *"`) |
 | `ROOIVALK_DB_PATH` | SQLite path (default `./data/rooivalk.db`) |
-| `XAI_API_KEY` / `XAI_MODEL` / `XAI_IMAGE_MODEL` | Optional; route chat and/or image generation to xAI Grok via the OpenAI SDK |
 | `STEAM_API_KEY` | Required for the nightly Steam catalogue sync that backs `get_game_listing` |
 
 ### Services
@@ -56,8 +55,7 @@ Key env vars:
 Each service has its own `AGENTS.md`:
 
 - `src/services/openai` — OpenAI chat + image generation
-- `src/services/xai` — xAI Grok chat + image provider (OpenAI-SDK compatible)
-- `src/services/chat` — provider + channel-routing factories (chat, image, per-channel behaviours)
+- `src/services/chat` — channel-profile chat services (per-channel behaviours)
 - `src/services/rooivalk` — message processing, tool dispatch, MOTD
 - `src/services/discord` — Discord API integration and thread handling
 - `src/services/memory` — SQLite-backed memory + conversation-id store
@@ -71,10 +69,10 @@ For architecture and conventions, see [AGENTS.md](./AGENTS.md).
 
 ### Prompt tuning
 
-- `config/instructions/openai.md` and `config/instructions/xai.md` are the live per-provider system prompts. Hot-reloaded.
-- Placeholders: `{{CURRENT_DATE}}` (ISO date), `{{EMOJIS}}` (server's allowed custom emojis).
+- `config/instructions.md` is the live system prompt. Hot-reloaded.
+- Placeholders: `{{CURRENT_DATE}}` (ISO date) and `{{VERSION}}` (package version). Custom emoji come from the `get_emojis` tool, not a placeholder.
 - `LOG_LEVEL=debug` emits per-request prompt metrics.
-- Channel-specific behaviours are declared as profiles in `config/profiles.json` (copy `config/profiles.example.json`); each profile's instructions live in `config/profiles/<name>.md` and it may override the model/provider.
+- Channel-specific behaviours are declared as profiles in `config/profiles.json` (copy `config/profiles.example.json`); each profile's instructions live in `config/profiles/<name>.md` and it may override the model.
 
 ### CI/CD
 

@@ -60,7 +60,6 @@ describe('loadConfig profiles', () => {
         channelId: 'chan-1',
         roleId: 'role-1',
         model: 'some-model',
-        provider: 'openai',
       },
     ]);
 
@@ -83,20 +82,6 @@ describe('loadConfig profiles', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('is malformed'),
     );
-  });
-
-  it('skips a profile with an unknown provider', async () => {
-    profilesJson = JSON.stringify([
-      {
-        name: 'bad-provider',
-        channelId: 'chan-1',
-        provider: 'anthropic',
-      },
-    ]);
-
-    const config = await loadConfig();
-
-    expect(config.profiles).toEqual([]);
   });
 
   it('keeps the first of two profiles that reuse a name', async () => {

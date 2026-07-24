@@ -125,8 +125,7 @@ class SteamService {
          LIMIT 1`,
       )
       .get(`%${escaped}%`, normalized) as
-      | { appid: number; name: string }
-      | undefined;
+      { appid: number; name: string } | undefined;
 
     return row ?? null;
   }

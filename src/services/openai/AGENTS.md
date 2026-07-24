@@ -31,13 +31,13 @@ Behaviour:
 ## Other methods
 
 - `createImage(prompt)` — direct image generation via `images.generate`, used by the `/image` slash command and the daily MOTD.
-- `generateMotdImagePrompt(location, style, subject)` — asks the chat model to render a pre-chosen `location`/`style`/`subject` combination into a fresh MOTD image prompt (the combination is picked deterministically by the caller — see `src/services/memory/motd-rotation.ts`). Thin wrapper over the shared helper in `src/services/chat/motd-image-prompt.ts`; supplies this provider's client, `requireChatModel()`, and the hot-reloaded instructions from `this._config.motdImagePrompt` (`config/motd-image-prompt.md`).
+- `generateMotdImagePrompt(location, style, subject)` — asks the chat model to render a pre-chosen `location`/`style`/`subject` combination into a fresh MOTD image prompt (the combination is picked deterministically by the caller — see `src/services/memory/motd-rotation.ts`). Thin wrapper over the helper in `src/services/chat/motd-image-prompt.ts`; supplies the client, `requireChatModel()`, and the hot-reloaded instructions from `this._config.motdImagePrompt` (`config/motd-image-prompt.md`).
 - `generateThreadName(prompt)` — one-shot title generation, capped to 100 chars.
 - `reloadConfig(newConfig)` — hot-reload entry point.
 
 ## Tools
 
-- `tools.ts` lists the function tools (`FUNCTION_TOOLS`) the model can call. Names are imported from `src/services/chat/tool-names.ts`. Add a new tool by adding the name constant, the schema here, and an executor case in `src/services/rooivalk/tool-executor.ts`. Inline image generation goes through the `generate_image` function tool so the same surface works on both OpenAI and xAI.
+- `tools.ts` lists the function tools (`FUNCTION_TOOLS`) the model can call. Names are imported from `src/services/chat/tool-names.ts`. Add a new tool by adding the name constant, the schema here, and an executor case in `src/services/rooivalk/tool-executor.ts`. Inline image generation goes through the `generate_image` function tool.
 - One native server tool is always attached: `web_search_preview`.
 
 ## Environment

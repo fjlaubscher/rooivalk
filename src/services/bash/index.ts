@@ -51,8 +51,7 @@ function validate(command: string): string | null {
 }
 
 export type BashResult =
-  | { ok: true; output: string }
-  | { ok: false; error: string };
+  { ok: true; output: string } | { ok: false; error: string };
 
 export async function runBash(rawCommand: string): Promise<BashResult> {
   let command = rawCommand.trim();

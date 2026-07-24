@@ -2,26 +2,25 @@
 
 ## Overview
 
-This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The bot integrates with Discord and a pluggable LLM provider to:
+This repository implements `Rooivalk`, a Node.js + TypeScript Discord bot. The bot integrates with Discord and OpenAI to:
 
 - Listen for mentions and replies
-- Generate responses via the OpenAI Responses API (or xAI Grok via the OpenAI SDK), with conversation continuity handled server-side via `previous_response_id`
-- Generate images via OpenAI `gpt-image-1` or xAI Grok image models, surfaced both as the `/image` slash command and the `generate_image` function tool the chat model can call
+- Generate responses via the OpenAI Responses API, with conversation continuity handled server-side via `previous_response_id`
+- Generate images via OpenAI `gpt-image-1`, surfaced both as the `/image` slash command and the `generate_image` function tool the chat model can call
 - Create and manage Discord threads for conversations
 - Post responses back to Discord
 - Maintain some internal state via class-based services with private fields
 
-The chat and image providers are independently swappable: `XAI_MODEL` flips the default chat provider to xAI and `XAI_IMAGE_MODEL` flips image generation to xAI. Channel-specific chat behaviour is layered on top via declarative profiles in `config/profiles.json` (see `src/services/chat/AGENTS.md`).
+Channel-specific chat behaviour is layered on top via declarative profiles in `config/profiles.json` (see `src/services/chat/AGENTS.md`).
 
 The codebase uses a modular, service-based architecture. All services are TypeScript classes using private properties with an underscore prefix (e.g., `private _propertyName`).
 
 ## Project Structure
 
-- `src/services/chat/` – ChatService factory wrapper around OpenAIService - [See AGENTS.md](src/services/chat/AGENTS.md)
+- `src/services/chat/` – Channel-profile chat services built on OpenAIService - [See AGENTS.md](src/services/chat/AGENTS.md)
 - `src/services/discord/` – DiscordService (Discord integration) - [See AGENTS.md](src/services/discord/AGENTS.md)
   - `helpers.ts` – Message parsing and formatting utilities
 - `src/services/openai/` – OpenAIService (OpenAI chat provider + image generation) - [See AGENTS.md](src/services/openai/AGENTS.md)
-- `src/services/xai/` – XAIService (xAI Grok chat + image provider via OpenAI SDK) - [See AGENTS.md](src/services/xai/AGENTS.md)
 - `src/services/rooivalk/` – RooivalkService (core business logic) - [See AGENTS.md](src/services/rooivalk/AGENTS.md)
   - `helpers.ts` – Thread detection and reply handling utilities
 - `src/services/yr/` – YrService (weather integration) - [See AGENTS.md](src/services/yr/AGENTS.md)
@@ -34,7 +33,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/config/` – Config loading and hot-reloading system. `loader.ts` orchestrates `loadConfig`; the loaders are split by concern: `messages.ts` (markdown message lists and instructions), `profiles.ts` and `tool-roles.ts` (each exposing a pure validator plus its loader), and `json-config.ts` (shared config-path + JSON read/parse helper). `watcher.ts` reloads on `config/*.md` and `tool-roles.json` changes.
 - `src/constants.ts` – Global constants
 - `src/types.ts` – Shared types
-- `config/` – Hot-swappable markdown configs (per-provider `instructions/openai.md` and `instructions/xai.md`, greetings, errors, etc.) plus channel profiles in `profiles.json` (gitignored; see `profiles.example.json`), each profile's instructions in `profiles/<name>.md` (gitignored; see `profiles/example.md`), and role-based tool permissions in `tool-roles.json` (gitignored; see `tool-roles.example.json`)
+- `config/` – Hot-swappable markdown configs (`instructions.md`, greetings, errors, etc.) plus channel profiles in `profiles.json` (gitignored; see `profiles.example.json`), each profile's instructions in `profiles/<name>.md` (gitignored; see `profiles/example.md`), and role-based tool permissions in `tool-roles.json` (gitignored; see `tool-roles.example.json`)
 
 Other files and directories follow standard Node.js/TypeScript project conventions.
 
@@ -57,7 +56,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 - Copy `.env.example` to `.env` and configure required credentials.
 - Required: `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `DISCORD_STARTUP_CHANNEL_ID`, `DISCORD_MOTD_CHANNEL_ID`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL`, `ROOIVALK_MOTD_CRON`.
-- Optional: `OPENAI_MODEL` (chat), `XAI_API_KEY` + `XAI_MODEL` (chat → xAI), `XAI_IMAGE_MODEL` (image gen → xAI), `STEAM_API_KEY` (nightly Steam app catalogue sync), `GITHUB_TOKEN` (enables the create/search GitHub issue tools on the repos allowlisted in `GITHUB_REPOS`), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `LOG_LEVEL` (`debug` enables prompt-metric logging).
+- Optional: `OPENAI_MODEL` (chat), `STEAM_API_KEY` (nightly Steam app catalogue sync), `GITHUB_TOKEN` (enables the create/search GitHub issue tools on the repos allowlisted in `GITHUB_REPOS`), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `LOG_LEVEL` (`debug` enables prompt-metric logging).
 - Channel-specific chat behaviour (e.g. field hospital) is configured as profiles in `config/profiles.json`, not env — see `src/services/chat/AGENTS.md`.
 
 ## Coding Conventions
@@ -98,14 +97,14 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 |------------------------------|------------------------------------------|---------------------------------------------|
 | Add Discord command          | `services/discord/index.ts`              | Extend message/interaction handlers         |
 | Add OpenAI model support     | `services/openai/index.ts`               | Add model ID, update API payload/env vars   |
-| Add new chat tool            | `services/chat/tool-names.ts` + `services/openai/tools.ts` + `services/rooivalk/tool-executor.ts` | Add the tool name constant, the schema, and the executor case. The schema is shared by both `OpenAIService` and `XAIService`. |
+| Add new chat tool            | `services/chat/tool-names.ts` + `services/openai/tools.ts` + `services/rooivalk/tool-executor.ts` | Add the tool name constant, the schema, and the executor case. |
 | Enhance business logic       | `services/rooivalk/index.ts`             | Extend message/state handling               |
 | Modify thread behavior       | `services/rooivalk/helpers.ts`           | Update `isRooivalkThread`, `isReplyToRooivalk` functions |
 | Add Discord helper utility   | `services/discord/helpers.ts`            | Conversation-ref resolvers live here       |
 | Add thread-related tests     | `services/rooivalk/index.test.ts`        | Use mock threads with `createMockMessage`   |
 | Change conversation-chain storage | `services/memory/schema.ts` + `services/memory/index.ts` | `conversation_responses` table; keep `(type, ref_id)` composite PK |
 | Add test                     | `<service>/index.test.ts`                | Use `test-utils/createMockMessage.ts` and `test-utils/mock.ts` |
-| Update MOTD image feed       | `services/rooivalk/index.ts`             | AI generation is primary (via the active `ImageService.createImage`), Peapix is the only fallback. Style/aspect arrays are in `index.ts`. |
+| Update MOTD image feed       | `services/rooivalk/index.ts`             | AI generation is primary (via `ImageService.createImage`), Peapix is the only fallback. Style/aspect arrays are in `index.ts`. |
 | Update config system         | `src/config/loader.ts`, `config/*.md`    | Modify config loading/watching; update markdown configs |
 | Update config/constants      | `constants.ts`, `.env.example`           | Add new constants or env vars               |
 

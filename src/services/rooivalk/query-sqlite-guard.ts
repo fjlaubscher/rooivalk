@@ -6,8 +6,7 @@ const ALLOWED_PREFIXES = ['SELECT', 'WITH'];
 const FORBIDDEN_TABLE_PATTERN = /\bmemories\b/i;
 
 export type QueryValidation =
-  | { ok: true; sql: string }
-  | { ok: false; error: string };
+  { ok: true; sql: string } | { ok: false; error: string };
 
 export function validateQuerySql(input: unknown): QueryValidation {
   if (typeof input !== 'string') {
