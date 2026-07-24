@@ -12,8 +12,6 @@ export type Env = {
   ROOIVALK_MOTD_CRON: string;
 };
 
-export type ChatProvider = 'openai' | 'xai';
-
 /**
  * A declarative channel profile. A message that lands in `channelId` (or a
  * thread whose parent is `channelId`), optionally from a member holding
@@ -21,9 +19,9 @@ export type ChatProvider = 'openai' | 'xai';
  * the default.
  *
  * The behaviour is config-only: instructions are loaded from
- * `config/profiles/<name>.md` (resolved from `name`), and `model`/`provider`
- * override the defaults. Adding a profile needs a new entry plus its
- * instructions file, no code changes.
+ * `config/profiles/<name>.md` (resolved from `name`), and `model` overrides the
+ * default. Adding a profile needs a new entry plus its instructions file, no
+ * code changes.
  */
 export type Profile = {
   /**
@@ -35,10 +33,8 @@ export type Profile = {
   channelId: string;
   /** Optional Discord role id; when set, the member must hold it to match. */
   roleId?: string;
-  /** Optional model override; falls back to the provider's default model. */
+  /** Optional model override; falls back to `OPENAI_MODEL`. */
   model?: string;
-  /** Optional provider override; defaults to `openai`. */
-  provider?: ChatProvider;
 };
 
 /** Picks the system instructions for a request from the in-memory config. */
@@ -61,10 +57,7 @@ export type InMemoryConfig = {
   instagramMessages: string[];
   permissionDeniedMessages: string[];
   boastMessages: string[];
-  instructions: {
-    openai: string;
-    xai: string;
-  };
+  instructions: string;
   /** Declarative channel profiles. */
   profiles: Profile[];
   /** Instruction text per profile, keyed by profile name. */

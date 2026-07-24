@@ -46,8 +46,7 @@ export const CONFIG_FILE_DISCORD_LIMIT = 'discord_limit.md';
 export const CONFIG_FILE_INSTAGRAM = 'instagram.md';
 export const CONFIG_FILE_PERMISSION_DENIED = 'permission_denied.md';
 export const CONFIG_FILE_BOAST = 'boast.md';
-export const CONFIG_FILE_INSTRUCTIONS_OPENAI = 'instructions/openai.md';
-export const CONFIG_FILE_INSTRUCTIONS_XAI = 'instructions/xai.md';
+export const CONFIG_FILE_INSTRUCTIONS = 'instructions.md';
 export const CONFIG_FILE_PROFILES = 'profiles.json';
 export const CONFIG_FILE_TOOL_ROLES = 'tool-roles.json';
 export const CONFIG_FILE_MOTD = 'motd.md';
@@ -55,7 +54,7 @@ export const CONFIG_FILE_MOTD_IMAGE_PROMPT = 'motd-image-prompt.md';
 export const CONFIG_FILE_GITHUB_ISSUE_TEMPLATE = 'github_issue_template.md';
 
 // Each channel profile's instructions live in its own markdown file, addressed
-// by profile name. Deployment-specific, separate from the per-provider defaults.
+// by profile name. Deployment-specific, separate from the default instructions.
 export const getProfileInstructionsPath = (name: string): string =>
   `profiles/${name}.md`;
 export const CONFIG_FILE_LEADERBOARD = 'leaderboard.md';

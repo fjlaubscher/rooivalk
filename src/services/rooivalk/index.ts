@@ -26,12 +26,9 @@ import {
   IMAGE_ATTACHMENT_EXTENSIONS,
   YR_COORDINATES,
 } from '../../constants.ts';
-import {
-  createChatService,
-  createImageService,
-  createProfileChatServices,
-} from '../chat/index.ts';
+import { createProfileChatServices } from '../chat/index.ts';
 import type { ChatService, ImageService } from '../chat/index.ts';
+import OpenAIService from '../openai/index.ts';
 import DiscordService from '../discord/index.ts';
 import EmojiService from '../emoji/index.ts';
 import GithubService from '../github/index.ts';
@@ -182,8 +179,8 @@ class Rooivalk {
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
-    this._openai = openaiService ?? createImageService(this._config);
-    this._chat = chatService ?? createChatService(this._config);
+    this._openai = openaiService ?? new OpenAIService(this._config);
+    this._chat = chatService ?? new OpenAIService(this._config);
     this._profileChats =
       profileChatServices ?? createProfileChatServices(this._config);
     this._yr = yrService ?? new YrService();

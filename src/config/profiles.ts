@@ -2,11 +2,9 @@ import {
   CONFIG_FILE_PROFILES,
   getProfileInstructionsPath,
 } from '../constants.ts';
-import type { ChatProvider, Profile } from '../types.ts';
+import type { Profile } from '../types.ts';
 import { loadJsonConfig } from './json-config.ts';
 import { loadOptionalInstructions } from './messages.ts';
-
-const VALID_PROVIDERS: ChatProvider[] = ['openai', 'xai'];
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0;
@@ -16,9 +14,9 @@ const isOptionalString = (value: unknown): value is string | undefined =>
 
 /**
  * Validates a single parsed profile entry. Returns the typed profile, or `null`
- * (with a warning) when a required field is missing/mistyped or `provider` is
- * not a known value — a malformed profile is dropped rather than silently
- * routing to nowhere or keying the service map by `undefined`.
+ * (with a warning) when a required field is missing or mistyped — a malformed
+ * profile is dropped rather than silently routing to nowhere or keying the
+ * service map by `undefined`.
  */
 export const parseProfile = (entry: unknown, index: number): Profile | null => {
   const label = `${CONFIG_FILE_PROFILES}[${index}]`;
@@ -37,12 +35,6 @@ export const parseProfile = (entry: unknown, index: number): Profile | null => {
   if (!isOptionalString(profile.roleId))
     problems.push('roleId must be a string');
   if (!isOptionalString(profile.model)) problems.push('model must be a string');
-  if (
-    profile.provider !== undefined &&
-    !VALID_PROVIDERS.includes(profile.provider as ChatProvider)
-  ) {
-    problems.push(`provider must be one of ${VALID_PROVIDERS.join(', ')}`);
-  }
 
   if (problems.length > 0) {
     console.warn(

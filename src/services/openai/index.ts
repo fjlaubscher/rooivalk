@@ -34,7 +34,7 @@ function isMissingPreviousResponseError(error: unknown): boolean {
 }
 
 const defaultInstructionsSelector: InstructionsSelector = (config) =>
-  config.instructions.openai;
+  config.instructions;
 
 class OpenAIService {
   private _config: InMemoryConfig;
@@ -87,8 +87,7 @@ class OpenAIService {
   ): Promise<OpenAIResponse> {
     try {
       let instructions =
-        this._instructionsSelector(this._config) ||
-        this._config.instructions.openai;
+        this._instructionsSelector(this._config) || this._config.instructions;
 
       const currentDate = new Date().toISOString().split('T')[0];
       instructions = instructions.replace(/{{CURRENT_DATE}}/g, currentDate);

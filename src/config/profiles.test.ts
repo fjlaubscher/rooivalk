@@ -18,7 +18,6 @@ const validProfile = {
   channelId: '42',
   roleId: '7',
   model: 'gpt-5',
-  provider: 'openai',
 };
 
 describe('parseProfile', () => {
@@ -37,7 +36,7 @@ describe('parseProfile', () => {
     ['a missing name', { channelId: '1' }],
     ['a missing channelId', { name: 'a' }],
     ['a non-string roleId', { name: 'a', channelId: '1', roleId: 7 }],
-    ['an unknown provider', { name: 'a', channelId: '1', provider: 'gemini' }],
+    ['a non-string model', { name: 'a', channelId: '1', model: 5 }],
   ])('drops %s (returns null)', (_label, entry) => {
     expect(parseProfile(entry, 0)).toBeNull();
   });

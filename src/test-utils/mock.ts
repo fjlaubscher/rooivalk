@@ -20,10 +20,7 @@ export const MOCK_CONFIG: InMemoryConfig = {
   instagramMessages: ['Target acquired: {{LINK}}'],
   permissionDeniedMessages: ['Denied!'],
   boastMessages: ['All me, obviously.'],
-  instructions: {
-    openai: 'System instructions {{CURRENT_DATE}}',
-    xai: 'System instructions {{CURRENT_DATE}}',
-  },
+  instructions: 'System instructions {{CURRENT_DATE}}',
   profiles: [],
   profileInstructions: {},
   toolRoles: {},

@@ -2,8 +2,7 @@ import type OpenAI from 'openai';
 
 /**
  * Generate a fresh MOTD image-generation prompt for a *pre-chosen*
- * location/style/subject combination, using an OpenAI-compatible chat client
- * (OpenAI or xAI). The caller picks the style and subject deterministically
+ * location/style/subject combination. The caller picks the style and subject deterministically
  * (see `src/services/memory/motd-rotation.ts`); the model only renders that
  * fixed combination into a vivid prompt and must not substitute its own style
  * or subject. Returns null on error or empty output, so callers can fall back
