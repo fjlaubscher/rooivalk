@@ -72,6 +72,28 @@ describe('runBash', () => {
     });
   });
 
+  describe('shell metacharacters', () => {
+    it.each([
+      'ls; id',
+      'ls && id',
+      'ls | id',
+      'cat `id`',
+      'cat $(ls)',
+      'ls > /tmp/out',
+      'ls\nid',
+      // Quotes would be stripped by sh, smuggling a dotfile past the path check
+      "cat '.env'",
+      'cat ".env"',
+      // Tilde expands to $HOME, escaping the cwd sandbox
+      'cat ~/secrets',
+      'ls ~root',
+    ])('rejects %j', async (command) => {
+      const result = await runBash(command);
+      expect(result.ok).toBe(false);
+      expect(mockExec).not.toHaveBeenCalled();
+    });
+  });
+
   describe('path sandboxing', () => {
     it('rejects absolute paths in file commands', async () => {
       const result = await runBash('cat /etc/passwd');
@@ -82,6 +104,23 @@ describe('runBash', () => {
     it('rejects directory traversal in file commands', async () => {
       const result = await runBash('cat ../../secrets');
       expect(result.ok).toBe(false);
+    });
+
+    it('rejects dotfiles holding secrets', async () => {
+      const result = await runBash('cat .env');
+      expect(result.ok).toBe(false);
+      expect(mockExec).not.toHaveBeenCalled();
+    });
+
+    it('rejects dotfiles nested in a path', async () => {
+      const result = await runBash('cat src/../.env');
+      expect(result.ok).toBe(false);
+    });
+
+    it('allows a bare . as a search root', async () => {
+      stubExec('match');
+      const result = await runBash('find . -name index.ts');
+      expect(result.ok).toBe(true);
     });
 
     it('allows flags alongside relative paths', async () => {

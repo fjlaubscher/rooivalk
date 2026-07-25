@@ -47,7 +47,13 @@ export const parseToolRoles = (parsed: unknown): ToolRoles => {
 /**
  * Loads the role-based tool permissions from `config/tool-roles.json`. The file
  * is deployment-specific (gitignored); a missing file means no tool is
- * restricted.
+ * restricted, which is a quiet way to expose `run_bash` to a whole guild — so
+ * it warns rather than starting up silently.
  */
 export const loadToolRoles = async (): Promise<ToolRoles> =>
-  loadJsonConfig(CONFIG_FILE_TOOL_ROLES, parseToolRoles, () => ({}));
+  loadJsonConfig(CONFIG_FILE_TOOL_ROLES, parseToolRoles, () => {
+    console.warn(
+      `[config/loader] No ${CONFIG_FILE_TOOL_ROLES} found — every tool, including ${TOOL_NAMES.RUN_BASH}, is available to every user`,
+    );
+    return {};
+  });
