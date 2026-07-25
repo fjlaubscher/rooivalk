@@ -26,12 +26,17 @@ const FILE_COMMANDS = new Set([
   'wc',
 ]);
 
-// The command runs through `sh -c`, so the allowlist below only means anything
-// if the shell can't be talked into running a second command. Anything that
-// chains, substitutes, or redirects is refused outright.
-// ponytail: a metacharacter denylist keeps `exec` and its glob expansion
-// working; switch to execFile with an argv array if this needs to get stricter.
-const SHELL_METACHARACTERS = /[;&|`$<>(){}\\\n\r]/;
+// The command runs through `sh -c`, which re-parses the string after `validate`
+// has already parsed it. Every character below is one the shell would rewrite
+// or act on, so banning them collapses that gap: what `validate` sees as a
+// whitespace-split argument is what `cat` receives. Chaining and substitution
+// go with it, and so do quotes (`cat '.env'` would otherwise reach the shell
+// as `.env`) and `~` (which expands to `$HOME`, escaping the cwd sandbox).
+// The cost is that quoted multi-word arguments are unavailable, e.g.
+// `grep -r "foo bar" src/` — acceptable for a log-poking tool.
+// ponytail: a denylist leaves glob expansion working; switch to execFile with
+// an argv array if the tool ever needs to accept quoted arguments.
+const SHELL_METACHARACTERS = /[;&|`$<>(){}\\'"~\n\r]/;
 
 function validate(command: string): string | null {
   if (SHELL_METACHARACTERS.test(command)) {

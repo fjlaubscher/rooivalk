@@ -81,6 +81,12 @@ describe('runBash', () => {
       'cat $(ls)',
       'ls > /tmp/out',
       'ls\nid',
+      // Quotes would be stripped by sh, smuggling a dotfile past the path check
+      "cat '.env'",
+      'cat ".env"',
+      // Tilde expands to $HOME, escaping the cwd sandbox
+      'cat ~/secrets',
+      'ls ~root',
     ])('rejects %j', async (command) => {
       const result = await runBash(command);
       expect(result.ok).toBe(false);
