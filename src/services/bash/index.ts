@@ -26,7 +26,18 @@ const FILE_COMMANDS = new Set([
   'wc',
 ]);
 
+// The command runs through `sh -c`, so the allowlist below only means anything
+// if the shell can't be talked into running a second command. Anything that
+// chains, substitutes, or redirects is refused outright.
+// ponytail: a metacharacter denylist keeps `exec` and its glob expansion
+// working; switch to execFile with an argv array if this needs to get stricter.
+const SHELL_METACHARACTERS = /[;&|`$<>(){}\\\n\r]/;
+
 function validate(command: string): string | null {
+  if (SHELL_METACHARACTERS.test(command)) {
+    return 'Shell metacharacters are not allowed';
+  }
+
   const allowed = ALLOWED_PREFIXES.some(
     (prefix) => command === prefix || command.startsWith(`${prefix} `),
   );
@@ -41,8 +52,13 @@ function validate(command: string): string | null {
   if (FILE_COMMANDS.has(cmd)) {
     for (const arg of parts.slice(1)) {
       if (arg.startsWith('-')) continue;
-      if (arg.startsWith('/') || arg.includes('..')) {
-        return 'Absolute paths and directory traversal are not allowed';
+      if (arg.startsWith('/')) {
+        return 'Absolute paths are not allowed';
+      }
+      // Rejects `..` traversal and dotfiles (`.env` holds the bot's tokens) in
+      // any path segment, while still allowing a bare `.` as in `find . -name`.
+      if (arg.split('/').some((seg) => seg.startsWith('.') && seg !== '.')) {
+        return 'Directory traversal and dotfiles are not allowed';
       }
     }
   }

@@ -52,6 +52,7 @@ jobs:
             --exclude='data/' \
             --exclude='profiles.json' \
             --exclude='profiles/' \
+            --exclude='tool-roles.json' \
             ./src ./config ./AGENTS.md ./package.json ./pnpm-lock.yaml ./tsconfig.json ./.nvmrc ./ecosystem.config.cjs \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
 
