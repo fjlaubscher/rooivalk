@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
-import { parseToolRoles } from './tool-roles.ts';
+const mockReadFile = vi.hoisted(() => vi.fn());
+
+vi.mock('fs/promises', () => ({ readFile: mockReadFile }));
+
+import { loadToolRoles, parseToolRoles } from './tool-roles.ts';
 
 describe('parseToolRoles', () => {
   it('accepts a role mapping to known tool names', () => {
@@ -43,5 +47,30 @@ describe('parseToolRoles', () => {
     expect(() => parseToolRoles({ '123': ['run_bsah'] })).toThrow(
       /lists unknown tool name\(s\): run_bsah/,
     );
+  });
+});
+
+describe('loadToolRoles', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it('warns that every tool is ungated when the file is missing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockReadFile.mockRejectedValue(
+      Object.assign(new Error('missing'), { code: 'ENOENT' }),
+    );
+
+    await expect(loadToolRoles()).resolves.toEqual({});
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('run_bash'));
+  });
+
+  it('stays quiet when the file is present', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockReadFile.mockResolvedValue('{"123":["run_bash"]}');
+
+    await expect(loadToolRoles()).resolves.toEqual({ '123': ['run_bash'] });
+    expect(warn).not.toHaveBeenCalled();
   });
 });
