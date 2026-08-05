@@ -96,10 +96,6 @@ class OpenAIService {
         instructions += renderPreferences(preferences);
       }
 
-      if (toolExecutor && this._config.githubIssueTemplate) {
-        instructions += `\n\n[GitHub issue template — follow this when calling create_github_issue]\n${this._config.githubIssueTemplate}`;
-      }
-
       // Attach the speaker identity to the user turn itself rather than a
       // separate system message. With previous_response_id the model treats
       // system messages as conversation-level framing and anchors on the first

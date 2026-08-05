@@ -24,6 +24,7 @@ function buildContext(
     steam: {} as any,
     github: {} as any,
     image: {} as any,
+    githubIssueTemplate: '## Description\n...',
     createThread: vi.fn(),
     ...overrides,
   };
@@ -175,6 +176,26 @@ describe('buildToolExecutor github tools', () => {
       number: 1,
       url: 'https://example.com/1',
     });
+  });
+
+  it('returns the configured issue template', async () => {
+    const execute = buildToolExecutor(
+      buildContext({ githubIssueTemplate: '## Description\n...' }),
+    );
+
+    const result = await execute(TOOL_NAMES.GET_GITHUB_ISSUE_TEMPLATE, {});
+
+    expect(result.output).toBe('## Description\n...');
+  });
+
+  it('returns a note when no issue template is configured', async () => {
+    const execute = buildToolExecutor(
+      buildContext({ githubIssueTemplate: '' }),
+    );
+
+    const result = await execute(TOOL_NAMES.GET_GITHUB_ISSUE_TEMPLATE, {});
+
+    expect(JSON.parse(result.output)).toHaveProperty('note');
   });
 
   it('returns an error for create_github_issue on an unknown repo', async () => {

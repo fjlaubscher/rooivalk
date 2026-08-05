@@ -12,5 +12,6 @@ export const TOOL_NAMES = Object.freeze({
   DESCRIBE_SCHEMA: 'describe_schema',
   GENERATE_IMAGE: 'generate_image',
   CREATE_GITHUB_ISSUE: 'create_github_issue',
+  GET_GITHUB_ISSUE_TEMPLATE: 'get_github_issue_template',
   SEARCH_GITHUB_ISSUES: 'search_github_issues',
 });

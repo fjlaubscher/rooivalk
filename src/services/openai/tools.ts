@@ -288,7 +288,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.CREATE_GITHUB_ISSUE,
     description:
-      'File a new GitHub issue on one of a predefined set of repos. Only use when the user explicitly asks to file, open, or report an issue/bug. Only the listed repos are available.',
+      'File a new GitHub issue on one of a predefined set of repos. Only use when the user explicitly asks to file, open, or report an issue/bug. Only the listed repos are available. Call get_github_issue_template first and structure the body with it.',
     strict: true,
     parameters: {
       type: 'object',
@@ -308,6 +308,19 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
         },
       },
       required: ['repo', 'title', 'body'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: TOOL_NAMES.GET_GITHUB_ISSUE_TEMPLATE,
+    description:
+      'Get the markdown template a GitHub issue body must follow. Call this before create_github_issue and structure the body with the returned template.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
       additionalProperties: false,
     },
   },

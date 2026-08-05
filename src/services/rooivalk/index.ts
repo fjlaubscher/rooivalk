@@ -379,6 +379,7 @@ class Rooivalk {
       memory: this._memory,
       steam: this._steam,
       github: this._github,
+      githubIssueTemplate: this._config.githubIssueTemplate,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),
       toolRoles: this._config.toolRoles,
     });

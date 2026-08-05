@@ -27,6 +27,8 @@ export type ToolExecutorContext = {
   steam: SteamService;
   github: GithubService;
   image: ImageService;
+  /** Markdown template returned by the get_github_issue_template tool. */
+  githubIssueTemplate: string;
   createThread: (
     message: Message<boolean>,
     name?: string,
@@ -231,6 +233,15 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
         } catch (err) {
           return errorOutput(err);
         }
+      }
+      case TOOL_NAMES.GET_GITHUB_ISSUE_TEMPLATE: {
+        return {
+          output:
+            ctx.githubIssueTemplate ||
+            JSON.stringify({
+              note: 'No template configured — write a clear, concise body.',
+            }),
+        };
       }
       case TOOL_NAMES.SEARCH_GITHUB_ISSUES: {
         const repo = args.repo as string;

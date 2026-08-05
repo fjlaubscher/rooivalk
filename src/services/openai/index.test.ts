@@ -335,8 +335,8 @@ describe('OpenAIService', () => {
     });
   });
 
-  describe('github issue template injection', () => {
-    it('appends the template when a toolExecutor is provided', async () => {
+  describe('github issue template', () => {
+    it('never appears in the instructions — served via the get_github_issue_template tool instead', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'ok',
         output: [],
@@ -351,20 +351,9 @@ describe('OpenAIService', () => {
       );
 
       const callArgs = responsesCreateMock.mock.calls[0]![0];
-      expect(callArgs.instructions).toContain('[GitHub issue template');
-      expect(callArgs.instructions).toContain(MOCK_CONFIG.githubIssueTemplate);
-    });
-
-    it('omits the template when no toolExecutor is provided', async () => {
-      responsesCreateMock.mockResolvedValueOnce({
-        output_text: 'ok',
-        output: [],
-      });
-
-      await service.createResponse('test user', 'hi');
-
-      const callArgs = responsesCreateMock.mock.calls[0]![0];
-      expect(callArgs.instructions).not.toContain('[GitHub issue template');
+      expect(callArgs.instructions).not.toContain(
+        MOCK_CONFIG.githubIssueTemplate,
+      );
     });
   });
 
