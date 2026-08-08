@@ -26,6 +26,7 @@ Behaviour:
 - Returns the new `response.id` as `responseId`. The caller persists it under the appropriate `ConversationRef` keys.
 - Tool execution loop: up to `MAX_TOOL_ITERATIONS` (10) round-trips. On the final iteration, tools are stripped from the request so the model must produce a text response instead of yet another function call.
 - Any `base64Image` returned by a tool result (via the `generate_image` function tool) is collected across iterations. If at least one image was produced the response is flagged `type: 'image_generation_call'` so the Discord renderer attaches it.
+- Images generated during an iteration are also fed **back** to the model as a user turn of `input_image` data URIs (`detail: 'low'`) alongside that iteration's `function_call_output` items. A `function_call_output` can only carry text, so without this the model writes its caption having never seen what it drew — and the pixels never enter the chain, so follow-ups can't reason about the image either.
 - `web_search` citation markers (`【…】`) are removed from output text.
 
 ## Other methods

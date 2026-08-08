@@ -90,6 +90,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 - Per-conversation response ids live in SQLite (`conversation_responses` table) keyed by `(type, ref_id)` where `type` is `'msg'` (a bot reply id) or `'thread'` (a thread id).
 - On the turn that creates a thread, the new response id is written under **both** the msg id and the thread id so the chain survives the transition.
 - If a stored response id has aged out (OpenAI 404), `OpenAIService` transparently retries without it and flags `contextLost: true` so `RooivalkService` can prepend a notice to the reply.
+- Prompt context splits by scope: **message-scoped** context (the replied-to message's text, embeds and attachments) is forwarded on *every* turn, because the provider cannot know what this turn points at; **conversation-scoped** context (the channel name and topic) is sent on the first turn only, since `previous_response_id` already retains it.
 
 ## Agent Task Examples
 

@@ -31,8 +31,18 @@ The RooivalkService contains the core business logic for the bot. It processes m
 - `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to the selected `ChatService.createResponse`.
 - After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn).
 - When the chat provider reports `contextLost: true` (an aged-out `previous_response_id` triggers a one-shot retry without it), the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
-- When a Discord reply has no stored `previous_response_id` (e.g., replying to a non-bot message while mentioning the bot), `loadReferencedMessageContext` fetches the referenced message and prepends a `[Replying to <author>: "<content>" (N attachments)]` block to the prompt. Allowed attachments from the referenced message are merged ahead of the current message's attachments so the model can see both. Fetch failures fall back silently to the bare prompt.
-- On the first turn of a conversation (no stored `previous_response_id`), `buildPromptChannel` (in `helpers.ts`) prepends a `[Channel #<name> — description: "<topic>"]` line so the model knows where the conversation is happening. The channel topic is read from `channel.topic`; inside a thread it falls back to the parent channel's topic. The line is omitted entirely when neither a name nor a description is available (e.g. DMs). Like the referenced-message context, it is skipped on follow-up turns — the provider already retains it server-side via `previous_response_id`, so re-sending it (channel descriptions can be up to 2000 chars) would only bloat the prompt.
+
+Prompt context splits by **scope**, and the split decides when it is sent. Keep this distinction when adding new context — collapsing the two is what caused [#93](https://github.com/fjlaubscher/rooivalk/issues/93).
+
+| Scope                                                   | Examples                                                     | Sent            |
+| ------------------------------------------------------- | ------------------------------------------------------------ | --------------- |
+| **Message-scoped** — a fact about _this_ turn           | `[Replying to …]` plus that message's attachments and embeds | every turn      |
+| **Conversation-scoped** — a fact about _where_ it lives | `[Channel #… — description: "…"]`                            | first turn only |
+
+- `loadReferencedMessageContext` fetches the replied-to message on **every** turn and prepends a `[Replying to <author>: "<content>" [embed: …] (N attachments)]` block. The provider cannot know which message the user just replied to — that is not something `previous_response_id` retains — and mid-conversation that message's image is usually the entire question. Its allowed attachments are merged ahead of the current message's and deduped by URL. A fetch failure, or a message that resolves to nothing, falls back silently to the bare prompt.
+- `buildMessageContext` also reads the referenced message's **embeds** via `summarizeEmbeds` (in `helpers.ts`): `title`/`description`/`author`/`footer` become `[embed: …]` text, and `image.url` joins the attachment list. Two deliberate exclusions — `attachment://` URLs are dropped (they only resolve inside Discord, and the file is already in `attachments`), and `thumbnail` is ignored so link previews don't flood the vision payload with favicons. This is what lets a follow-up about the MOTD picture reach both the JPEG and the prompt that generated it.
+- Quoted content is capped at `REFERENCED_CONTENT_MAX_LENGTH` (500 chars) and embed text at `REFERENCED_EMBED_TEXT_MAX_LENGTH` — a referenced message is a pointer, not a document.
+- On the first turn only, `buildPromptChannel` (in `helpers.ts`) prepends a `[Channel #<name> — description: "<topic>"]` line so the model knows where the conversation is happening. The channel topic is read from `channel.topic`; inside a thread it falls back to the parent channel's topic. The line is omitted entirely when neither a name nor a description is available (e.g. DMs), and skipped on follow-up turns — the provider already retains it server-side via `previous_response_id`, so re-sending it (channel descriptions can be up to 2000 chars) would only bloat the prompt.
 
 ### Context Integration
 
@@ -58,6 +68,8 @@ The chosen combination then drives the prompt in two tiers:
 2. **Stored style/aspect** (fallback): when the model is unavailable or returns nothing, the same chosen `style`/`aspect`/`city` are dropped into a template string — `` `${style} depicting ${aspect} of ${city}. Vivid, detailed, atmospheric.` ``.
 
 Because the selection is recorded inside `pickMotdSelection`, the day's combo is remembered even if image generation fails and the MOTD falls back to Peapix.
+
+**The MOTD post deliberately does not write a `conversation_responses` row**, and adding one would be a regression, not a fix. Its chat turn is sealed before `createImage` runs, so that chain has never seen the picture — chaining replies onto it would let the model answer image questions with total confidence and zero pixels, which is exactly the [#93](https://github.com/fjlaubscher/rooivalk/issues/93) failure. It would also anchor every reply fork to a raw weather/events JSON prompt. Replies instead pick the MOTD up as message-scoped context: the real JPEG from `attachments`, and the generation prompt from the embed footer. The only version of this worth revisiting is generating the image _inside_ a chat turn via the `generate_image` tool, so it lands in the chain natively.
 
 ## Bot Behavior Logic
 
