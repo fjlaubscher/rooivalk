@@ -28,6 +28,14 @@ export const ALLOWED_ATTACHMENT_EXTENSIONS = [
   '.tsv',
 ];
 
+// A referenced message is quoted into the prompt as a pointer, not as a
+// document — Discord allows up to 4000 chars of content and unbounded embeds,
+// which is far more than the model needs to know what the user is replying to.
+export const REFERENCED_CONTENT_MAX_LENGTH = 500;
+export const REFERENCED_EMBED_TEXT_MAX_LENGTH = 300;
+export const MAX_REFERENCED_EMBEDS = 3;
+export const MAX_REFERENCED_EMBED_IMAGES = 2;
+
 export const DISCORD_MESSAGE_LIMIT = 2000;
 
 // OpenAI keeps stored responses for ~30 days. Anything older in our
