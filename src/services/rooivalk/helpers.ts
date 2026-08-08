@@ -1,6 +1,11 @@
 import { userMention } from 'discord.js';
-import type { Message, User } from 'discord.js';
+import type { Embed, Message, User } from 'discord.js';
 
+import {
+  MAX_REFERENCED_EMBED_IMAGES,
+  MAX_REFERENCED_EMBEDS,
+  REFERENCED_EMBED_TEXT_MAX_LENGTH,
+} from '../../constants.ts';
 import type { Profile, ResponseType } from '../../types.ts';
 
 export const isRooivalkThread = (
@@ -146,6 +151,77 @@ export const buildPromptChannel = (
   return topic
     ? `[Channel ${label} — description: "${topic}"]`
     : `[Channel ${label}]`;
+};
+
+/**
+ * Clips a string to `max` characters, appending an ellipsis when it had to cut.
+ * Used to keep quoted context a pointer rather than a payload.
+ */
+export const truncateForPrompt = (value: string, max: number): string =>
+  value.length <= max ? value : `${value.slice(0, max).trimEnd()}…`;
+
+/** Human-readable lines and fetchable image URLs pulled off a message's embeds. */
+export type EmbedSummary = {
+  text: string[];
+  imageUrls: string[];
+};
+
+/**
+ * Flattens an embed's human-readable fields into short lines and collects any
+ * externally-fetchable image URLs.
+ *
+ * Two deliberate exclusions:
+ * - `attachment://` URLs are dropped. They only resolve inside Discord, and the
+ *   underlying file is already surfaced through the message's `attachments`
+ *   collection — sending one to the model would just be a dead link.
+ * - `thumbnail` is ignored in favour of `image`. Every link preview (YouTube,
+ *   news sites) populates `thumbnail`, so including it would flood the vision
+ *   payload with favicons; `image` is set for actual media previews.
+ */
+export const summarizeEmbeds = (
+  embeds: readonly Embed[] | null | undefined,
+): EmbedSummary => {
+  if (!embeds || embeds.length === 0) {
+    return { text: [], imageUrls: [] };
+  }
+
+  const text: string[] = [];
+  const imageUrls: string[] = [];
+  const seenUrls = new Set<string>();
+
+  for (const embed of embeds.slice(0, MAX_REFERENCED_EMBEDS)) {
+    if (!embed) {
+      continue;
+    }
+
+    const parts = [
+      embed.title,
+      embed.description,
+      embed.author?.name,
+      embed.footer?.text,
+    ]
+      .map((part) => part?.trim())
+      .filter((part): part is string => Boolean(part));
+
+    if (parts.length > 0) {
+      text.push(
+        truncateForPrompt(parts.join(' — '), REFERENCED_EMBED_TEXT_MAX_LENGTH),
+      );
+    }
+
+    const imageUrl = embed.image?.url?.trim();
+    if (
+      imageUrl &&
+      /^https?:\/\//i.test(imageUrl) &&
+      !seenUrls.has(imageUrl) &&
+      imageUrls.length < MAX_REFERENCED_EMBED_IMAGES
+    ) {
+      seenUrls.add(imageUrl);
+      imageUrls.push(imageUrl);
+    }
+  }
+
+  return { text, imageUrls };
 };
 
 const messageMatchesProfile = (

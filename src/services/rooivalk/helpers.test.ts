@@ -6,7 +6,10 @@ import {
   buildPromptChannel,
   matchProfile,
   rewriteEmbedLink,
+  summarizeEmbeds,
+  truncateForPrompt,
 } from './helpers.ts';
+import type { Embed } from 'discord.js';
 import type { Profile } from '../../types.ts';
 import { createMockMessage } from '../../test-utils/createMockMessage.ts';
 import { MOCK_ENV } from '../../test-utils/mock.ts';
@@ -287,6 +290,111 @@ describe('rooivalk helpers', () => {
       });
 
       expect(buildPromptChannel(msg)).toBeNull();
+    });
+  });
+
+  describe('truncateForPrompt', () => {
+    it('leaves a string shorter than the cap untouched', () => {
+      expect(truncateForPrompt('short', 10)).toBe('short');
+    });
+
+    it('leaves a string exactly at the cap untouched', () => {
+      expect(truncateForPrompt('exactlyten', 10)).toBe('exactlyten');
+    });
+
+    it('clips and ellipsises a string over the cap', () => {
+      expect(truncateForPrompt('abcdefghijk', 5)).toBe('abcde…');
+    });
+
+    it('trims trailing whitespace before the ellipsis', () => {
+      expect(truncateForPrompt('abc     defg', 6)).toBe('abc…');
+    });
+  });
+
+  describe('summarizeEmbeds', () => {
+    const embed = (value: Record<string, unknown>) => value as unknown as Embed;
+
+    it('returns empty results for undefined, null and empty input', () => {
+      expect(summarizeEmbeds(undefined)).toEqual({ text: [], imageUrls: [] });
+      expect(summarizeEmbeds(null)).toEqual({ text: [], imageUrls: [] });
+      expect(summarizeEmbeds([])).toEqual({ text: [], imageUrls: [] });
+    });
+
+    it('joins title, description, author and footer into one line', () => {
+      const result = summarizeEmbeds([
+        embed({
+          title: 'Title',
+          description: 'Description',
+          author: { name: 'Author' },
+          footer: { text: 'Footer' },
+        }),
+      ]);
+
+      expect(result.text).toEqual(['Title — Description — Author — Footer']);
+    });
+
+    it('omits embeds with no readable text', () => {
+      const result = summarizeEmbeds([
+        embed({ image: { url: 'https://example.com/a.png' } }),
+      ]);
+
+      expect(result.text).toEqual([]);
+      expect(result.imageUrls).toEqual(['https://example.com/a.png']);
+    });
+
+    it('skips attachment:// image urls', () => {
+      const result = summarizeEmbeds([
+        embed({
+          description: 'Bonnievale',
+          footer: { text: 'oil painting of a nightlife district' },
+          image: { url: 'attachment://rooivalk_motd.jpg' },
+        }),
+      ]);
+
+      expect(result.text).toEqual([
+        'Bonnievale — oil painting of a nightlife district',
+      ]);
+      expect(result.imageUrls).toEqual([]);
+    });
+
+    it('ignores thumbnails so link previews do not flood the payload', () => {
+      const result = summarizeEmbeds([
+        embed({
+          title: 'Some article',
+          thumbnail: { url: 'https://example.com/thumb.png' },
+        }),
+      ]);
+
+      expect(result.imageUrls).toEqual([]);
+    });
+
+    it('caps the number of embeds it reads', () => {
+      const result = summarizeEmbeds(
+        Array.from({ length: 5 }, (_, index) =>
+          embed({ title: `Embed ${index}` }),
+        ),
+      );
+
+      expect(result.text).toEqual(['Embed 0', 'Embed 1', 'Embed 2']);
+    });
+
+    it('caps and dedupes image urls', () => {
+      const result = summarizeEmbeds([
+        embed({ image: { url: 'https://example.com/a.png' } }),
+        embed({ image: { url: 'https://example.com/a.png' } }),
+        embed({ image: { url: 'https://example.com/b.png' } }),
+      ]);
+
+      expect(result.imageUrls).toEqual([
+        'https://example.com/a.png',
+        'https://example.com/b.png',
+      ]);
+    });
+
+    it('truncates long embed text', () => {
+      const result = summarizeEmbeds([embed({ description: 'x'.repeat(400) })]);
+
+      expect(result.text[0]).toBe(`${'x'.repeat(300)}…`);
     });
   });
 

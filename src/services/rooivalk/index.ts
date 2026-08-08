@@ -24,6 +24,7 @@ import {
   ALLOWED_ATTACHMENT_EXTENSIONS,
   DISCORD_COMMANDS,
   IMAGE_ATTACHMENT_EXTENSIONS,
+  REFERENCED_CONTENT_MAX_LENGTH,
   YR_COORDINATES,
 } from '../../constants.ts';
 import { createProfileChatServices } from '../chat/index.ts';
@@ -49,6 +50,8 @@ import {
   buildPromptChannel,
   matchProfile,
   rewriteEmbedLink,
+  summarizeEmbeds,
+  truncateForPrompt,
 } from './helpers.ts';
 import type { RewrittenLink } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
@@ -290,6 +293,58 @@ class Rooivalk {
     };
   }
 
+  /**
+   * Summarises another message into a one-line prompt prefix plus the
+   * attachments the model should actually look at. Embed text is folded into
+   * the prefix and embed images into the attachment list, so a bot post whose
+   * payload lives entirely in an embed (the MOTD) still reaches the model.
+   */
+  private buildMessageContext(
+    referenced: Message<boolean>,
+    label: string,
+  ): { prefix: string; attachments: AttachmentForPrompt[] } | null {
+    const author = referenced.author.displayName ?? referenced.author.username;
+    const content = truncateForPrompt(
+      referenced.content?.trim() ?? '',
+      REFERENCED_CONTENT_MAX_LENGTH,
+    );
+    const attachments = Array.from(referenced.attachments.values())
+      .filter((attachment) => this.isAttachmentAllowed(attachment))
+      .map((attachment) => this.buildAttachmentForPrompt(attachment));
+
+    const { text: embedText, imageUrls: embedImageUrls } = summarizeEmbeds(
+      referenced.embeds,
+    );
+
+    for (const url of embedImageUrls) {
+      if (attachments.some((attachment) => attachment.url === url)) {
+        continue;
+      }
+      attachments.push({ url, kind: 'image', name: null, contentType: null });
+    }
+
+    if (!content && attachments.length === 0 && embedText.length === 0) {
+      return null;
+    }
+
+    const parts: string[] = [];
+    if (content) {
+      parts.push(`"${content}"`);
+    }
+    for (const text of embedText) {
+      parts.push(`[embed: ${text}]`);
+    }
+    if (attachments.length > 0) {
+      const noun = attachments.length === 1 ? 'attachment' : 'attachments';
+      parts.push(`(${attachments.length} ${noun})`);
+    }
+
+    return {
+      prefix: `[${label} ${author}: ${parts.join(' ')}]\n`,
+      attachments,
+    };
+  }
+
   private async loadReferencedMessageContext(
     message: Message<boolean>,
   ): Promise<{ prefix: string; attachments: AttachmentForPrompt[] } | null> {
@@ -297,7 +352,7 @@ class Rooivalk {
       return null;
     }
 
-    let referenced: Message<boolean>;
+    let referenced: Message<boolean> | null;
     try {
       referenced = await message.channel.messages.fetch(
         message.reference.messageId,
@@ -310,29 +365,13 @@ class Rooivalk {
       return null;
     }
 
-    const author = referenced.author.displayName ?? referenced.author.username;
-    const content = referenced.content?.trim() ?? '';
-    const attachments = Array.from(referenced.attachments.values())
-      .filter((attachment) => this.isAttachmentAllowed(attachment))
-      .map((attachment) => this.buildAttachmentForPrompt(attachment));
-
-    if (!content && attachments.length === 0) {
+    // A deleted or otherwise unresolvable message can resolve to nothing —
+    // degrade to no context rather than throwing into the caller's error reply.
+    if (!referenced) {
       return null;
     }
 
-    const parts: string[] = [];
-    if (content) {
-      parts.push(`"${content}"`);
-    }
-    if (attachments.length > 0) {
-      const noun = attachments.length === 1 ? 'attachment' : 'attachments';
-      parts.push(`(${attachments.length} ${noun})`);
-    }
-
-    return {
-      prefix: `[Replying to ${author}: ${parts.join(' ')}]\n`,
-      attachments,
-    };
+    return this.buildMessageContext(referenced, 'Replying to');
   }
 
   private normalizeContentType(contentType?: string | null): string | null {
@@ -419,28 +458,41 @@ class Rooivalk {
         .map((attachment) => this.buildAttachmentForPrompt(attachment));
 
       let finalPrompt = prompt;
-      let referencedAttachments: AttachmentForPrompt[] = [];
-      // Conversation-scoped context (referenced message + channel) is only
-      // attached on the first turn. Once `previousResponseId` exists the
-      // provider already retains it server-side, so re-sending it just bloats
-      // the prompt — channel descriptions alone can be up to 2000 chars.
-      if (!previousResponseId) {
-        if (message.reference?.messageId) {
-          const referencedContext =
-            await this.loadReferencedMessageContext(message);
-          if (referencedContext) {
-            finalPrompt = `${referencedContext.prefix}${prompt}`;
-            referencedAttachments = referencedContext.attachments;
-          }
-        }
+      const contextAttachments: AttachmentForPrompt[] = [];
 
+      // Message-scoped context: what THIS turn points at. Always forwarded,
+      // even mid-conversation — the provider's server-side state cannot know
+      // which message the user just replied to, and that message's image is
+      // usually the whole question ("what's going on in this picture?").
+      if (message.reference?.messageId) {
+        const referencedContext =
+          await this.loadReferencedMessageContext(message);
+        if (referencedContext) {
+          finalPrompt = `${referencedContext.prefix}${finalPrompt}`;
+          contextAttachments.push(...referencedContext.attachments);
+        }
+      }
+
+      // Conversation-scoped context: the channel is a fact about where the
+      // conversation lives, not about this turn. Once `previousResponseId`
+      // exists the provider already retains it server-side, so re-sending it
+      // just bloats the prompt — descriptions alone can be up to 2000 chars.
+      if (!previousResponseId) {
         const channelContext = buildPromptChannel(message);
         if (channelContext) {
           finalPrompt = `${channelContext}\n${finalPrompt}`;
         }
       }
 
-      const combinedAttachments = [...referencedAttachments, ...attachments];
+      const seenAttachmentUrls = new Set<string>();
+      const combinedAttachments = [
+        ...contextAttachments,
+        ...attachments,
+      ].filter(
+        (attachment) =>
+          !seenAttachmentUrls.has(attachment.url) &&
+          seenAttachmentUrls.add(attachment.url),
+      );
 
       const toolExecutor = this.createToolExecutor(message);
       const chat = this.selectChatService(message);
