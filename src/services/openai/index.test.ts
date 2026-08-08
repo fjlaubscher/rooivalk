@@ -144,6 +144,102 @@ describe('OpenAIService', () => {
       ]);
     });
 
+    it('feeds a generated image back to the model before it writes its reply', async () => {
+      responsesCreateMock
+        .mockResolvedValueOnce({
+          id: 'resp-tool',
+          output_text: '',
+          output: [
+            {
+              type: 'function_call',
+              name: 'generate_image',
+              call_id: 'call-1',
+              arguments: JSON.stringify({ prompt: 'a rooivalk at dawn' }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'resp-final',
+          output_text: 'Here it is.',
+          output: [],
+        });
+
+      const toolExecutor = Object.assign(
+        vi.fn().mockResolvedValue({
+          output: JSON.stringify({ status: 'ok' }),
+          base64Image: 'BASE64DATA',
+        }),
+        { deniedMessage: () => null },
+      );
+
+      const result = await service.createResponse(
+        'test user',
+        'draw me something',
+        null,
+        null,
+        toolExecutor as any,
+      );
+
+      expect(result.base64Images).toEqual(['BASE64DATA']);
+      expect(responsesCreateMock).toHaveBeenCalledTimes(2);
+
+      const followUpInput = responsesCreateMock.mock.calls[1]![0].input;
+      expect(followUpInput).toContainEqual({
+        type: 'function_call_output',
+        call_id: 'call-1',
+        output: JSON.stringify({ status: 'ok' }),
+      });
+
+      const imageTurn = followUpInput.find(
+        (entry: any) => entry.role === 'user',
+      );
+      expect(imageTurn).toBeDefined();
+      expect(imageTurn.content).toContainEqual({
+        type: 'input_image',
+        image_url: 'data:image/jpeg;base64,BASE64DATA',
+        detail: 'low',
+      });
+    });
+
+    it('does not add an image turn when no tool generated one', async () => {
+      responsesCreateMock
+        .mockResolvedValueOnce({
+          id: 'resp-tool',
+          output_text: '',
+          output: [
+            {
+              type: 'function_call',
+              name: 'get_weather',
+              call_id: 'call-1',
+              arguments: '{}',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'resp-final',
+          output_text: 'Sunny.',
+          output: [],
+        });
+
+      const toolExecutor = Object.assign(
+        vi.fn().mockResolvedValue({ output: '{"temp":21}' }),
+        { deniedMessage: () => null },
+      );
+
+      await service.createResponse(
+        'test user',
+        'weather?',
+        null,
+        null,
+        toolExecutor as any,
+      );
+
+      const followUpInput = responsesCreateMock.mock.calls[1]![0].input;
+      expect(followUpInput.some((entry: any) => entry.role === 'user')).toBe(
+        false,
+      );
+    });
+
     it('embeds the speaker identity in the user turn, not a system message', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'ok',

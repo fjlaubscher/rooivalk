@@ -222,6 +222,7 @@ class OpenAIService {
           }
 
           const toolOutputs: OpenAI.Responses.ResponseInputItem[] = [];
+          const iterationImages: string[] = [];
 
           for (const call of functionCalls) {
             if (call.type !== 'function_call') continue;
@@ -234,12 +235,35 @@ class OpenAIService {
             }
             if (result.base64Image) {
               generatedImages.push(result.base64Image);
+              iterationImages.push(result.base64Image);
             }
 
             toolOutputs.push({
               type: 'function_call_output',
               call_id: call.call_id,
               output: result.output,
+            });
+          }
+
+          // A `function_call_output` can only carry text, so the image tool
+          // answers with a bare status token — leaving the model to write its
+          // caption having never seen what it drew. Feed the pixels back as a
+          // user turn so it can describe and iterate on its own output, and so
+          // the image stays in the chain for later turns.
+          if (iterationImages.length > 0) {
+            toolOutputs.push({
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: 'Generated image(s), already attached to your Discord reply. Describe them from what you can actually see — do not invent details.',
+                },
+                ...iterationImages.map((base64Image) => ({
+                  type: 'input_image' as const,
+                  image_url: `data:image/jpeg;base64,${base64Image}`,
+                  detail: 'low' as const,
+                })),
+              ],
             });
           }
 
