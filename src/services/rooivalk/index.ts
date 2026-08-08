@@ -345,6 +345,47 @@ class Rooivalk {
     };
   }
 
+  /**
+   * Loads the message a thread was started from. Threads users open on a bot
+   * post — the MOTD especially — carry no reply reference, so without this the
+   * message the whole thread is *about* never reaches the model.
+   *
+   * This does not widen where the bot speaks: it still only answers unprompted
+   * in threads it owns (`isRooivalkThread`), and anywhere else needs a mention.
+   */
+  private async loadThreadStarterContext(
+    message: Message<boolean>,
+  ): Promise<{ prefix: string; attachments: AttachmentForPrompt[] } | null> {
+    const { channel } = message;
+    if (!channel.isThread()) {
+      return null;
+    }
+
+    // A message-started thread shares its id with its starter message, so a
+    // reply pointing at the starter has already been handled as message-scoped
+    // context — don't send it twice.
+    if (message.reference?.messageId === channel.id) {
+      return null;
+    }
+
+    let starter: Message<boolean> | null;
+    try {
+      starter = await channel.fetchStarterMessage();
+    } catch (error) {
+      console.warn(
+        '[Rooivalk] failed to fetch thread starter message for context',
+        error,
+      );
+      return null;
+    }
+
+    if (!starter) {
+      return null;
+    }
+
+    return this.buildMessageContext(starter, 'Thread started by');
+  }
+
   private async loadReferencedMessageContext(
     message: Message<boolean>,
   ): Promise<{ prefix: string; attachments: AttachmentForPrompt[] } | null> {
@@ -473,11 +514,18 @@ class Rooivalk {
         }
       }
 
-      // Conversation-scoped context: the channel is a fact about where the
-      // conversation lives, not about this turn. Once `previousResponseId`
-      // exists the provider already retains it server-side, so re-sending it
-      // just bloats the prompt — descriptions alone can be up to 2000 chars.
+      // Conversation-scoped context: the thread's starter and the channel are
+      // facts about where the conversation lives, not about this turn. Once
+      // `previousResponseId` exists the provider already retains them
+      // server-side, so re-sending them just bloats the prompt — channel
+      // descriptions alone can be up to 2000 chars.
       if (!previousResponseId) {
+        const starterContext = await this.loadThreadStarterContext(message);
+        if (starterContext) {
+          finalPrompt = `${starterContext.prefix}${finalPrompt}`;
+          contextAttachments.push(...starterContext.attachments);
+        }
+
         const channelContext = buildPromptChannel(message);
         if (channelContext) {
           finalPrompt = `${channelContext}\n${finalPrompt}`;

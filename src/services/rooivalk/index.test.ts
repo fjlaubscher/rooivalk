@@ -633,6 +633,168 @@ describe('Rooivalk', () => {
         expect(call[3]).toHaveLength(1);
       });
 
+      // A thread a user opened on the MOTD via Discord's own "Create Thread"
+      // carries no reply reference, so the post the thread is *about* would
+      // otherwise never reach the model.
+      it('loads the thread starter message on the first turn in a thread', async () => {
+        const motdImage = {
+          url: 'https://cdn.discordapp.com/attachments/rooivalk_motd.jpg',
+          contentType: 'image/jpeg',
+          name: 'rooivalk_motd.jpg',
+        } as unknown as Attachment;
+        const starterMessage = {
+          author: { displayName: 'rooivalk', username: 'rooivalk' },
+          content: 'Morning, Rotor Fodder.',
+          attachments: new Collection<string, Attachment>([['1', motdImage]]),
+          embeds: [
+            {
+              description: 'Bonnievale',
+              footer: { text: 'neon-soaked nightlife district at dusk' },
+              image: { url: 'attachment://rooivalk_motd.jpg' },
+            },
+          ],
+        };
+        const fetchStarterMessage = vi
+          .fn()
+          .mockResolvedValue(starterMessage as any);
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> what's in that picture?`,
+          channel: {
+            id: 'user-made-thread',
+            isThread: () => true,
+            fetchStarterMessage,
+            messages: { fetch: vi.fn() },
+            send: vi
+              .fn()
+              .mockResolvedValue(
+                createMockMessage({ id: 'bot-reply-starter' }),
+              ),
+          } as any,
+        } as Partial<Message<boolean>>);
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(fetchStarterMessage).toHaveBeenCalled();
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toContain('[Thread started by rooivalk:');
+        expect(call[1]).toContain('neon-soaked nightlife district at dusk');
+        expect(call[3]).toEqual([
+          {
+            url: motdImage.url,
+            name: motdImage.name,
+            contentType: 'image/jpeg',
+            kind: 'image',
+          },
+        ]);
+      });
+
+      it('skips the thread starter once a conversation is in progress', async () => {
+        const fetchStarterMessage = vi.fn();
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> and then?`,
+          channel: {
+            id: 'user-made-thread',
+            isThread: () => true,
+            fetchStarterMessage,
+            messages: { fetch: vi.fn() },
+            send: vi
+              .fn()
+              .mockResolvedValue(createMockMessage({ id: 'bot-reply-cont' })),
+          } as any,
+        } as Partial<Message<boolean>>);
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'stored-resp-id',
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(fetchStarterMessage).not.toHaveBeenCalled();
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe('and then?');
+      });
+
+      it('does not send the starter twice when the reply already targets it', async () => {
+        const fetchStarterMessage = vi.fn();
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> thoughts?`,
+          reference: { messageId: 'user-made-thread' } as any,
+          channel: {
+            id: 'user-made-thread',
+            isThread: () => true,
+            fetchStarterMessage,
+            messages: {
+              fetch: vi.fn().mockResolvedValue({
+                author: { displayName: 'rooivalk', username: 'rooivalk' },
+                content: 'Morning, Rotor Fodder.',
+                attachments: new Collection<string, Attachment>(),
+                embeds: [],
+              }),
+            },
+            send: vi
+              .fn()
+              .mockResolvedValue(createMockMessage({ id: 'bot-reply-once' })),
+          } as any,
+        } as Partial<Message<boolean>>);
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(fetchStarterMessage).not.toHaveBeenCalled();
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toContain('[Replying to rooivalk:');
+        expect(call[1]).not.toContain('[Thread started by');
+      });
+
+      it('degrades silently when the thread starter cannot be fetched', async () => {
+        const userMessage = createMockMessage({
+          content: `<@${BOT_ID}> what's this about?`,
+          channel: {
+            id: 'user-made-thread',
+            isThread: () => true,
+            fetchStarterMessage: vi
+              .fn()
+              .mockRejectedValue(new Error('Unknown Message')),
+            messages: { fetch: vi.fn() },
+            send: vi
+              .fn()
+              .mockResolvedValue(createMockMessage({ id: 'bot-reply-gone' })),
+          } as any,
+        } as Partial<Message<boolean>>);
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[1]).toBe("what's this about?");
+        expect(call[3]).toBeNull();
+      });
+
       it('falls back to the bare prompt when the referenced message resolves to nothing', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> wat se ek hier`,
@@ -1999,6 +2161,63 @@ describe('Rooivalk', () => {
   });
 
   describe('when initialized', () => {
+    // Reading a thread's starter message must not change where the bot
+    // *speaks*: unprompted replies stay limited to threads it owns.
+    describe('unprompted replies', () => {
+      const captureMessageHandler = async () => {
+        mockDiscordService.once.mockImplementation(
+          (event: string, cb: (client: unknown) => void) => {
+            if (event === DiscordEvents.ClientReady) {
+              cb(mockDiscordService.client as any);
+            }
+            return mockDiscordService;
+          },
+        );
+        await rooivalk.init();
+        const entry = mockDiscordService.on.mock.calls.find(
+          ([event]: [string]) => event === DiscordEvents.MessageCreate,
+        );
+        return entry![1] as (message: Message<boolean>) => Promise<void>;
+      };
+
+      const threadMessage = (ownerId: string) =>
+        createMockMessage({
+          content: 'no mention here',
+          guild: { id: MOCK_ENV.DISCORD_GUILD_ID },
+          channel: {
+            id: 'some-thread',
+            ownerId,
+            isThread: () => true,
+            fetchStarterMessage: vi.fn(),
+            messages: { fetch: vi.fn() },
+            send: vi.fn(),
+          } as any,
+        } as Partial<Message<boolean>>);
+
+      it('ignores an unmentioned message in a thread the bot does not own', async () => {
+        const handler = await captureMessageHandler();
+
+        await handler(threadMessage('some-other-user'));
+
+        expect(mockChatClient.createResponse).not.toHaveBeenCalled();
+      });
+
+      it('answers an unmentioned message in a thread the bot owns', async () => {
+        const handler = await captureMessageHandler();
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-new',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+
+        await handler(threadMessage(BOT_ID));
+
+        expect(mockChatClient.createResponse).toHaveBeenCalled();
+      });
+    });
+
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
       mockDiscordService.once.mockImplementation(
