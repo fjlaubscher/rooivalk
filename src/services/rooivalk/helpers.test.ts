@@ -391,6 +391,30 @@ describe('rooivalk helpers', () => {
       ]);
     });
 
+    it('drops embed images the vision endpoint would reject', () => {
+      const result = summarizeEmbeds([
+        // Animated GIF from a Tenor/Giphy preview — a hard 400 if forwarded.
+        embed({ image: { url: 'https://media.tenor.com/abc.gif' } }),
+        // Extensionless CDN URL — unknown format, so equally unsafe.
+        embed({ image: { url: 'https://example.com/render?id=42' } }),
+        embed({ image: { url: 'not a url at all' } }),
+      ]);
+
+      expect(result.imageUrls).toEqual([]);
+    });
+
+    it('accepts supported extensions through query strings and uppercase', () => {
+      const result = summarizeEmbeds([
+        embed({ image: { url: 'https://example.com/a.JPG?width=600&ex=abc' } }),
+        embed({ image: { url: 'https://example.com/b.webp#frag' } }),
+      ]);
+
+      expect(result.imageUrls).toEqual([
+        'https://example.com/a.JPG?width=600&ex=abc',
+        'https://example.com/b.webp#frag',
+      ]);
+    });
+
     it('truncates long embed text', () => {
       const result = summarizeEmbeds([embed({ description: 'x'.repeat(400) })]);
 
