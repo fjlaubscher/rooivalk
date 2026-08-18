@@ -89,6 +89,8 @@ export const GITHUB_REPOS: Record<string, string> = {
   warren: 'fjlaubscher/warren',
   rooivalk: 'fjlaubscher/rooivalk',
   depot: 'fjlaubscher/depot',
+  chapterden: 'fjlaubscher/chapterden',
+  site: 'fjlaubscher/site',
 };
 
 export const YR_COORDINATES: Record<string, WeatherLocation> = {
