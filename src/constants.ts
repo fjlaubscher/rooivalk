@@ -109,10 +109,10 @@ export const YR_COORDINATES: Record<string, WeatherLocation> = {
     latitude: -33.8218,
     longitude: 18.4915,
   },
-  ELANDSBAY: {
-    name: 'Elands Bay, South Africa',
-    latitude: -32.3108,
-    longitude: 18.345,
+  GRAAFWATER: {
+    name: 'Graafwater, South Africa',
+    latitude: -32.15,
+    longitude: 18.6,
   },
   DUBAI: {
     name: 'Dubai, United Arab Emirates',
