@@ -12,6 +12,7 @@ import type { GithubIssueState } from '../github/types.ts';
 import type MemoryService from '../memory/index.ts';
 import type { MemoryKind } from '../memory/index.ts';
 import type SteamService from '../steam/index.ts';
+import type SpotifyService from '../spotify/index.ts';
 import type YrService from '../yr/index.ts';
 import type {
   ToolExecutionResult,
@@ -25,6 +26,7 @@ export type ToolExecutorContext = {
   discord: DiscordService;
   memory: MemoryService;
   steam: SteamService;
+  spotify: SpotifyService;
   github: GithubService;
   image: ImageService;
   /** Markdown template returned by the get_github_issue_template tool. */
@@ -46,8 +48,17 @@ function errorOutput(err: unknown): ToolExecutionResult {
 }
 
 export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
-  const { message, yr, discord, memory, steam, github, image, createThread } =
-    ctx;
+  const {
+    message,
+    yr,
+    discord,
+    memory,
+    steam,
+    spotify,
+    github,
+    image,
+    createThread,
+  } = ctx;
 
   // Invert the role -> tools permission map into tool -> allowed role ids, so a
   // call can be checked with a single lookup. A tool absent from this map is
@@ -210,6 +221,34 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           return errorOutput(err);
         }
       }
+
+      case TOOL_NAMES.LOOKUP_SPOTIFY: {
+        if (!spotify.isConfigured()) {
+          return {
+            output: JSON.stringify({
+              error: 'SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET not configured',
+            }),
+          };
+        }
+
+        try {
+          const kind = args.kind as 'track' | 'album' | 'playlist';
+          const url = (args.url as string | null) ?? null;
+          const query = (args.query as string | null) ?? null;
+          const result = await spotify.lookup({ kind, url, query });
+          if (!result) {
+            return {
+              output: JSON.stringify({
+                error: `Spotify ${kind} not found`,
+              }),
+            };
+          }
+          return { output: JSON.stringify(result) };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+
       case TOOL_NAMES.CREATE_GITHUB_ISSUE: {
         const repo = args.repo as string;
         const slug = GITHUB_REPOS[repo];

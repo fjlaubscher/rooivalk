@@ -22,6 +22,7 @@ function buildContext(
     discord: { getRooivalkResponse: () => DENIED_MESSAGE } as any,
     memory: {} as any,
     steam: {} as any,
+    spotify: {} as any,
     github: {} as any,
     image: {} as any,
     githubIssueTemplate: '## Description\n...',
@@ -272,6 +273,97 @@ describe('buildToolExecutor github tools', () => {
       repo: 'rooivalk',
       title: 'Bug title',
       body: null,
+    });
+
+    expect(JSON.parse(result.output)).toEqual({ error: 'boom' });
+  });
+});
+
+describe('buildToolExecutor lookup_spotify', () => {
+  it('returns a not-configured error without calling the service lookup', async () => {
+    const lookup = vi.fn();
+    const execute = buildToolExecutor(
+      buildContext({
+        spotify: { isConfigured: () => false, lookup } as any,
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.LOOKUP_SPOTIFY, {
+      kind: 'track',
+      url: 'https://open.spotify.com/track/abc',
+      query: null,
+    });
+
+    expect(lookup).not.toHaveBeenCalled();
+    expect(JSON.parse(result.output)).toEqual({
+      error: 'SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET not configured',
+    });
+  });
+
+  it('returns the lookup payload on a happy path', async () => {
+    const payload = {
+      id: 'abc',
+      name: 'Song',
+      artists: ['Artist'],
+      album: { name: 'Album', release_date: '2020-01-01' },
+      duration_ms: 1000,
+      explicit: false,
+      popularity: 1,
+      external_url: 'https://open.spotify.com/track/abc',
+      preview_url: null,
+    };
+    const lookup = vi.fn().mockResolvedValue(payload);
+    const execute = buildToolExecutor(
+      buildContext({
+        spotify: { isConfigured: () => true, lookup } as any,
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.LOOKUP_SPOTIFY, {
+      kind: 'track',
+      url: 'https://open.spotify.com/track/abc',
+      query: null,
+    });
+
+    expect(lookup).toHaveBeenCalledWith({
+      kind: 'track',
+      url: 'https://open.spotify.com/track/abc',
+      query: null,
+    });
+    expect(JSON.parse(result.output)).toEqual(payload);
+  });
+
+  it('returns a not-found error when lookup yields null', async () => {
+    const lookup = vi.fn().mockResolvedValue(null);
+    const execute = buildToolExecutor(
+      buildContext({
+        spotify: { isConfigured: () => true, lookup } as any,
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.LOOKUP_SPOTIFY, {
+      kind: 'album',
+      url: null,
+      query: 'missing album',
+    });
+
+    expect(JSON.parse(result.output)).toEqual({
+      error: 'Spotify album not found',
+    });
+  });
+
+  it('wraps thrown lookup errors', async () => {
+    const lookup = vi.fn().mockRejectedValue(new Error('boom'));
+    const execute = buildToolExecutor(
+      buildContext({
+        spotify: { isConfigured: () => true, lookup } as any,
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.LOOKUP_SPOTIFY, {
+      kind: 'playlist',
+      url: null,
+      query: 'x',
     });
 
     expect(JSON.parse(result.output)).toEqual({ error: 'boom' });
