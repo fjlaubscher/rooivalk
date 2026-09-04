@@ -314,12 +314,12 @@ describe('SpotifyService', () => {
       expect((result as any).tracks[19].name).toBe('Track 20');
     });
 
-    it('skips null playlist items and truncates at 20', async () => {
+    it('maps Dev Mode playlist items/item, skips nulls, truncates at 20', async () => {
       const service = new SpotifyService('id', 'secret');
       const items = [
-        { track: null },
+        { item: null },
         ...Array.from({ length: 22 }, (_, i) => ({
-          track: {
+          item: {
             name: `P${i + 1}`,
             artists: [{ id: 'a', name: 'DJ' }],
             duration_ms: 2000,
@@ -345,7 +345,7 @@ describe('SpotifyService', () => {
             followers: { total: 9 },
             images: [{ url: 'https://img/p', height: null, width: null }],
             external_urls: { spotify: 'https://open.spotify.com/playlist/pl1' },
-            tracks: { items, total: 30 },
+            items: { items, total: 30 },
           }),
         );
 
@@ -368,6 +368,154 @@ describe('SpotifyService', () => {
       expect((result as any).tracks).toHaveLength(20);
       expect((result as any).tracks[0].name).toBe('P1');
       expect((result as any).tracks[0].track_number).toBe(1);
+    });
+
+    it('falls back to legacy playlist tracks/track shape', async () => {
+      const service = new SpotifyService('id', 'secret');
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({
+            access_token: 'tok',
+            token_type: 'Bearer',
+            expires_in: 3600,
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            id: 'pllegacy',
+            name: 'Legacy Mix',
+            owner: { display_name: 'Owner' },
+            description: null,
+            public: false,
+            collaborative: false,
+            images: [],
+            external_urls: {
+              spotify: 'https://open.spotify.com/playlist/pllegacy',
+            },
+            tracks: {
+              items: [
+                {
+                  track: {
+                    name: 'Old Shape',
+                    artists: [{ id: 'a', name: 'Act' }],
+                    duration_ms: 1500,
+                  },
+                },
+              ],
+              total: 1,
+            },
+          }),
+        );
+
+      const result = await service.lookup({
+        kind: 'playlist',
+        url: 'spotify:playlist:pllegacy',
+      });
+
+      expect(result).toMatchObject({
+        id: 'pllegacy',
+        name: 'Legacy Mix',
+        total: 1,
+        tracks: [
+          {
+            track_number: 1,
+            name: 'Old Shape',
+            artists: ['Act'],
+            duration_ms: 1500,
+          },
+        ],
+      });
+      expect((result as any).tracks_truncated).toBeUndefined();
+    });
+
+    it('maps metadata-only playlists (no items/tracks) without crashing', async () => {
+      const service = new SpotifyService('id', 'secret');
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({
+            access_token: 'tok',
+            token_type: 'Bearer',
+            expires_in: 3600,
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            id: 'plmeta',
+            name: 'Shared Editorial',
+            owner: { display_name: 'Spotify' },
+            description: 'No contents for Client Credentials',
+            public: true,
+            collaborative: false,
+            followers: { total: 1000 },
+            images: [{ url: 'https://img/m', height: 300, width: 300 }],
+            external_urls: {
+              spotify: 'https://open.spotify.com/playlist/plmeta',
+            },
+            // Dev Mode: items absent for playlists the auth user does not own
+          }),
+        );
+
+      const result = await service.lookup({
+        kind: 'playlist',
+        url: 'https://open.spotify.com/playlist/plmeta',
+      });
+
+      expect(result).toEqual({
+        id: 'plmeta',
+        name: 'Shared Editorial',
+        owner: { display_name: 'Spotify' },
+        description: 'No contents for Client Credentials',
+        public: true,
+        collaborative: false,
+        followers: 1000,
+        images: { url: 'https://img/m', height: 300, width: 300 },
+        external_url: 'https://open.spotify.com/playlist/plmeta',
+        tracks: [],
+        total: 0,
+      });
+    });
+
+    it('omits popularity and preview_url when absent from Dev Mode track', async () => {
+      const service = new SpotifyService('id', 'secret');
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse({
+            access_token: 'tok',
+            token_type: 'Bearer',
+            expires_in: 3600,
+          }),
+        )
+        .mockResolvedValueOnce(
+          jsonResponse({
+            id: 'devtrack1',
+            name: 'Dev Mode Track',
+            artists: [{ id: 'a', name: 'Artist' }],
+            album: { name: 'Album', release_date: '2026-02-11' },
+            duration_ms: 180000,
+            explicit: false,
+            external_urls: {
+              spotify: 'https://open.spotify.com/track/devtrack1',
+            },
+            // popularity removed; preview_url omitted
+          }),
+        );
+
+      const result = await service.lookup({
+        kind: 'track',
+        url: 'spotify:track:devtrack1',
+      });
+
+      expect(result).toEqual({
+        id: 'devtrack1',
+        name: 'Dev Mode Track',
+        artists: ['Artist'],
+        album: { name: 'Album', release_date: '2026-02-11' },
+        duration_ms: 180000,
+        explicit: false,
+        external_url: 'https://open.spotify.com/track/devtrack1',
+      });
+      expect(result).not.toHaveProperty('popularity');
+      expect(result).not.toHaveProperty('preview_url');
     });
 
     it('searches by query when no url is given', async () => {

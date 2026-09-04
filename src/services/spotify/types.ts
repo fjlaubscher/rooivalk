@@ -26,9 +26,11 @@ export type SpotifyTrackResult = {
   };
   duration_ms: number;
   explicit: boolean;
-  popularity: number;
+  /** Removed in Dev Mode (Feb 2026); present under Extended Quota. */
+  popularity?: number;
   external_url: string;
-  preview_url: string | null;
+  /** Often absent in Dev Mode; may be null when present. */
+  preview_url?: string | null;
 };
 
 export type SpotifyAlbumTrack = {
@@ -106,9 +108,9 @@ export type SpotifyApiTrack = {
   };
   duration_ms: number;
   explicit: boolean;
-  popularity: number;
+  popularity?: number;
   external_urls: { spotify: string };
-  preview_url: string | null;
+  preview_url?: string | null;
 };
 
 export type SpotifyApiSimplifiedTrack = {
@@ -133,12 +135,21 @@ export type SpotifyApiAlbum = {
   };
 };
 
+export type SpotifyApiPlaylistMedia = {
+  name: string;
+  artists: SpotifyApiArtist[];
+  duration_ms: number;
+};
+
+/** Dev Mode: `item`; legacy / Extended Quota: `track`. */
 export type SpotifyApiPlaylistTrackItem = {
-  track: {
-    name: string;
-    artists: SpotifyApiArtist[];
-    duration_ms: number;
-  } | null;
+  item?: SpotifyApiPlaylistMedia | null;
+  track?: SpotifyApiPlaylistMedia | null;
+};
+
+export type SpotifyApiPlaylistPage = {
+  items: SpotifyApiPlaylistTrackItem[];
+  total: number;
 };
 
 export type SpotifyApiPlaylist = {
@@ -151,10 +162,10 @@ export type SpotifyApiPlaylist = {
   followers?: { total: number };
   images: SpotifyApiImage[];
   external_urls: { spotify: string };
-  tracks: {
-    items: SpotifyApiPlaylistTrackItem[];
-    total: number;
-  };
+  /** Dev Mode (Feb 2026): renamed from `tracks`. Absent for playlists the user does not own/collaborate on. */
+  items?: SpotifyApiPlaylistPage;
+  /** Legacy / Extended Quota Mode shape. */
+  tracks?: SpotifyApiPlaylistPage;
 };
 
 export type SpotifySearchResponse = {

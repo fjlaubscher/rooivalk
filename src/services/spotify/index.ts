@@ -67,7 +67,7 @@ function firstImage(
 }
 
 function mapTrack(track: SpotifyApiTrack): SpotifyTrackResult {
-  return {
+  const result: SpotifyTrackResult = {
     id: track.id,
     name: track.name,
     artists: artistNames(track.artists),
@@ -77,10 +77,19 @@ function mapTrack(track: SpotifyApiTrack): SpotifyTrackResult {
     },
     duration_ms: track.duration_ms,
     explicit: track.explicit,
-    popularity: track.popularity,
     external_url: track.external_urls.spotify,
-    preview_url: track.preview_url,
   };
+
+  // Dev Mode removed popularity; Extended Quota may still send it (incl. 0).
+  if (track.popularity != null) {
+    result.popularity = track.popularity;
+  }
+  // Only include when the field is present (null is a valid value).
+  if (track.preview_url !== undefined) {
+    result.preview_url = track.preview_url;
+  }
+
+  return result;
 }
 
 function mapAlbum(album: SpotifyApiAlbum): SpotifyAlbumResult {
@@ -120,23 +129,26 @@ function mapAlbum(album: SpotifyApiAlbum): SpotifyAlbumResult {
 }
 
 function mapPlaylist(playlist: SpotifyApiPlaylist): SpotifyPlaylistResult {
-  const items = playlist.tracks?.items ?? [];
-  const total = playlist.tracks?.total ?? items.length;
+  // Dev Mode: `items` / entry.`item`. Legacy / Extended Quota: `tracks` / entry.`track`.
+  // Shared playlists under Client Credentials often return metadata only (no page).
+  const page = playlist.items ?? playlist.tracks;
+  const entries = page?.items ?? [];
+  const total = page?.total ?? 0;
   const tracks: SpotifyPlaylistTrack[] = [];
 
-  for (const item of items) {
+  for (const entry of entries) {
     if (tracks.length >= TRACK_LIST_MAX) {
       break;
     }
-    const track = item.track;
-    if (!track) {
+    const media = entry.item ?? entry.track;
+    if (!media) {
       continue;
     }
     tracks.push({
       track_number: tracks.length + 1,
-      name: track.name,
-      artists: artistNames(track.artists),
-      duration_ms: track.duration_ms,
+      name: media.name,
+      artists: artistNames(media.artists),
+      duration_ms: media.duration_ms,
     });
   }
 
