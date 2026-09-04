@@ -7,6 +7,7 @@ export const TOOL_NAMES = Object.freeze({
   FORGET_MEMORY: 'forget_memory',
   RUN_BASH: 'run_bash',
   GET_GAME_LISTING: 'get_game_listing',
+  LOOKUP_SPOTIFY: 'lookup_spotify',
   GET_EMOJIS: 'get_emojis',
   QUERY_SQLITE: 'query_sqlite',
   DESCRIBE_SCHEMA: 'describe_schema',

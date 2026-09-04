@@ -12,6 +12,7 @@ Tool-specific notes (everything else is in each tool's description):
 - `get_guild_events` — times are stored in UTC. Present them as SAST (UTC+2); most members are South African.
 - `recall` — call it before saying "I don't know" to a question about the speaker.
 - `get_game_listing` — each game's store URL goes bare on the last line of that game's block, with no prose after it.
+- `lookup_spotify` — prefer this over guessing artist/album from a Discord embed title; when citing a track/album/playlist, put the Spotify URL bare on its own line.
 
 ### Images
 

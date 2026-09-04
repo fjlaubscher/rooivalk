@@ -49,6 +49,7 @@ Key env vars:
 | `ROOIVALK_MOTD_CRON` | Cron expression for the daily MOTD (e.g. `"0 8 * * *"`) |
 | `ROOIVALK_DB_PATH` | SQLite path (default `./data/rooivalk.db`) |
 | `STEAM_API_KEY` | Required for the nightly Steam catalogue sync that backs `get_game_listing` |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Optional; enables the `lookup_spotify` tool (Client Credentials) |
 
 ### Services
 
@@ -61,6 +62,7 @@ Each service has its own `AGENTS.md`:
 - `src/services/memory` — SQLite-backed memory + conversation-id store
 - `src/services/yr` — Yr.no weather
 - `src/services/steam` — Steam store + nightly app catalogue sync
+- `src/services/spotify` — Spotify catalogue lookup (`lookup_spotify`)
 - `src/services/peapix` — Bing image-of-the-day fallback for MOTD
 - `src/services/cron` — scheduled jobs
 - `src/config` — hot-reloadable markdown config

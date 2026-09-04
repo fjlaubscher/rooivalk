@@ -286,6 +286,35 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
+    name: TOOL_NAMES.LOOKUP_SPOTIFY,
+    description:
+      'Look up a Spotify track, album, or playlist by URL/URI or free-text query. Use when a Spotify link or song/album/playlist question needs artist, album, or tracklist metadata — prefer this over guessing from a Discord embed title.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['track', 'album', 'playlist'],
+          description: 'What to look up.',
+        },
+        url: {
+          type: ['string', 'null'],
+          description:
+            'A Spotify open.spotify.com URL or spotify: URI. Preferred when present.',
+        },
+        query: {
+          type: ['string', 'null'],
+          description:
+            'Free-text search when there is no URL. Ignored when url is provided.',
+        },
+      },
+      required: ['kind', 'url', 'query'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
     name: TOOL_NAMES.CREATE_GITHUB_ISSUE,
     description:
       'File a new GitHub issue on one of a predefined set of repos. Only use when the user explicitly asks to file, open, or report an issue/bug. Only the listed repos are available. Call get_github_issue_template first and structure the body with it.',

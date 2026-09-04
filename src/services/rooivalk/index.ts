@@ -36,6 +36,7 @@ import GithubService from '../github/index.ts';
 import MemoryService from '../memory/index.ts';
 import PeapixService from '../peapix/index.ts';
 import SteamService from '../steam/index.ts';
+import SpotifyService from '../spotify/index.ts';
 import YrService from '../yr/index.ts';
 import type { AttachmentForPrompt, InMemoryConfig } from '../../types.ts';
 
@@ -164,6 +165,7 @@ class Rooivalk {
   protected _emoji: EmojiService;
   protected _memory: MemoryService;
   protected _steam: SteamService;
+  protected _spotify: SpotifyService;
   protected _github: GithubService;
   private _allowedAppIds: string[];
 
@@ -179,6 +181,7 @@ class Rooivalk {
     steamService?: SteamService,
     emojiService?: EmojiService,
     githubService?: GithubService,
+    spotifyService?: SpotifyService,
   ) {
     this._config = config;
     this._discord = discordService ?? new DiscordService(this._config);
@@ -201,6 +204,12 @@ class Rooivalk {
       emojiService ??
       new EmojiService(process.env.ROOIVALK_DB_PATH ?? './data/rooivalk.db');
     this._github = githubService ?? new GithubService(process.env.GITHUB_TOKEN);
+    this._spotify =
+      spotifyService ??
+      new SpotifyService(
+        process.env.SPOTIFY_CLIENT_ID,
+        process.env.SPOTIFY_CLIENT_SECRET,
+      );
 
     // Parse DISCORD_ALLOWED_APPS once and store
     const allowedAppsEnv = process.env.DISCORD_ALLOWED_APPS;
@@ -458,6 +467,7 @@ class Rooivalk {
       image: this._openai,
       memory: this._memory,
       steam: this._steam,
+      spotify: this._spotify,
       github: this._github,
       githubIssueTemplate: this._config.githubIssueTemplate,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),
