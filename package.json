@@ -39,16 +39,16 @@
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
     "node-cron": "^4.6.0",
-    "openai": "^6.49.0"
+    "openai": "^7.10.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "@vitest/coverage-v8": "^4.1.10",
-    "@vitest/ui": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/ui": "^4.1.11",
     "prettier": "^3.9.6",
     "typescript": "^7.0.2",
-    "vite": "^8.1.5",
-    "vitest": "^4.1.10"
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@10.13.1+sha512.37ebf1a5c7a30d5fabe0c5df44ee8da4c965ca0c5af3dbab28c3a1681b70a256218d05c81c9c0dcf767ef6b8551eb5b960042b9ed4300c59242336377e01cfad",
   "pnpm": {

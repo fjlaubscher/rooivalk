@@ -3,6 +3,6 @@
     "name": "field-hospital",
     "channelId": "discord_channel_id",
     "roleId": "discord_role_id",
-    "model": "gpt-5.4-pro-2026-03-05"
+    "model": "gpt-6-astra"
   }
 ]
