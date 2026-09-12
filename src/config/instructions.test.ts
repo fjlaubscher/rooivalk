@@ -44,6 +44,26 @@ describe('core prompt guardrails', () => {
     expect(lower).toContain('only when it fits');
   });
 
+  it('targets concise inline replies with overflow as a fallback', async () => {
+    const prompt = await readFile(
+      join(CONFIG_DIR, CONFIG_FILE_INSTRUCTIONS),
+      'utf8',
+    );
+    const lower = prompt.toLowerCase();
+
+    // 1800-char default leaves headroom under the 2000 inline limit;
+    // prioritization beats exhaustive coverage; overflow is the exception.
+    expect(lower).toContain('1800');
+    expect(lower).toContain('prioritize');
+    expect(lower).toContain('fallback');
+    expect(lower).toContain('explicitly');
+    // Never game the target by cutting content.
+    expect(lower).toContain('never truncate');
+    expect(lower).toContain('essential qualifications');
+    // The old retain-everything framing must be gone.
+    expect(lower).not.toContain('rather than dropping content');
+  });
+
   it('preserves persona, humor, and grounding requirements', async () => {
     const prompt = await readFile(
       join(CONFIG_DIR, CONFIG_FILE_INSTRUCTIONS),
