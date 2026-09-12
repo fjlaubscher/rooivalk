@@ -27,6 +27,10 @@ export async function generateMotdImagePrompt(
     const response = await client.responses.create({
       model,
       instructions,
+      // Explicit storage policy — see `src/services/openai/AGENTS.md`
+      // ("Storage boundary"). Matches the previous default; do not flip
+      // without also implementing conversation-state replay.
+      store: true,
       input: `Location: ${location}\nArt style: ${style}\nSubject: ${subject}`,
     });
 

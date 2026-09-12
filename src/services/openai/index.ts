@@ -23,6 +23,20 @@ function stripCitationMarkers(text: string): string {
 
 const MAX_TOOL_ITERATIONS = 10;
 
+/**
+ * Responses API storage policy (see `AGENTS.md` — "Storage boundary").
+ *
+ * `true` keeps the documented default: response objects are stored
+ * provider-side for 30 days so `previous_response_id` chaining keeps working.
+ * That store is application state, not our source of truth — and it is not
+ * zero retention (abuse-monitoring logs are separate and unaffected by this
+ * flag). Do not flip this without also implementing local
+ * conversation-state replay: with `store: false` there is nothing for
+ * `previous_response_id` to resolve to, so every turn would take the
+ * missing-id retry path and lose the chain.
+ */
+const STORE_RESPONSES = true;
+
 function isMissingPreviousResponseError(error: unknown): boolean {
   if (!(error instanceof OpenAI.APIError)) return false;
   if (error.status !== 404) return false;
@@ -169,6 +183,7 @@ class OpenAIService {
           model: chatModel,
           tools,
           instructions,
+          store: STORE_RESPONSES,
           previous_response_id: previousResponseId ?? undefined,
           input: responseInput,
         });
@@ -183,6 +198,7 @@ class OpenAIService {
             model: chatModel,
             tools,
             instructions,
+            store: STORE_RESPONSES,
             input: responseInput,
           });
         } else {
@@ -272,6 +288,7 @@ class OpenAIService {
             model: chatModel,
             tools: isFinalIteration ? [] : tools,
             instructions,
+            store: STORE_RESPONSES,
             previous_response_id: response.id,
             input: toolOutputs,
           });
@@ -373,6 +390,7 @@ class OpenAIService {
         model: this.requireChatModel(),
         tools: this._tools,
         instructions,
+        store: STORE_RESPONSES,
         input: prompt,
       });
 

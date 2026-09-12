@@ -36,6 +36,7 @@ describe('generateMotdImagePrompt', () => {
     );
     const args = create.mock.calls[0]![0];
     expect(args.model).toBe('model-x');
+    expect(args.store).toBe(true);
     expect(args.instructions).toBe('base instructions');
     expect(args.input).toContain('Cape Town');
     expect(args.input).toContain('ukiyo-e woodblock print');

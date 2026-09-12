@@ -346,6 +346,66 @@ describe('OpenAIService', () => {
       expect(callArgs.previous_response_id).toBeUndefined();
     });
 
+    it('sends the explicit store policy on every chat and retry call', async () => {
+      const apiError = new (OpenAI as any).APIError(
+        404,
+        { param: 'previous_response_id' },
+        'not found',
+      );
+      responsesCreateMock.mockRejectedValueOnce(apiError);
+      responsesCreateMock.mockResolvedValueOnce({
+        id: 'resp-fresh',
+        output_text: 'starting over',
+        output: [],
+      });
+
+      await service.createResponse('test user', 'hi', 'gone');
+
+      expect(responsesCreateMock).toHaveBeenCalledTimes(2);
+      for (const call of responsesCreateMock.mock.calls) {
+        expect(call[0].store).toBe(true);
+      }
+    });
+
+    it('sends the explicit store policy on tool-loop follow-ups', async () => {
+      responsesCreateMock
+        .mockResolvedValueOnce({
+          id: 'resp-tool',
+          output_text: '',
+          output: [
+            {
+              type: 'function_call',
+              name: 'get_weather',
+              call_id: 'call-1',
+              arguments: '{}',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'resp-final',
+          output_text: 'Sunny.',
+          output: [],
+        });
+
+      const toolExecutor = Object.assign(
+        vi.fn().mockResolvedValue({ output: '{"temp":21}' }),
+        { deniedMessage: () => null },
+      );
+
+      await service.createResponse(
+        'test user',
+        'weather?',
+        null,
+        null,
+        toolExecutor as any,
+      );
+
+      expect(responsesCreateMock).toHaveBeenCalledTimes(2);
+      for (const call of responsesCreateMock.mock.calls) {
+        expect(call[0].store).toBe(true);
+      }
+    });
+
     it('retries without previous_response_id when the prior id is missing', async () => {
       const apiError = new (OpenAI as any).APIError(
         404,
@@ -565,6 +625,15 @@ describe('OpenAIService', () => {
       });
       const result = await service.generateThreadName('prompt');
       expect(result).toBe('Test Topic');
+    });
+
+    it('sends the explicit store policy on the one-shot call', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'Test Topic',
+        output: [],
+      });
+      await service.generateThreadName('prompt');
+      expect(responsesCreateMock.mock.calls[0]![0].store).toBe(true);
     });
 
     it('throws OpenAI error message', async () => {

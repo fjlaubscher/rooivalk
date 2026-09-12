@@ -52,3 +52,64 @@ A `model` and `instructionsSelector` may be passed to the constructor to build a
 ## Testing
 
 - `index.test.ts` mocks the SDK at module level. Includes the `previous_response_id` round-trip, the 404 retry, citation stripping, attachment handling, and the preferences-injection paths.
+
+## Storage boundary
+
+Local SQLite is our source of truth for **bot data**. It is not a
+replacement for the Responses API's provider-side conversation state, and
+preferring local storage must never be read as authorization to drop the
+`previous_response_id` integration. The two stores hold different things:
+
+**SQLite holds pointers and bot data — never transcripts.** `memories`
+(user facts/preferences), `conversation_responses` (OpenAI `response.id`
+values keyed by `(type, ref_id)` — ids only, no message bodies),
+`motd_history`, `emoji_reactions` (reaction metadata, not message content),
+and the `prompt_versions` / `eval_cases` / `eval_results` / `eval_scores`
+evaluation tables (reviewer-written case text). Nothing in SQLite can
+reconstruct a turn the way the provider can.
+
+**Each OpenAI turn sends one fresh input plus a chain pointer.** The request
+carries the rendered instructions, a single user turn (speaker tag, prompt,
+attachments), the tool list, and `previous_response_id` when a stored id
+exists. Turn-by-turn history lives provider-side; we never reassemble it
+from Discord. If the stored id has aged out (404 with
+`param === 'previous_response_id'`), the call is retried once unchained and
+flagged `contextLost` — the same path every turn would take if chaining had
+nothing to resolve to.
+
+**Store policy: explicit `store: true`.** Every `responses.create` call in
+this service (chat turn, unchained retry, tool-loop follow-ups,
+`generateThreadName`) and the MOTD prompt helper in
+`src/services/chat/motd-image-prompt.ts` pass `store: true` (via the
+`STORE_RESPONSES` constant here; via a commented literal there, since that
+helper uses the raw client). This preserves the long-standing default; it
+was made
+explicit (not changed) after reviewing the current official guides:
+
+- [Conversation state](https://developers.openai.com/api/docs/guides/conversation-state):
+  responses are stored by default, `previous_response_id` chains turns, and
+  stored response objects expire after 30 days. The stateless pattern it
+  documents (`store: false` plus replaying the full history — including
+  reasoning items via `toResponseInputItems(response.output)`) is what a
+  provider-stateless design would have to implement here: replaying not just
+  user text but `function_call` / `function_call_output` pairs, the
+  image-feedback user turns, and preferences context every turn.
+- [Your data](https://developers.openai.com/api/docs/guides/your-data): API
+  data is not used for training (since March 2023, unless opted in), but
+  storage has two independent layers — application state (the response
+  objects `store` governs) and abuse-monitoring logs (prompts/responses kept
+  up to 30 days by default). Excluding content from those logs requires
+  approved Zero Data Retention controls.
+
+Consequences for future changes:
+
+- "Local source of truth" describes where **bot data** lives. It is not a
+  claim that no provider-side storage exists while `store: true` and
+  chaining are in effect.
+- `store: false` alone does not guarantee zero data retention — the
+  abuse-monitoring layer is unaffected by the flag.
+- Do not toggle storage off while assuming chaining keeps working. With no
+  stored response to resolve, `previous_response_id` fails and the bot
+  degrades to isolated one-shot turns (permanent `contextLost`).
+- Keep this integration as-is until a separate decision both approves and
+  implements local conversation-state replay.
