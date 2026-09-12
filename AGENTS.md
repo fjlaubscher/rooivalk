@@ -29,6 +29,7 @@ The codebase uses a modular, service-based architecture. All services are TypeSc
 - `src/services/github/` – GithubService (create/search issues on an allowlisted set of repos) - [See AGENTS.md](src/services/github/AGENTS.md)
 - `src/services/spotify/` – SpotifyService (Client Credentials catalogue lookup for `lookup_spotify`) - [See AGENTS.md](src/services/spotify/AGENTS.md)
 - `src/services/memory/` – MemoryService (SQLite-backed memory + preferences) - [See AGENTS.md](src/services/memory/AGENTS.md)
+- `src/services/eval/` – EvalService (SQLite-backed prompt versioning + local evaluation workflow) - [See AGENTS.md](src/services/eval/AGENTS.md)
 - `src/services/cron/` – CronService (scheduled jobs) - [See AGENTS.md](src/services/cron/AGENTS.md)
 - `src/test-utils/` – Shared test utilities (`createMockMessage.ts`, `mock.ts`, `consoleMocks.ts`)
 - `src/config/` – Config loading and hot-reloading system. `loader.ts` orchestrates `loadConfig`; the loaders are split by concern: `messages.ts` (markdown message lists and instructions), `profiles.ts` and `tool-roles.ts` (each exposing a pure validator plus its loader), and `json-config.ts` (shared config-path + JSON read/parse helper). `watcher.ts` reloads on `config/*.md` and `tool-roles.json` changes.
