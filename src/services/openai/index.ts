@@ -138,6 +138,18 @@ class OpenAIService {
             return;
           }
 
+          if (attachment.kind === 'pdf') {
+            const fileInput: OpenAI.Responses.ResponseInputFile = {
+              type: 'input_file',
+              file_url: attachment.url,
+            };
+            if (attachment.name) {
+              fileInput.filename = attachment.name;
+            }
+            inputContent.push(fileInput);
+            return;
+          }
+
           const metadata: string[] = [];
           if (attachment.name) {
             metadata.push(`name=${attachment.name}`);

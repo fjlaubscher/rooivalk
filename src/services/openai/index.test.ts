@@ -144,6 +144,42 @@ describe('OpenAIService', () => {
       ]);
     });
 
+    it('sends PDF attachments as input_file with file_url', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'test response',
+        output: [],
+      });
+
+      const attachments: AttachmentForPrompt[] = [
+        {
+          url: 'https://cdn.discordapp.com/attachments/doc.pdf',
+          kind: 'pdf',
+          name: 'doc.pdf',
+          contentType: 'application/pdf',
+        },
+      ];
+
+      await service.createResponse('test user', 'read this', null, attachments);
+
+      expect(responsesCreateMock).toHaveBeenCalledTimes(1);
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      const userEntry = callArgs.input.find(
+        (entry: any) => entry.role === 'user',
+      );
+
+      expect(userEntry.content).toEqual([
+        {
+          type: 'input_text',
+          text: '[Discord message from test user]\nread this',
+        },
+        {
+          type: 'input_file',
+          file_url: 'https://cdn.discordapp.com/attachments/doc.pdf',
+          filename: 'doc.pdf',
+        },
+      ]);
+    });
+
     it('feeds a generated image back to the model before it writes its reply', async () => {
       responsesCreateMock
         .mockResolvedValueOnce({

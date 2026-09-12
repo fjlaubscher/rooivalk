@@ -6,6 +6,7 @@ export const ALLOWED_ATTACHMENT_CONTENT_TYPES = [
   'image/png',
   'image/jpeg',
   'image/webp',
+  'application/pdf',
   'text/plain',
   'text/markdown',
   'text/x-markdown',
@@ -20,6 +21,7 @@ export const IMAGE_ATTACHMENT_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 
 export const ALLOWED_ATTACHMENT_EXTENSIONS = [
   ...IMAGE_ATTACHMENT_EXTENSIONS,
+  '.pdf',
   '.txt',
   '.md',
   '.markdown',
