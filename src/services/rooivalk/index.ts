@@ -384,9 +384,7 @@ class Rooivalk {
     return {
       allowed,
       skippedNote:
-        skipped.length > 0
-          ? this.formatSkippedAttachmentsNote(skipped)
-          : null,
+        skipped.length > 0 ? this.formatSkippedAttachmentsNote(skipped) : null,
     };
   }
 
