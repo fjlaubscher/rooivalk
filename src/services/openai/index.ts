@@ -139,14 +139,18 @@ class OpenAIService {
           }
 
           if (attachment.kind === 'pdf') {
-            const fileInput: OpenAI.Responses.ResponseInputFile = {
+            // file_url cannot be paired with filename — OpenAI returns 400
+            // "Mutually exclusive parameters: file_id or filename".
+            inputContent.push({
               type: 'input_file',
               file_url: attachment.url,
-            };
+            });
             if (attachment.name) {
-              fileInput.filename = attachment.name;
+              inputContent.push({
+                type: 'input_text',
+                text: `PDF attachment name=${attachment.name}`,
+              });
             }
-            inputContent.push(fileInput);
             return;
           }
 
