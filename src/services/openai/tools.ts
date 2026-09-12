@@ -52,7 +52,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.GET_WEATHER,
     description:
-      'Get the current weather forecast for a specific city. Available cities are limited to a predefined set.',
+      'Get the current weather forecast for a specific city. Available cities are limited to a predefined set. Data is from yr.no under CC BY 4.0 — always include the attribution.',
     strict: true,
     parameters: {
       type: 'object',
@@ -113,7 +113,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.RECALL,
     description:
-      "Look up recent memories about the user currently talking to you. Always scoped to the speaker — you cannot recall another user's memories. Returns up to `limit` rows ordered most recent first. Only returns `memory` kind — preferences are already in context.",
+      'Look up recent memories about the user currently talking to you. Always scoped to the speaker — you cannot recall another user\'s memories. Returns up to `limit` rows ordered most recent first. Only returns `memory` kind — preferences are already in context. Call it before saying "I don\'t know" to a question about the speaker.',
     strict: true,
     parameters: {
       type: 'object',
@@ -149,7 +149,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.GET_GUILD_EVENTS,
     description:
-      'Get scheduled Discord server events, optionally filtered by date range.',
+      'Get scheduled Discord server events, optionally filtered by date range. Event times are stored in UTC — present them as SAST (UTC+2).',
     strict: true,
     parameters: {
       type: 'object',
@@ -264,7 +264,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.GET_GAME_LISTING,
     description:
-      "Look up a game on a digital store and return its full listing: price, description, genres, release date, and platform availability. Use when the user asks about a game's price, store page, or availability.",
+      "Look up a game on a digital store and return its full listing: price, description, genres, release date, and platform availability. Use when the user asks about a game's price, store page, or availability. Put each game's store URL bare on the last line of that game's block, with no prose after it.",
     strict: true,
     parameters: {
       type: 'object',
@@ -288,7 +288,7 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
     type: 'function',
     name: TOOL_NAMES.LOOKUP_SPOTIFY,
     description:
-      'Look up a Spotify track, album, or playlist by URL/URI or free-text query. Use when a Spotify link or song/album/playlist question needs artist, album, or tracklist metadata — prefer this over guessing from a Discord embed title.',
+      'Look up a Spotify track, album, or playlist by URL/URI or free-text query. Use when a Spotify link or song/album/playlist question needs artist, album, or tracklist metadata — prefer this over guessing from a Discord embed title. When citing a track/album/playlist, put the Spotify URL bare on its own line.',
     strict: true,
     parameters: {
       type: 'object',
