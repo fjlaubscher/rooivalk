@@ -2371,6 +2371,89 @@ describe('Rooivalk', () => {
       });
     });
 
+    describe('DM handling', () => {
+      const captureMessageHandler = async (instance: Rooivalk) => {
+        mockDiscordService.once.mockImplementation(
+          (event: string, cb: (client: unknown) => void) => {
+            if (event === DiscordEvents.ClientReady) {
+              cb(mockDiscordService.client as any);
+            }
+            return mockDiscordService;
+          },
+        );
+        await instance.init();
+        const entry = mockDiscordService.on.mock.calls.find(
+          ([event]: [string]) => event === DiscordEvents.MessageCreate,
+        );
+        return entry![1] as (message: Message<boolean>) => Promise<void>;
+      };
+
+      const allowlistedRooivalk = () => {
+        vi.stubGlobal('process', {
+          env: { ...MOCK_ENV, DISCORD_ALLOWED_USERS: 'friend-user-id' },
+        });
+        return new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+        );
+      };
+
+      const dmMessage = (author: any) =>
+        createMockMessage({
+          content: 'hey, howzit',
+          author,
+          guild: null,
+        } as Partial<Message<boolean>>);
+
+      it('answers an allowlisted DM without needing a mention', async () => {
+        const handler = await captureMessageHandler(allowlistedRooivalk());
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-dm',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        const message = dmMessage({ id: 'friend-user-id', bot: false });
+        (message.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-dm-reply' }),
+        );
+
+        await handler(message);
+
+        expect(mockChatClient.createResponse).toHaveBeenCalled();
+        expect(mockDiscordService.getRooivalkResponse).not.toHaveBeenCalledWith(
+          'gatecrasher',
+        );
+        expect(message.reply).toHaveBeenCalledWith({ content: 'ok' });
+      });
+
+      it('tells a stranger DM they are not on the list', async () => {
+        const handler = await captureMessageHandler(allowlistedRooivalk());
+        const message = dmMessage({ id: 'stranger-id', bot: false });
+
+        await handler(message);
+
+        expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
+          'gatecrasher',
+        );
+        expect(message.reply).toHaveBeenCalledWith('Error!');
+        expect(mockChatClient.createResponse).not.toHaveBeenCalled();
+      });
+
+      it('ignores bot DMs silently', async () => {
+        const handler = await captureMessageHandler(allowlistedRooivalk());
+        const message = dmMessage({ id: 'other-bot-id', bot: true });
+
+        await handler(message);
+
+        expect(message.reply).not.toHaveBeenCalled();
+        expect(mockChatClient.createResponse).not.toHaveBeenCalled();
+      });
+    });
+
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
       mockDiscordService.once.mockImplementation(

@@ -101,6 +101,9 @@ class DiscordService {
       case 'permissionDenied':
         arrayToUse = this._config.permissionDeniedMessages;
         break;
+      case 'gatecrasher':
+        arrayToUse = this._config.gatecrasherMessages;
+        break;
       case 'boast':
         arrayToUse = this._config.boastMessages;
         break;

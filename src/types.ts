@@ -56,6 +56,7 @@ export type InMemoryConfig = {
   leaderboardEmptyMessages: string[];
   instagramMessages: string[];
   permissionDeniedMessages: string[];
+  gatecrasherMessages: string[];
   boastMessages: string[];
   instructions: string;
   /** Declarative channel profiles. */
@@ -77,6 +78,7 @@ export type ResponseType =
   | 'discordLimit'
   | 'instagram'
   | 'permissionDenied'
+  | 'gatecrasher'
   | 'boast';
 export type OpenAIResponse = {
   type: 'text' | 'image_generation_call';

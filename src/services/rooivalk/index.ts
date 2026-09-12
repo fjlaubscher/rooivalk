@@ -1232,6 +1232,26 @@ class Rooivalk {
     await this._discord.registerSlashCommands();
 
     this._discord.on(DiscordEvents.MessageCreate, async (message) => {
+      // DMs are personal context: every message from an allowlisted user is
+      // for the bot, no mention needed. Strangers get the gatecrasher quip;
+      // other bots are ignored silently so two bots can't riff off each other.
+      if (!message.guild) {
+        if (message.author.bot) {
+          return;
+        }
+        if (!this._allowedUserIds.includes(message.author.id)) {
+          await message.reply(this._discord.getRooivalkResponse('gatecrasher'));
+          return;
+        }
+        const dmEmbedLink = rewriteEmbedLink(message.content);
+        if (dmEmbedLink) {
+          await this.processEmbedLink(message, dmEmbedLink);
+          return;
+        }
+        await this.processMessage(message);
+        return;
+      }
+
       if (!this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)) {
         return;
       }
