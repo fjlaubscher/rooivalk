@@ -8,7 +8,7 @@
 
 - Discord client lifecycle (`login`, `on`, `once`).
 - Mention regex setup.
-- Slash command registration.
+- Slash command registration (`/image`, `/weather`, `/sync-steam` as guild commands; `/clear` as a global command with Guild + BotDM contexts so it appears in bot DMs).
 - `buildMessageReply` — turns an `OpenAIResponse` into the right discord.js message-send payload (text, file attachment for over-limit text, or image embed).
 - `buildImageReply` — payload for the `/image` slash command.
 - Guild emoji caching and scheduled-event lookup.
@@ -28,7 +28,7 @@
 
 ## Testing
 
-- `index.test.ts` covers the lifecycle methods, reply building, and slash-command registration error paths.
+- `index.test.ts` covers the lifecycle methods, reply building, and slash-command registration (guild vs global `/clear` routes, DM contexts).
 - `helpers.test.ts` covers the ref resolvers and emoji formatter.
 - Use `test-utils/createMockMessage.ts` for message mocks.
 

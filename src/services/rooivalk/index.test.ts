@@ -20,6 +20,12 @@ import { silenceConsole } from '../../test-utils/consoleMocks.ts';
 import { createMockMessage } from '../../test-utils/createMockMessage.ts';
 import { MOCK_CONFIG, MOCK_ENV } from '../../test-utils/mock.ts';
 
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import MemoryService from '../memory/index.ts';
+import { DISCORD_COMMANDS } from '../../constants.ts';
 import { buildPromptAuthor } from './helpers.ts';
 
 let restoreConsole: () => void;
@@ -1811,6 +1817,219 @@ describe('Rooivalk', () => {
     });
   });
 
+  describe('when handling a clear command', () => {
+    const dmClearInteraction = (channelId = 'dm-channel-clear') =>
+      ({
+        guildId: null,
+        channelId,
+        channel: { isThread: () => false },
+        reply: vi.fn(),
+      }) as unknown as ChatInputCommandInteraction;
+
+    const guildClearInteraction = () =>
+      ({
+        guildId: MOCK_ENV.DISCORD_GUILD_ID,
+        channelId: 'guild-channel-1',
+        channel: { isThread: () => false },
+        reply: vi.fn(),
+      }) as unknown as ChatInputCommandInteraction;
+
+    const threadClearInteraction = () =>
+      ({
+        guildId: MOCK_ENV.DISCORD_GUILD_ID,
+        channelId: 'thread-1',
+        channel: { isThread: () => true },
+        reply: vi.fn(),
+      }) as unknown as ChatInputCommandInteraction;
+
+    it('clears the DM conversation_responses row and confirms reset', async () => {
+      const interaction = dmClearInteraction('dm-channel-clear');
+
+      await (rooivalk as any).handleClearCommand(interaction);
+
+      expect(
+        mockMemoryService.clearConversationResponseId,
+      ).toHaveBeenCalledWith({ type: 'thread', refId: 'dm-channel-clear' });
+      expect(interaction.reply).toHaveBeenCalledWith({
+        content: expect.stringContaining('Conversation context reset'),
+        ephemeral: true,
+      });
+      expect(interaction.reply).toHaveBeenCalledWith({
+        content: expect.stringContaining('memories and preferences were kept'),
+        ephemeral: true,
+      });
+    });
+
+    it('succeeds when nothing was stored for the DM session', async () => {
+      const interaction = dmClearInteraction('empty-dm');
+
+      await (rooivalk as any).handleClearCommand(interaction);
+
+      expect(
+        mockMemoryService.clearConversationResponseId,
+      ).toHaveBeenCalledWith({ type: 'thread', refId: 'empty-dm' });
+      expect(interaction.reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining('Conversation context reset'),
+          ephemeral: true,
+        }),
+      );
+    });
+
+    it('rejects clear in a guild channel without clearing', async () => {
+      const interaction = guildClearInteraction();
+
+      await (rooivalk as any).handleClearCommand(interaction);
+
+      expect(
+        mockMemoryService.clearConversationResponseId,
+      ).not.toHaveBeenCalled();
+      expect(interaction.reply).toHaveBeenCalledWith({
+        content: expect.stringContaining('only works in DMs'),
+        ephemeral: true,
+      });
+    });
+
+    it('rejects clear in a guild thread without clearing', async () => {
+      const interaction = threadClearInteraction();
+
+      await (rooivalk as any).handleClearCommand(interaction);
+
+      expect(
+        mockMemoryService.clearConversationResponseId,
+      ).not.toHaveBeenCalled();
+      expect(interaction.reply).toHaveBeenCalledWith({
+        content: expect.stringContaining('only works in DMs'),
+        ephemeral: true,
+      });
+    });
+
+    it('leaves memories and preferences intact when clearing a DM', async () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), 'rooivalk-clear-'));
+      const memory = new MemoryService(join(tmpDir, 'test.db'));
+      try {
+        memory.remember('friend-user-id', 'likes Tabasco');
+        memory.remember('friend-user-id', 'call me Francois', 'preference');
+        memory.setConversationResponseId(
+          { type: 'thread', refId: 'dm-mem-channel' },
+          'resp-old',
+        );
+
+        const clearRooivalk = new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+          undefined,
+          undefined,
+          undefined,
+          memory,
+        );
+
+        await (clearRooivalk as any).handleClearCommand(
+          dmClearInteraction('dm-mem-channel'),
+        );
+
+        expect(
+          memory.getConversationResponseId({
+            type: 'thread',
+            refId: 'dm-mem-channel',
+          }),
+        ).toBeNull();
+        expect(memory.recall('friend-user-id').map((r) => r.content)).toEqual([
+          'likes Tabasco',
+        ]);
+        expect(
+          memory.getPreferences('friend-user-id').map((r) => r.content),
+        ).toEqual(['call me Francois']);
+      } finally {
+        memory.close();
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('ignores setConversationResponseId when the session epoch was bumped mid-flight', async () => {
+      let resolveResponse!: (value: unknown) => void;
+      mockChatClient.createResponse.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveResponse = resolve;
+          }),
+      );
+      mockDiscordService.buildMessageReply.mockReturnValue({ content: 'late' });
+
+      const userMessage = createMockMessage({
+        content: 'still thinking about that PDF',
+        guild: null,
+      } as Partial<Message<boolean>>);
+      (userMessage.channel as any).id = 'dm-inflight';
+      (userMessage.reply as any).mockResolvedValue(
+        createMockMessage({ id: 'bot-late-reply' }),
+      );
+
+      const processPromise = (rooivalk as any).processMessage(userMessage);
+
+      // Let processMessage reach createResponse and capture epoch 0.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      await (rooivalk as any).handleClearCommand(
+        dmClearInteraction('dm-inflight'),
+      );
+
+      resolveResponse({
+        type: 'text',
+        content: 'late',
+        base64Images: [],
+        responseId: 'resp-stale',
+      });
+      await processPromise;
+
+      expect(
+        mockMemoryService.setConversationResponseId,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('also skips reaction-only persistence after a clear bump', async () => {
+      let resolveResponse!: (value: unknown) => void;
+      mockChatClient.createResponse.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveResponse = resolve;
+          }),
+      );
+
+      const userMessage = createMockMessage({
+        id: 'user-react-inflight',
+        content: '👍',
+        guild: null,
+      } as Partial<Message<boolean>>);
+      (userMessage.channel as any).id = 'dm-react-inflight';
+
+      const processPromise = (rooivalk as any).processMessage(userMessage);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      await (rooivalk as any).handleClearCommand(
+        dmClearInteraction('dm-react-inflight'),
+      );
+
+      resolveResponse({
+        type: 'text',
+        content: '',
+        base64Images: [],
+        responseId: 'resp-react-stale',
+        reacted: true,
+      });
+      await processPromise;
+
+      expect(userMessage.reply).not.toHaveBeenCalled();
+      expect(
+        mockMemoryService.setConversationResponseId,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
   describe('when sending a MOTD with weather image', () => {
     const motdConfig = {
       ...MOCK_CONFIG,
@@ -2480,6 +2699,75 @@ describe('Rooivalk', () => {
         );
         expect(interaction.reply).toHaveBeenCalledWith({
           content: 'Error!',
+          ephemeral: true,
+        });
+      });
+
+      const allowlistedWithMemory = () => {
+        vi.stubGlobal('process', {
+          env: { ...MOCK_ENV, DISCORD_ALLOWED_USERS: 'friend-user-id' },
+        });
+        return new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+          undefined,
+          undefined,
+          undefined,
+          mockMemoryService,
+        );
+      };
+
+      it('gates /clear through the same allowlist before running', async () => {
+        const handler = await captureInteractionHandler(
+          allowlistedWithMemory(),
+        );
+        const interaction = {
+          isChatInputCommand: () => true,
+          commandName: DISCORD_COMMANDS.CLEAR,
+          user: { id: 'stranger-id', bot: false },
+          guildId: null,
+          channelId: 'dm-gated',
+          channel: { isThread: () => false },
+          reply: vi.fn(),
+        };
+
+        await handler(interaction);
+
+        expect(
+          mockMemoryService.clearConversationResponseId,
+        ).not.toHaveBeenCalled();
+        expect(interaction.reply).toHaveBeenCalledWith({
+          content: 'Error!',
+          ephemeral: true,
+        });
+        expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
+          'permissionDenied',
+        );
+      });
+
+      it('runs /clear for an allowlisted DM peer', async () => {
+        const handler = await captureInteractionHandler(
+          allowlistedWithMemory(),
+        );
+        const interaction = {
+          isChatInputCommand: () => true,
+          commandName: DISCORD_COMMANDS.CLEAR,
+          user: { id: 'friend-user-id', bot: false },
+          guildId: null,
+          channelId: 'dm-allowed-clear',
+          channel: { isThread: () => false },
+          reply: vi.fn(),
+        };
+
+        await handler(interaction);
+
+        expect(
+          mockMemoryService.clearConversationResponseId,
+        ).toHaveBeenCalledWith({ type: 'thread', refId: 'dm-allowed-clear' });
+        expect(interaction.reply).toHaveBeenCalledWith({
+          content: expect.stringContaining('Conversation context reset'),
           ephemeral: true,
         });
       });
