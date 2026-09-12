@@ -28,6 +28,22 @@ describe('core prompt guardrails', () => {
     }
   });
 
+  it('lets speaker address preferences override the default nickname', async () => {
+    const prompt = await readFile(
+      join(CONFIG_DIR, CONFIG_FILE_INSTRUCTIONS),
+      'utf8',
+    );
+    const lower = prompt.toLowerCase();
+
+    // The persona default must explicitly defer — never stand categorical
+    // next to a conflicting speaker preference.
+    expect(lower).toContain('rotor fodder');
+    expect(lower).toContain('<@userid>');
+    expect(lower).toMatch(/address preference[^.]*win/);
+    // No mandate to open every reply with a name.
+    expect(lower).toContain('only when it fits');
+  });
+
   it('preserves persona, humor, and grounding requirements', async () => {
     const prompt = await readFile(
       join(CONFIG_DIR, CONFIG_FILE_INSTRUCTIONS),

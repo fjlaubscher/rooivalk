@@ -392,6 +392,89 @@ describe('OpenAIService', () => {
       expect(callArgs.instructions).toContain('[id:1] call me Francois');
     });
 
+    it('carries a preferred name in the assembled instructions', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('Francois', 'hi', null, null, undefined, [
+        {
+          id: 1,
+          discord_user_id: 'u-francois',
+          content: 'call me Francois',
+          kind: 'preference',
+          created_at: 0,
+        },
+      ]);
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).toContain('[id:1] call me Francois');
+      const inputText = callArgs.input[0].content[0].text;
+      expect(inputText).toContain('[Discord message from Francois]');
+    });
+
+    it('carries a prohibited nickname in the assembled instructions', async () => {
+      responsesCreateMock.mockResolvedValueOnce({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('Francois', 'hi', null, null, undefined, [
+        {
+          id: 2,
+          discord_user_id: 'u-francois',
+          content: 'never call me Rotor Fodder',
+          kind: 'preference',
+          created_at: 0,
+        },
+      ]);
+
+      const callArgs = responsesCreateMock.mock.calls[0]![0];
+      expect(callArgs.instructions).toContain(
+        '[id:2] never call me Rotor Fodder',
+      );
+    });
+
+    it('scopes preferences to the current speaker across turns', async () => {
+      responsesCreateMock.mockResolvedValue({
+        output_text: 'ok',
+        output: [],
+      });
+
+      await service.createResponse('Francois', 'hi', null, null, undefined, [
+        {
+          id: 1,
+          discord_user_id: 'u-francois',
+          content: 'call me Francois',
+          kind: 'preference',
+          created_at: 0,
+        },
+      ]);
+      await service.createResponse('Chip', 'hi', null, null, undefined, [
+        {
+          id: 2,
+          discord_user_id: 'u-chip',
+          content: 'never call me Rotor Fodder',
+          kind: 'preference',
+          created_at: 0,
+        },
+      ]);
+
+      const first = responsesCreateMock.mock.calls[0]![0];
+      const second = responsesCreateMock.mock.calls[1]![0];
+      expect(first.instructions).toContain('call me Francois');
+      expect(first.instructions).not.toContain('never call me Rotor Fodder');
+      expect(first.input[0].content[0].text).toContain(
+        '[Discord message from Francois]',
+      );
+      expect(second.instructions).toContain('never call me Rotor Fodder');
+      expect(second.instructions).not.toContain('call me Francois');
+      expect(second.input[0].content[0].text).toContain(
+        '[Discord message from Chip]',
+      );
+    });
+
     it('does not append preferences block when preferences is null', async () => {
       responsesCreateMock.mockResolvedValueOnce({
         output_text: 'ok',
