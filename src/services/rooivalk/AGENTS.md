@@ -29,7 +29,7 @@ The RooivalkService contains the core business logic for the bot. It processes m
 ### Conversation Continuity
 
 - `processMessage` derives a `ConversationRef` via `resolveConversationLookupRef`, fetches any stored `previous_response_id` from `MemoryService`, and hands it to the selected `ChatService.createResponse`.
-- After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn).
+- After the reply is sent, the new response id is written under every ref returned by `resolveConversationStoreRefs` (msg id, plus thread id when a thread was created this turn; DMs store under the channel id, like threads).
 - When the chat provider reports `contextLost: true` (an aged-out `previous_response_id` triggers a one-shot retry without it), the stale id is cleared and a short "context was lost in the void" notice is prepended to the reply.
 
 Prompt context splits by **scope**, and the split decides when it is sent. Keep this distinction when adding new context — collapsing the two is what caused [#93](https://github.com/fjlaubscher/rooivalk/issues/93).

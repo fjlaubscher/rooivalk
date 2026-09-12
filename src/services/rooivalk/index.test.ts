@@ -2397,6 +2397,10 @@ describe('Rooivalk', () => {
           mockDiscordService,
           mockChatClient,
           mockOpenAIClient,
+          undefined,
+          undefined,
+          undefined,
+          mockMemoryService,
         );
       };
 
@@ -2451,6 +2455,64 @@ describe('Rooivalk', () => {
 
         expect(message.reply).not.toHaveBeenCalled();
         expect(mockChatClient.createResponse).not.toHaveBeenCalled();
+      });
+
+      it('chains DM follow-ups onto the stored channel response id', async () => {
+        const handler = await captureMessageHandler(allowlistedRooivalk());
+        mockMemoryService.getConversationResponseId.mockReturnValueOnce(
+          'dm-resp-id',
+        );
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-dm-2',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        const message = dmMessage({ id: 'friend-user-id', bot: false });
+        (message.channel as any).id = 'dm-channel-1';
+        (message.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-dm-reply-2' }),
+        );
+
+        await handler(message);
+
+        expect(
+          mockMemoryService.getConversationResponseId,
+        ).toHaveBeenCalledWith({ type: 'thread', refId: 'dm-channel-1' });
+        const call = mockChatClient.createResponse.mock.calls.at(-1)!;
+        expect(call[2]).toBe('dm-resp-id');
+      });
+
+      it('stores the new DM response id under the channel, not the message', async () => {
+        const handler = await captureMessageHandler(allowlistedRooivalk());
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'ok',
+          base64Images: [],
+          responseId: 'resp-dm-3',
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({ content: 'ok' });
+        const message = dmMessage({ id: 'friend-user-id', bot: false });
+        (message.channel as any).id = 'dm-channel-1';
+        (message.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-dm-reply-3' }),
+        );
+
+        await handler(message);
+
+        expect(
+          mockMemoryService.setConversationResponseId,
+        ).toHaveBeenCalledWith(
+          { type: 'thread', refId: 'dm-channel-1' },
+          'resp-dm-3',
+        );
+        expect(
+          mockMemoryService.setConversationResponseId,
+        ).not.toHaveBeenCalledWith(
+          { type: 'msg', refId: 'bot-dm-reply-3' },
+          expect.anything(),
+        );
       });
     });
 

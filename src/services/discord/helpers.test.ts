@@ -50,6 +50,30 @@ describe('discord helpers', () => {
       });
       expect(resolveConversationLookupRef(message)).toBeNull();
     });
+
+    it('returns the channel scope for DM messages', () => {
+      const message = createMockMessage({
+        channel: { isThread: () => false, id: 'dm-channel-1' } as any,
+        reference: null as any,
+        guild: null,
+      });
+      expect(resolveConversationLookupRef(message)).toEqual({
+        type: 'thread',
+        refId: 'dm-channel-1',
+      });
+    });
+
+    it('prefers the channel scope over reply refs in DMs', () => {
+      const message = createMockMessage({
+        channel: { isThread: () => false, id: 'dm-channel-1' } as any,
+        reference: { messageId: 'old-bot-msg' } as any,
+        guild: null,
+      });
+      expect(resolveConversationLookupRef(message)).toEqual({
+        type: 'thread',
+        refId: 'dm-channel-1',
+      });
+    });
   });
 
   describe('resolveConversationStoreRefs', () => {
@@ -84,6 +108,17 @@ describe('discord helpers', () => {
         { type: 'msg', refId: 'bot-reply-3' },
         { type: 'thread', refId: 'new-thread-5' },
       ]);
+    });
+
+    it('returns a single channel ref for DM messages', () => {
+      const userMessage = createMockMessage({
+        channel: { isThread: () => false, id: 'dm-channel-1' } as any,
+        guild: null,
+      });
+      const botReply = createMockMessage({ id: 'bot-reply-4' });
+      expect(resolveConversationStoreRefs(userMessage, botReply, null)).toEqual(
+        [{ type: 'thread', refId: 'dm-channel-1' }],
+      );
     });
   });
 });

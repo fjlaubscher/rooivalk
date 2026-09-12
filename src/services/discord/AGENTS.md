@@ -16,8 +16,8 @@
 
 ## Helpers (`helpers.ts`)
 
-- `resolveConversationLookupRef(message)` — returns the `ConversationRef` to look up the previous response id for, or `null` for a standalone mention. Thread → `{type:'thread', refId: thread.id}`; reply → `{type:'msg', refId: parent.id}`.
-- `resolveConversationStoreRefs(userMessage, botReply, createdThreadId)` — returns the refs to write the new response id under after a bot reply. Adds the thread ref on the turn a thread is born so chain continuity survives the transition.
+- `resolveConversationLookupRef(message)` — returns the `ConversationRef` to look up the previous response id for, or `null` for a standalone mention. Thread → `{type:'thread', refId: thread.id}`; reply → `{type:'msg', refId: parent.id}`. DMs have no threads, so a DM resolves to `{type:'thread', refId: channel.id}` — one continuous chain per DM, taking precedence over reply refs just like threads.
+- `resolveConversationStoreRefs(userMessage, botReply, createdThreadId)` — returns the refs to write the new response id under after a bot reply. Adds the thread ref on the turn a thread is born so chain continuity survives the transition. DMs store under the channel id only, like threads.
 - `formatEmojiEntry(name, tag)` — renders a `:name: → <:name:id>` line for the system prompt.
 
 ## Architecture Notes
