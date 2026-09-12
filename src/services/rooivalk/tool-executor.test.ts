@@ -438,3 +438,73 @@ describe('buildToolExecutor lookup_spotify', () => {
     expect(JSON.parse(result.output)).toEqual({ error: 'boom' });
   });
 });
+
+describe('buildToolExecutor react', () => {
+  it('reacts with unicode emoji', async () => {
+    const react = vi.fn().mockResolvedValue(undefined);
+    const message = createMockMessage({ react });
+    const execute = buildToolExecutor(buildContext({ message }));
+
+    const result = await execute(TOOL_NAMES.REACT, { emoji: '👍' });
+
+    expect(react).toHaveBeenCalledWith('👍');
+    expect(result.reacted).toBe(true);
+    expect(JSON.parse(result.output)).toEqual({ ok: true, emoji: '👍' });
+  });
+
+  it('reacts with a custom tag present in allowedEmojis', async () => {
+    const react = vi.fn().mockResolvedValue(undefined);
+    const tag = '<:rooivalk:123456789012345678>';
+    const message = createMockMessage({ react });
+    const execute = buildToolExecutor(
+      buildContext({
+        message,
+        discord: {
+          getRooivalkResponse: () => DENIED_MESSAGE,
+          allowedEmojis: [`:rooivalk: → ${tag}`],
+        } as any,
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.REACT, { emoji: tag });
+
+    expect(react).toHaveBeenCalledWith(tag);
+    expect(result.reacted).toBe(true);
+    expect(JSON.parse(result.output)).toEqual({ ok: true, emoji: tag });
+  });
+
+  it('rejects an unknown custom emoji without calling react', async () => {
+    const react = vi.fn();
+    const message = createMockMessage({ react });
+    const execute = buildToolExecutor(
+      buildContext({
+        message,
+        discord: {
+          getRooivalkResponse: () => DENIED_MESSAGE,
+          allowedEmojis: [':other: → <:other:111111111111111111>'],
+        } as any,
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.REACT, {
+      emoji: '<:unknown:999999999999999999>',
+    });
+
+    expect(react).not.toHaveBeenCalled();
+    expect(result.reacted).toBeUndefined();
+    expect(JSON.parse(result.output).error).toMatch(/Unknown custom emoji/);
+  });
+
+  it('returns an error when react() throws', async () => {
+    const react = vi.fn().mockRejectedValue(new Error('Missing Permissions'));
+    const message = createMockMessage({ react });
+    const execute = buildToolExecutor(buildContext({ message }));
+
+    const result = await execute(TOOL_NAMES.REACT, { emoji: '👀' });
+
+    expect(result.reacted).toBeUndefined();
+    expect(JSON.parse(result.output)).toEqual({
+      error: 'Missing Permissions',
+    });
+  });
+});

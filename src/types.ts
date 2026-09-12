@@ -87,12 +87,16 @@ export type OpenAIResponse = {
   createdThread?: ThreadChannel;
   responseId?: string;
   contextLost?: boolean;
+  /** True when a `react` tool call successfully added an emoji reaction. */
+  reacted?: boolean;
 };
 
 export type ToolExecutionResult = {
   output: string;
   createdThread?: ThreadChannel;
   base64Image?: string;
+  /** True when this tool call successfully added an emoji reaction to the message. */
+  reacted?: boolean;
   /**
    * Set when the caller lacked permission for the requested tool. The provider
    * tool loop stops and replies with this text verbatim, so the refusal wording

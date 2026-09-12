@@ -225,6 +225,7 @@ class OpenAIService {
       // Tool execution loop: handle function_call outputs
       let createdThread: OpenAIResponse['createdThread'];
       const generatedImages: string[] = [];
+      let reacted = false;
 
       if (toolExecutor) {
         for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
@@ -268,6 +269,9 @@ class OpenAIService {
             if (result.base64Image) {
               generatedImages.push(result.base64Image);
               iterationImages.push(result.base64Image);
+            }
+            if (result.reacted) {
+              reacted = true;
             }
 
             toolOutputs.push({
@@ -314,7 +318,8 @@ class OpenAIService {
       const hasImage = generatedImages.length > 0;
       const content = stripCitationMarkers(response.output_text);
 
-      if (!content.trim() && !hasImage) {
+      // Empty text is intentional when a reaction (or image) is the whole answer.
+      if (!content.trim() && !hasImage && !reacted) {
         console.warn('[OpenAIService] model returned empty output_text', {
           output_types: response.output.map((o) => o.type),
         });
@@ -328,6 +333,7 @@ class OpenAIService {
           createdThread,
           responseId: response.id,
           contextLost,
+          reacted: reacted || undefined,
         };
       }
 
@@ -338,6 +344,7 @@ class OpenAIService {
         createdThread,
         responseId: response.id,
         contextLost,
+        reacted: reacted || undefined,
       };
     } catch (error) {
       console.error('Error with OpenAI:', error);

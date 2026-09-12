@@ -3,6 +3,7 @@ import {
   formatEmojiEntry,
   resolveConversationLookupRef,
   resolveConversationStoreRefs,
+  resolveReactionOnlyStoreRefs,
 } from './helpers.ts';
 import { createMockMessage } from '../../test-utils/createMockMessage.ts';
 
@@ -119,6 +120,39 @@ describe('discord helpers', () => {
       expect(resolveConversationStoreRefs(userMessage, botReply, null)).toEqual(
         [{ type: 'thread', refId: 'dm-channel-1' }],
       );
+    });
+  });
+
+  describe('resolveReactionOnlyStoreRefs', () => {
+    it('stores under the user message id in a guild channel', () => {
+      const userMessage = createMockMessage({
+        id: 'user-msg-9',
+        channel: { isThread: () => false } as any,
+      });
+      expect(resolveReactionOnlyStoreRefs(userMessage)).toEqual([
+        { type: 'msg', refId: 'user-msg-9' },
+      ]);
+    });
+
+    it('stores under the thread channel id in a thread', () => {
+      const userMessage = createMockMessage({
+        id: 'user-msg-10',
+        channel: { isThread: () => true, id: 'thread-42' } as any,
+      });
+      expect(resolveReactionOnlyStoreRefs(userMessage)).toEqual([
+        { type: 'thread', refId: 'thread-42' },
+      ]);
+    });
+
+    it('stores under the DM channel id', () => {
+      const userMessage = createMockMessage({
+        id: 'user-msg-11',
+        channel: { isThread: () => false, id: 'dm-channel-7' } as any,
+        guild: null,
+      });
+      expect(resolveReactionOnlyStoreRefs(userMessage)).toEqual([
+        { type: 'thread', refId: 'dm-channel-7' },
+      ]);
     });
   });
 });

@@ -20,6 +20,14 @@ const descriptionFor = (name: string): string => {
  * the core prompt.
  */
 describe('tool description requirements', () => {
+  it('keeps react guidance for acks and DM unicode-only', () => {
+    const description = descriptionFor(TOOL_NAMES.REACT);
+    expect(description).toContain('simple acknowledgements');
+    expect(description).toContain('leave your text reply empty');
+    expect(description).toContain('get_emojis');
+    expect(description).toContain('In DMs only unicode works');
+  });
+
   it('keeps weather attribution in get_weather', () => {
     const description = descriptionFor(TOOL_NAMES.GET_WEATHER);
     expect(description).toContain('yr.no');

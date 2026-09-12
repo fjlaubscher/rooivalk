@@ -467,6 +467,91 @@ describe('OpenAIService', () => {
       expect(result.contextLost).toBe(true);
       expect(result.responseId).toBe('resp-fresh');
     });
+
+    it('propagates reacted from a successful react tool call', async () => {
+      responsesCreateMock
+        .mockResolvedValueOnce({
+          id: 'resp-tool',
+          output_text: '',
+          output: [
+            {
+              type: 'function_call',
+              name: 'react',
+              call_id: 'call-react',
+              arguments: JSON.stringify({ emoji: '👍' }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'resp-final',
+          output_text: '',
+          output: [],
+        });
+
+      const toolExecutor = Object.assign(
+        vi.fn().mockResolvedValue({
+          output: JSON.stringify({ ok: true, emoji: '👍' }),
+          reacted: true,
+        }),
+        { deniedMessage: () => null },
+      );
+
+      const result = await service.createResponse(
+        'test user',
+        'thanks',
+        null,
+        null,
+        toolExecutor as any,
+      );
+
+      expect(result.reacted).toBe(true);
+      expect(result.content).toBe('');
+      expect(result.responseId).toBe('resp-final');
+    });
+
+    it('does not warn on empty output_text when reacted is true', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      responsesCreateMock
+        .mockResolvedValueOnce({
+          id: 'resp-tool',
+          output_text: '',
+          output: [
+            {
+              type: 'function_call',
+              name: 'react',
+              call_id: 'call-react',
+              arguments: JSON.stringify({ emoji: '✅' }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'resp-final',
+          output_text: '',
+          output: [],
+        });
+
+      const toolExecutor = Object.assign(
+        vi.fn().mockResolvedValue({
+          output: JSON.stringify({ ok: true, emoji: '✅' }),
+          reacted: true,
+        }),
+        { deniedMessage: () => null },
+      );
+
+      await service.createResponse(
+        'test user',
+        'done',
+        null,
+        null,
+        toolExecutor as any,
+      );
+
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        '[OpenAIService] model returned empty output_text',
+        expect.anything(),
+      );
+      warnSpy.mockRestore();
+    });
   });
 
   describe('preferences injection', () => {

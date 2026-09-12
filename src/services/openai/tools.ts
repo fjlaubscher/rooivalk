@@ -203,6 +203,25 @@ export const FUNCTION_TOOLS: OpenAI.Responses.Tool[] = [
   },
   {
     type: 'function',
+    name: TOOL_NAMES.REACT,
+    description:
+      'Add an emoji reaction to the triggering user message. Prefer this for simple acknowledgements (thanks, got it, ok, done, noted, saw it) when no substantive text reply is needed — leave your text reply empty when the reaction is the whole answer. Accepts a unicode emoji (👍, ✅, 👀, …) or a Discord custom token <:name:id> / <a:name:id> from get_emojis. Call get_emojis first when you need a guild custom emoji. In DMs only unicode works — guild custom emoji is unavailable there.',
+    strict: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        emoji: {
+          type: 'string',
+          description:
+            'Unicode emoji, or a custom Discord token <:name:id> / <a:name:id> from get_emojis.',
+        },
+      },
+      required: ['emoji'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
     name: TOOL_NAMES.GENERATE_IMAGE,
     description:
       "Generate an image inline as part of your reply. Use when the user explicitly asks for an image, drawing, picture, meme, or visual. Pass a self-contained prompt describing the image — the image model does not see the surrounding conversation. The generated image is attached to your Discord reply automatically; you don't need to embed a URL. You will be shown the result before you write your reply, so describe only what is actually in it. Your text reply can be short or empty when the image is the whole answer.",
