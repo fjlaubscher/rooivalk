@@ -8,25 +8,32 @@ import {
   afterAll,
 } from 'vitest';
 import type { MockInstance } from 'vitest';
-import { Client as DiscordClient, TextChannel } from 'discord.js';
+import {
+  Client as DiscordClient,
+  TextChannel,
+  Routes,
+  InteractionContextType,
+  ApplicationIntegrationType,
+} from 'discord.js';
 
+import { DISCORD_COMMANDS } from '../../constants.ts';
 import { MOCK_CONFIG } from '../../test-utils/mock.ts';
 import type { ResponseType } from '../../types.ts';
 import { silenceConsole } from '../../test-utils/consoleMocks.ts';
 
 import DiscordService from './index.ts';
 
+const { restPut } = vi.hoisted(() => ({
+  restPut: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('discord.js', async (importOriginal) => {
   const actual = await importOriginal();
   return Object.assign({}, actual, {
     REST: vi.fn().mockImplementation(function () {
       return {
-        setToken: vi.fn().mockReturnValue({
-          put: vi
-            .fn()
-            .mockResolvedValueOnce(undefined) // Simulate success
-            .mockRejectedValueOnce(new Error('fail')), // Simulate error
-        }),
+        setToken: vi.fn().mockReturnThis(),
+        put: (...args: unknown[]) => restPut(...args),
       };
     }),
   });
@@ -69,6 +76,8 @@ describe('DiscordService', () => {
     discordClient = createMockDiscordClient();
     service = new DiscordService(MOCK_CONFIG, discordClient);
     vi.clearAllMocks();
+    restPut.mockReset();
+    restPut.mockResolvedValue(undefined);
     process.env.DISCORD_STARTUP_CHANNEL_ID = 'startup-channel';
     process.env.DISCORD_TOKEN = 'token';
     process.env.DISCORD_APP_ID = 'appid';
@@ -129,16 +138,62 @@ describe('DiscordService', () => {
 
     describe('registerSlashCommands', () => {
       describe('when called with a valid token', () => {
-        it('should register slash commands', async () => {
+        it('registers guild commands and global /clear with DM context', async () => {
           await service.registerSlashCommands();
+
+          expect(restPut).toHaveBeenCalledTimes(2);
+
+          const guildRoute = Routes.applicationGuildCommands(
+            'appid',
+            'guildid',
+          );
+          const globalRoute = Routes.applicationCommands('appid');
+
+          const guildCall = restPut.mock.calls.find(
+            ([route]) => route === guildRoute,
+          );
+          const globalCall = restPut.mock.calls.find(
+            ([route]) => route === globalRoute,
+          );
+
+          expect(guildCall).toBeTruthy();
+          expect(globalCall).toBeTruthy();
+
+          const guildBody = (guildCall![1] as { body: { name: string }[] })
+            .body;
+          const globalBody = (globalCall![1] as { body: any[] }).body;
+
+          expect(guildBody.map((c) => c.name).sort()).toEqual(
+            [
+              DISCORD_COMMANDS.IMAGE,
+              DISCORD_COMMANDS.WEATHER,
+              DISCORD_COMMANDS.SYNC_STEAM,
+            ].sort(),
+          );
+          expect(
+            guildBody.find((c) => c.name === DISCORD_COMMANDS.CLEAR),
+          ).toBeUndefined();
+
+          expect(globalBody).toHaveLength(1);
+          expect(globalBody[0].name).toBe(DISCORD_COMMANDS.CLEAR);
+          expect(globalBody[0].contexts).toEqual(
+            expect.arrayContaining([
+              InteractionContextType.Guild,
+              InteractionContextType.BotDM,
+            ]),
+          );
+          expect(globalBody[0].integration_types).toEqual(
+            expect.arrayContaining([ApplicationIntegrationType.GuildInstall]),
+          );
         });
       });
 
-      describe('when called with an invalid token', () => {
+      describe('when registration fails', () => {
         it('should handle errors', async () => {
           vi.spyOn(console, 'error').mockImplementation(() => {});
-          process.env.DISCORD_TOKEN = '';
+          restPut.mockRejectedValueOnce(new Error('fail'));
           await service.registerSlashCommands();
+          expect(console.error).toHaveBeenCalled();
           (console.error as any).mockRestore?.();
         });
       });

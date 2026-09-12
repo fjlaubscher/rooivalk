@@ -38,7 +38,11 @@ import PeapixService from '../peapix/index.ts';
 import SteamService from '../steam/index.ts';
 import SpotifyService from '../spotify/index.ts';
 import YrService from '../yr/index.ts';
-import type { AttachmentForPrompt, InMemoryConfig } from '../../types.ts';
+import type {
+  AttachmentForPrompt,
+  ConversationRef,
+  InMemoryConfig,
+} from '../../types.ts';
 
 import {
   resolveConversationLookupRef,
@@ -170,6 +174,12 @@ class Rooivalk {
   protected _github: GithubService;
   private _allowedAppIds: string[];
   private _allowedUserIds: string[];
+  /**
+   * In-memory session epochs keyed by `${type}:${refId}`. Bumped on `/clear`
+   * so an in-flight `processMessage` that started before the clear cannot
+   * write the old chain pointer back via `setConversationResponseId`.
+   */
+  private _conversationSessionEpochs = new Map<string, number>();
 
   constructor(
     config: InMemoryConfig,
@@ -290,6 +300,34 @@ class Rooivalk {
       return false;
     }
     return true;
+  }
+
+  private conversationSessionKey(ref: ConversationRef): string {
+    return `${ref.type}:${ref.refId}`;
+  }
+
+  private getConversationSessionEpoch(ref: ConversationRef): number {
+    return (
+      this._conversationSessionEpochs.get(this.conversationSessionKey(ref)) ?? 0
+    );
+  }
+
+  private bumpConversationSessionEpoch(ref: ConversationRef): number {
+    const key = this.conversationSessionKey(ref);
+    const next = (this._conversationSessionEpochs.get(key) ?? 0) + 1;
+    this._conversationSessionEpochs.set(key, next);
+    return next;
+  }
+
+  /** True when the session epoch for `ref` still matches `epochAtStart`. */
+  private isConversationSessionCurrent(
+    ref: ConversationRef | null,
+    epochAtStart: number,
+  ): boolean {
+    if (!ref) {
+      return true;
+    }
+    return this.getConversationSessionEpoch(ref) === epochAtStart;
   }
 
   private isAttachmentAllowed(attachment: Attachment): boolean {
@@ -607,6 +645,11 @@ class Rooivalk {
         .trim();
 
       const lookupRef = resolveConversationLookupRef(message);
+      // Capture before any await so a concurrent `/clear` can invalidate
+      // later persistence without racing the DB read alone.
+      const sessionEpoch = lookupRef
+        ? this.getConversationSessionEpoch(lookupRef)
+        : 0;
       const previousResponseId = lookupRef
         ? this._memory.getConversationResponseId(lookupRef)
         : null;
@@ -710,7 +753,10 @@ class Rooivalk {
           }
         }
 
-        if (response.responseId) {
+        if (
+          response.responseId &&
+          this.isConversationSessionCurrent(lookupRef, sessionEpoch)
+        ) {
           for (const ref of resolveReactionOnlyStoreRefs(message)) {
             this._memory.setConversationResponseId(ref, response.responseId);
           }
@@ -737,7 +783,10 @@ class Rooivalk {
         botMessage = await message.reply(reply);
       }
 
-      if (response.responseId) {
+      if (
+        response.responseId &&
+        this.isConversationSessionCurrent(lookupRef, sessionEpoch)
+      ) {
         const storeRefs = resolveConversationStoreRefs(
           message,
           botMessage,
@@ -1104,6 +1153,36 @@ class Rooivalk {
     }
   }
 
+  private async handleClearCommand(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    // Guild channels/threads share a conversation key that is not per-user —
+    // only bot DMs are a private session we can safely reset.
+    const channel = interaction.channel;
+    const isGuildThread = Boolean(channel?.isThread() && interaction.guildId);
+    if (interaction.guildId || isGuildThread) {
+      await interaction.reply({
+        content:
+          '`/clear` only works in DMs with the bot — shared channels and threads are not private conversation sessions.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const ref: ConversationRef = {
+      type: 'thread',
+      refId: interaction.channelId,
+    };
+    this.bumpConversationSessionEpoch(ref);
+    this._memory.clearConversationResponseId(ref);
+
+    await interaction.reply({
+      content:
+        'Conversation context reset. Your next message starts a fresh session. Saved memories and preferences were kept.',
+      ephemeral: true,
+    });
+  }
+
   private async handleSyncSteamCommand(
     interaction: ChatInputCommandInteraction,
   ): Promise<void> {
@@ -1402,6 +1481,9 @@ class Rooivalk {
             break;
           case DISCORD_COMMANDS.SYNC_STEAM:
             await this.handleSyncSteamCommand(interaction);
+            break;
+          case DISCORD_COMMANDS.CLEAR:
+            await this.handleClearCommand(interaction);
             break;
           default:
             console.error(

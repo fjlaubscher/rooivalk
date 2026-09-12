@@ -47,6 +47,7 @@ export const DISCORD_COMMANDS = {
   IMAGE: 'image',
   WEATHER: 'weather',
   SYNC_STEAM: 'sync-steam',
+  CLEAR: 'clear',
 };
 
 // Config file names for hot-swappable markdown configs
@@ -171,6 +172,11 @@ export const DISCORD_COMMAND_DEFINITIONS: Record<
   },
   [DISCORD_COMMANDS.SYNC_STEAM]: {
     description: 'Manually trigger a Steam app list sync.',
+    parameters: [],
+  },
+  [DISCORD_COMMANDS.CLEAR]: {
+    description:
+      'Start a fresh conversation with Rooivalk (DMs only). Does not delete saved memories.',
     parameters: [],
   },
 };

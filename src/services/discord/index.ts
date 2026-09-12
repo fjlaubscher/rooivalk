@@ -8,11 +8,14 @@ import {
   Routes,
   SlashCommandBuilder,
   EmbedBuilder,
+  InteractionContextType,
+  ApplicationIntegrationType,
 } from 'discord.js';
 import type { TextChannel, ClientEvents } from 'discord.js';
 
 import {
   DISCORD_MESSAGE_LIMIT,
+  DISCORD_COMMANDS,
   DISCORD_COMMAND_DEFINITIONS,
 } from '../../constants.ts';
 import type {
@@ -257,49 +260,70 @@ class DiscordService {
     }
   }
 
+  private buildSlashCommand(key: string) {
+    const def = DISCORD_COMMAND_DEFINITIONS[key];
+    if (!def) {
+      return null;
+    }
+
+    const builder = new SlashCommandBuilder();
+    builder.setName(key);
+    builder.setDescription(def.description);
+
+    def.parameters.forEach((param) => {
+      builder.addStringOption((option) => {
+        const commandOption = option
+          .setName(param.name)
+          .setDescription(param.description)
+          .setRequired(param.required);
+
+        if (param.choices) {
+          commandOption.addChoices(param.choices);
+        }
+
+        return commandOption;
+      });
+    });
+
+    return builder;
+  }
+
   public async registerSlashCommands(): Promise<void> {
     const rest = new REST({ version: '10' }).setToken(
       process.env.DISCORD_TOKEN!,
     );
 
     try {
-      const commands = Object.keys(DISCORD_COMMAND_DEFINITIONS)
-        .map((key) => {
-          const def = DISCORD_COMMAND_DEFINITIONS[key];
-          if (!def) {
-            return false;
-          }
-
-          const builder = new SlashCommandBuilder();
-          builder.setName(key);
-          builder.setDescription(def.description);
-
-          def.parameters.forEach((param) => {
-            builder.addStringOption((option) => {
-              const commandOption = option
-                .setName(param.name)
-                .setDescription(param.description)
-                .setRequired(param.required);
-
-              if (param.choices) {
-                commandOption.addChoices(param.choices);
-              }
-
-              return commandOption;
-            });
-          });
-
-          return builder.toJSON();
-        })
+      // Guild-only commands stay on the guild route for immediate availability.
+      // `/clear` must also work in bot DMs, which guild commands do not expose —
+      // register it globally with Guild + BotDM contexts. Global commands can
+      // take up to ~1h to propagate; guild commands remain instant.
+      const guildCommandKeys = Object.keys(DISCORD_COMMAND_DEFINITIONS).filter(
+        (key) => key !== DISCORD_COMMANDS.CLEAR,
+      );
+      const guildCommands = guildCommandKeys
+        .map((key) => this.buildSlashCommand(key)?.toJSON())
         .filter(Boolean);
+
+      const clearBuilder = this.buildSlashCommand(DISCORD_COMMANDS.CLEAR);
+      if (!clearBuilder) {
+        throw new Error('Missing CLEAR command definition');
+      }
+      clearBuilder
+        .setContexts(InteractionContextType.Guild, InteractionContextType.BotDM)
+        .setIntegrationTypes(ApplicationIntegrationType.GuildInstall);
+      const globalCommands = [clearBuilder.toJSON()];
 
       await rest.put(
         Routes.applicationGuildCommands(
           process.env.DISCORD_APP_ID!,
           process.env.DISCORD_GUILD_ID!,
         ),
-        { body: commands },
+        { body: guildCommands },
       );
+      await rest.put(Routes.applicationCommands(process.env.DISCORD_APP_ID!), {
+        body: globalCommands,
+      });
       console.log('Successfully registered slash commands.');
     } catch (error) {
       console.error('Error registering slash command:', error);
