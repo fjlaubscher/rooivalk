@@ -324,6 +324,10 @@ class Rooivalk {
       return 'image';
     }
 
+    if (normalizedContentType === 'application/pdf') {
+      return 'pdf';
+    }
+
     if (attachment.name) {
       const lowerCaseName = attachment.name.toLowerCase();
       if (
@@ -332,6 +336,9 @@ class Rooivalk {
         )
       ) {
         return 'image';
+      }
+      if (lowerCaseName.endsWith('.pdf')) {
+        return 'pdf';
       }
     }
 
@@ -354,6 +361,50 @@ class Rooivalk {
   }
 
   /**
+   * Partitions Discord attachments into those the model can ingest and those
+   * skipped by the allowlist. A skipped note is returned so the prompt can
+   * tell the model a file was present but unsupported — otherwise it claims
+   * there was "no attachment".
+   */
+  private collectAttachmentsForPrompt(attachments: Iterable<Attachment>): {
+    allowed: AttachmentForPrompt[];
+    skippedNote: string | null;
+  } {
+    const allowed: AttachmentForPrompt[] = [];
+    const skipped: Attachment[] = [];
+
+    for (const attachment of attachments) {
+      if (this.isAttachmentAllowed(attachment)) {
+        allowed.push(this.buildAttachmentForPrompt(attachment));
+      } else {
+        skipped.push(attachment);
+      }
+    }
+
+    return {
+      allowed,
+      skippedNote:
+        skipped.length > 0
+          ? this.formatSkippedAttachmentsNote(skipped)
+          : null,
+    };
+  }
+
+  private formatSkippedAttachmentsNote(skipped: Attachment[]): string {
+    const descriptions = skipped.map((attachment) => {
+      const name = attachment.name ?? 'unnamed';
+      const type =
+        this.normalizeContentType(attachment.contentType) ?? 'unknown type';
+      return `${name} (${type})`;
+    });
+    const noun =
+      skipped.length === 1
+        ? 'Attachment was skipped as unsupported'
+        : `${skipped.length} attachments were skipped as unsupported`;
+    return `[Note: ${noun}: ${descriptions.join(', ')}. Do not claim there was no attachment.]`;
+  }
+
+  /**
    * Summarises another message into a one-line prompt prefix plus the
    * attachments the model should actually look at. Embed text is folded into
    * the prefix and embed images into the attachment list, so a bot post whose
@@ -368,9 +419,8 @@ class Rooivalk {
       referenced.content?.trim() ?? '',
       REFERENCED_CONTENT_MAX_LENGTH,
     );
-    const attachments = Array.from(referenced.attachments.values())
-      .filter((attachment) => this.isAttachmentAllowed(attachment))
-      .map((attachment) => this.buildAttachmentForPrompt(attachment));
+    const { allowed: attachments, skippedNote } =
+      this.collectAttachmentsForPrompt(referenced.attachments.values());
 
     const { text: embedText, imageUrls: embedImageUrls } = summarizeEmbeds(
       referenced.embeds,
@@ -383,7 +433,12 @@ class Rooivalk {
       attachments.push({ url, kind: 'image', name: null, contentType: null });
     }
 
-    if (!content && attachments.length === 0 && embedText.length === 0) {
+    if (
+      !content &&
+      attachments.length === 0 &&
+      embedText.length === 0 &&
+      !skippedNote
+    ) {
       return null;
     }
 
@@ -399,8 +454,13 @@ class Rooivalk {
       parts.push(`(${attachments.length} ${noun})`);
     }
 
+    const prefixParts = [`[${label} ${author}: ${parts.join(' ')}]`];
+    if (skippedNote) {
+      prefixParts.push(skippedNote);
+    }
+
     return {
-      prefix: `[${label} ${author}: ${parts.join(' ')}]\n`,
+      prefix: `${prefixParts.join('\n')}\n`,
       attachments,
     };
   }
@@ -523,6 +583,7 @@ class Rooivalk {
       githubIssueTemplate: this._config.githubIssueTemplate,
       createThread: (msg, name) => this.createRooivalkThread(msg, name),
       toolRoles: this._config.toolRoles,
+      allowedUserIds: this._allowedUserIds,
     });
   }
 
@@ -555,11 +616,15 @@ class Rooivalk {
         (user) => user.id !== this._discord.client.user?.id,
       );
 
-      const attachments = Array.from(message.attachments.values())
-        .filter((attachment) => this.isAttachmentAllowed(attachment))
-        .map((attachment) => this.buildAttachmentForPrompt(attachment));
+      const { allowed: attachments, skippedNote: skippedAttachmentsNote } =
+        this.collectAttachmentsForPrompt(message.attachments.values());
 
       let finalPrompt = prompt;
+      if (skippedAttachmentsNote) {
+        finalPrompt = finalPrompt
+          ? `${finalPrompt}\n${skippedAttachmentsNote}`
+          : skippedAttachmentsNote;
+      }
       const contextAttachments: AttachmentForPrompt[] = [];
 
       // Message-scoped context: what THIS turn points at. Always forwarded,

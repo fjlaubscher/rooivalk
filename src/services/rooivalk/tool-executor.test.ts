@@ -98,6 +98,75 @@ describe('buildToolExecutor role-based tool permissions', () => {
     expect(runBashMock).not.toHaveBeenCalled();
   });
 
+  it('allows a restricted tool in a DM when the author is allowlisted', async () => {
+    const execute = buildToolExecutor(
+      buildContext({
+        message: createMockMessage({
+          member: null,
+          author: { id: 'admin-user' },
+        }),
+        toolRoles: { [GRANTING_ROLE]: [TOOL_NAMES.RUN_BASH] },
+        allowedUserIds: ['admin-user'],
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.RUN_BASH, { command: 'ls' });
+
+    expect(runBashMock).toHaveBeenCalledWith('ls');
+    expect(result.deniedMessage).toBeUndefined();
+  });
+
+  it('still denies a non-allowlisted DM author for restricted tools', async () => {
+    const execute = buildToolExecutor(
+      buildContext({
+        message: createMockMessage({
+          member: null,
+          author: { id: 'random-user' },
+        }),
+        toolRoles: { [GRANTING_ROLE]: [TOOL_NAMES.RUN_BASH] },
+        allowedUserIds: ['admin-user'],
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.RUN_BASH, { command: 'ls' });
+
+    expect(result.deniedMessage).toBe(DENIED_MESSAGE);
+    expect(runBashMock).not.toHaveBeenCalled();
+  });
+
+  it('still grants via guild role when the author is not allowlisted', async () => {
+    const execute = buildToolExecutor(
+      buildContext({
+        message: messageWithRoles([GRANTING_ROLE]),
+        toolRoles: { [GRANTING_ROLE]: [TOOL_NAMES.RUN_BASH] },
+        allowedUserIds: ['someone-else'],
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.RUN_BASH, { command: 'ls' });
+
+    expect(runBashMock).toHaveBeenCalledWith('ls');
+    expect(result.deniedMessage).toBeUndefined();
+  });
+
+  it('does not bypass roles when the allowlist is empty', async () => {
+    const execute = buildToolExecutor(
+      buildContext({
+        message: createMockMessage({
+          member: null,
+          author: { id: 'anyone' },
+        }),
+        toolRoles: { [GRANTING_ROLE]: [TOOL_NAMES.RUN_BASH] },
+        allowedUserIds: [],
+      }),
+    );
+
+    const result = await execute(TOOL_NAMES.RUN_BASH, { command: 'ls' });
+
+    expect(result.deniedMessage).toBe(DENIED_MESSAGE);
+    expect(runBashMock).not.toHaveBeenCalled();
+  });
+
   it('leaves an unlisted tool open even while other tools are gated', async () => {
     const execute = buildToolExecutor(
       buildContext({

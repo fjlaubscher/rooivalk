@@ -120,7 +120,7 @@ export type ConversationRef = {
 
 export type AttachmentForPrompt = {
   url: string;
-  kind: 'image' | 'file';
+  kind: 'image' | 'file' | 'pdf';
   name?: string | null;
   contentType?: string | null;
 };

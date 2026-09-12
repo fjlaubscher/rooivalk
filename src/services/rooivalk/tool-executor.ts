@@ -40,6 +40,12 @@ export type ToolExecutorContext = {
    * role is restricted to members holding that role.
    */
   toolRoles?: ToolRoles;
+  /**
+   * Discord user IDs from DISCORD_ALLOWED_USERS. Allowlisted authors bypass
+   * role gates (needed in DMs where `message.member` is null). Empty/undefined
+   * means no bypass — only guild roles grant restricted tools.
+   */
+  allowedUserIds?: string[];
 };
 
 function errorOutput(err: unknown): ToolExecutionResult {
@@ -78,6 +84,15 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
   const deniedMessage = (name: string): string | null => {
     const allowedRoles = allowedRolesByTool.get(name);
     if (!allowedRoles) {
+      return null;
+    }
+    // Allowlisted users always get restricted tools (admin), including in DMs
+    // where guild member roles are unavailable.
+    const allowedUserIds = ctx.allowedUserIds ?? [];
+    if (
+      allowedUserIds.length > 0 &&
+      allowedUserIds.includes(message.author.id)
+    ) {
       return null;
     }
     const memberRoles = message.member?.roles?.cache;

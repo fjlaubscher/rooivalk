@@ -908,6 +908,64 @@ describe('Rooivalk', () => {
       );
     });
 
+    it('should include PDF attachments when prompting OpenAI', async () => {
+      const attachment = {
+        url: 'https://cdn.discordapp.com/attachments/doc.pdf',
+        contentType: 'application/pdf',
+        name: 'doc.pdf',
+      } as unknown as Attachment;
+
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> Can you read this PDF?`,
+        attachments: new Collection<string, Attachment>([['1', attachment]]),
+      } as Partial<Message<boolean>>);
+
+      await (rooivalk as any).processMessage(userMessage);
+
+      const expectedAuthor = buildPromptAuthor(userMessage.author);
+
+      expect(mockChatClient.createResponse).toHaveBeenCalledWith(
+        expectedAuthor,
+        'Can you read this PDF?',
+        null,
+        [
+          {
+            url: attachment.url,
+            name: attachment.name,
+            contentType: 'application/pdf',
+            kind: 'pdf',
+          },
+        ],
+        expect.any(Function),
+        expect.any(Array),
+      );
+    });
+
+    it('appends a skipped-attachment note when an unsupported file is attached', async () => {
+      const attachment = {
+        url: 'https://cdn.discordapp.com/attachments/archive.zip',
+        contentType: 'application/zip',
+        name: 'archive.zip',
+      } as unknown as Attachment;
+
+      const userMessage = createMockMessage({
+        content: `<@${BOT_ID}> Please open the zip`,
+        attachments: new Collection<string, Attachment>([['1', attachment]]),
+      } as Partial<Message<boolean>>);
+
+      await (rooivalk as any).processMessage(userMessage);
+
+      const expectedAuthor = buildPromptAuthor(userMessage.author);
+      const call = mockChatClient.createResponse.mock.calls[0];
+
+      expect(call[0]).toBe(expectedAuthor);
+      expect(call[1]).toContain('Please open the zip');
+      expect(call[1]).toContain('archive.zip');
+      expect(call[1]).toContain('application/zip');
+      expect(call[1]).toContain('Do not claim there was no attachment');
+      expect(call[3]).toBeNull();
+    });
+
     describe('Rooivalk private shouldProcessMessage', () => {
       it('returns true for whitelisted bot', () => {
         const allowedBotId = 'allowed-bot-id';
