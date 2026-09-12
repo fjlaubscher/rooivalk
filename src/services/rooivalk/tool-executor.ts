@@ -356,6 +356,42 @@ export function buildToolExecutor(ctx: ToolExecutorContext): ToolExecutor {
           return errorOutput(err);
         }
       }
+
+      case TOOL_NAMES.REACT: {
+        const emoji = typeof args.emoji === 'string' ? args.emoji.trim() : '';
+        if (!emoji) {
+          return {
+            output: JSON.stringify({ error: 'emoji is required' }),
+          };
+        }
+
+        // Custom Discord tokens: <:name:id> or <a:name:id>
+        const customMatch = emoji.match(/^<(a?):(\w+):(\d{17,19})>$/);
+        if (customMatch) {
+          const allowed = discord.allowedEmojis ?? [];
+          const known = allowed.some((line) => line.includes(emoji));
+          if (!known) {
+            return {
+              output: JSON.stringify({
+                error:
+                  'Unknown custom emoji — call get_emojis for the exact <:name:id> token, or use unicode.',
+              }),
+            };
+          }
+        }
+
+        try {
+          // discord.js Message#react accepts unicode or <:name:id> / id
+          await message.react(emoji);
+          return {
+            output: JSON.stringify({ ok: true, emoji }),
+            reacted: true,
+          };
+        } catch (err) {
+          return errorOutput(err);
+        }
+      }
+
       case TOOL_NAMES.GET_EMOJIS: {
         const emojis = discord.allowedEmojis;
         return {

@@ -37,3 +37,18 @@ export const resolveConversationStoreRefs = (
 
 export const formatEmojiEntry = (name: string, tag: string): string =>
   `:${name}: → ${tag}`;
+
+/**
+ * Store refs when the bot reacts without sending a text reply. There is no bot
+ * message to key off, so guild channels store under the user message id (a
+ * reply to that message continues the chain). Threads and DMs keep the usual
+ * channel-scoped ref.
+ */
+export const resolveReactionOnlyStoreRefs = (
+  userMessage: Message<boolean>,
+): ConversationRef[] => {
+  if (userMessage.channel.isThread() || !userMessage.guild) {
+    return [{ type: 'thread', refId: userMessage.channel.id }];
+  }
+  return [{ type: 'msg', refId: userMessage.id }];
+};

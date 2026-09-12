@@ -356,6 +356,62 @@ describe('Rooivalk', () => {
         );
       });
 
+      it('skips the text reply for reaction-only and stores under the user message id', async () => {
+        const userMessage = createMockMessage({
+          id: 'user-msg-react',
+          content: `<@${BOT_ID}> thanks`,
+        } as Partial<Message<boolean>>);
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: '',
+          base64Images: [],
+          responseId: 'resp-react-only',
+          reacted: true,
+        });
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(mockDiscordService.buildMessageReply).not.toHaveBeenCalled();
+        expect(userMessage.reply).not.toHaveBeenCalled();
+        expect(
+          mockMemoryService.setConversationResponseId,
+        ).toHaveBeenCalledWith(
+          { type: 'msg', refId: 'user-msg-react' },
+          'resp-react-only',
+        );
+      });
+
+      it('still sends text when reacted alongside content', async () => {
+        const userMessage = createMockMessage({
+          id: 'user-msg-both',
+          content: `<@${BOT_ID}> thanks, noted`,
+        } as Partial<Message<boolean>>);
+        mockChatClient.createResponse.mockResolvedValue({
+          type: 'text',
+          content: 'Pleasure.',
+          base64Images: [],
+          responseId: 'resp-react-text',
+          reacted: true,
+        });
+        mockDiscordService.buildMessageReply.mockReturnValue({
+          content: 'Pleasure.',
+        });
+        (userMessage.reply as any).mockResolvedValue(
+          createMockMessage({ id: 'bot-reply-both' }),
+        );
+
+        await (rooivalk as any).processMessage(userMessage);
+
+        expect(mockDiscordService.buildMessageReply).toHaveBeenCalled();
+        expect(userMessage.reply).toHaveBeenCalled();
+        expect(
+          mockMemoryService.setConversationResponseId,
+        ).toHaveBeenCalledWith(
+          { type: 'msg', refId: 'bot-reply-both' },
+          'resp-react-text',
+        );
+      });
+
       it('writes both a msg and a thread ref when a thread was created this turn', async () => {
         const userMessage = createMockMessage({
           content: `<@${BOT_ID}> spawn a thread please`,

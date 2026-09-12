@@ -43,6 +43,7 @@ import type { AttachmentForPrompt, InMemoryConfig } from '../../types.ts';
 import {
   resolveConversationLookupRef,
   resolveConversationStoreRefs,
+  resolveReactionOnlyStoreRefs,
 } from '../discord/helpers.ts';
 import {
   isReplyToRooivalk,
@@ -686,6 +687,35 @@ class Rooivalk {
 
       if (response.contextLost && lookupRef) {
         this._memory.clearConversationResponseId(lookupRef);
+      }
+
+      const hasText = Boolean(response.content?.trim());
+      const hasImage = (response.base64Images?.length ?? 0) > 0;
+      const reactionOnly =
+        Boolean(response.reacted) &&
+        !hasText &&
+        !hasImage &&
+        !response.createdThread;
+
+      // Reaction-only: skip the text reply (avoids "[no response generated]")
+      // but still persist the response id for conversation continuity.
+      if (reactionOnly) {
+        if (response.contextLost) {
+          const note =
+            '*[the previous context of this conversation was lost in the void — starting fresh]*';
+          if (message.channel.isThread()) {
+            await message.channel.send(note);
+          } else {
+            await message.reply(note);
+          }
+        }
+
+        if (response.responseId) {
+          for (const ref of resolveReactionOnlyStoreRefs(message)) {
+            this._memory.setConversationResponseId(ref, response.responseId);
+          }
+        }
+        return;
       }
 
       const reply = this._discord.buildMessageReply(
