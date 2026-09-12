@@ -175,7 +175,10 @@ describe('OpenAIService', () => {
         {
           type: 'input_file',
           file_url: 'https://cdn.discordapp.com/attachments/doc.pdf',
-          filename: 'doc.pdf',
+        },
+        {
+          type: 'input_text',
+          text: 'PDF attachment name=doc.pdf',
         },
       ]);
     });
