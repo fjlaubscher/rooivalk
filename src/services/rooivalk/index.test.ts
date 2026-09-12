@@ -972,6 +972,71 @@ describe('Rooivalk', () => {
         // @ts-expect-error: testing private method
         expect(rooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(true);
       });
+
+      it('returns false for a DM when no user allowlist is set', () => {
+        const msg = Object.assign(createMockMessage(), {
+          author: { id: 'user-id', bot: false } as any,
+          guild: null,
+        });
+        // @ts-expect-error: testing private method
+        expect(rooivalk.shouldProcessMessage(msg, 'guild-id')).toBe(false);
+      });
+
+      describe('and DISCORD_ALLOWED_USERS is set', () => {
+        const FRIEND_ID = 'friend-user-id';
+
+        const allowlistedRooivalk = () => {
+          vi.stubGlobal('process', {
+            env: { ...MOCK_ENV, DISCORD_ALLOWED_USERS: FRIEND_ID },
+          });
+          return new Rooivalk(
+            MOCK_CONFIG,
+            mockDiscordService,
+            mockChatClient,
+            mockOpenAIClient,
+          );
+        };
+
+        it('returns true for a DM from an allowlisted user', () => {
+          const msg = Object.assign(createMockMessage(), {
+            author: { id: FRIEND_ID, bot: false } as any,
+            guild: null,
+          });
+          const instance = allowlistedRooivalk();
+          // @ts-expect-error: testing private method
+          expect(instance.shouldProcessMessage(msg, 'guild-id')).toBe(true);
+        });
+
+        it('returns false for a DM from a user who is not allowlisted', () => {
+          const msg = Object.assign(createMockMessage(), {
+            author: { id: 'stranger-id', bot: false } as any,
+            guild: null,
+          });
+          const instance = allowlistedRooivalk();
+          // @ts-expect-error: testing private method
+          expect(instance.shouldProcessMessage(msg, 'guild-id')).toBe(false);
+        });
+
+        it('returns true for a guild message from an allowlisted user', () => {
+          const msg = Object.assign(createMockMessage(), {
+            author: { id: FRIEND_ID, bot: false } as any,
+            guild: { id: 'guild-id' } as any,
+          });
+          const instance = allowlistedRooivalk();
+          // @ts-expect-error: testing private method
+          expect(instance.shouldProcessMessage(msg, 'guild-id')).toBe(true);
+        });
+
+        it('returns false for a guild message from a user who is not allowlisted', () => {
+          const msg = Object.assign(createMockMessage(), {
+            author: { id: 'stranger-id', bot: false } as any,
+            guild: { id: 'guild-id' } as any,
+          });
+          const instance = allowlistedRooivalk();
+          // @ts-expect-error: testing private method
+          expect(instance.shouldProcessMessage(msg, 'guild-id')).toBe(false);
+        });
+      });
     });
 
     it('uses the bare message content when no prior response id is stored', async () => {
@@ -2218,6 +2283,94 @@ describe('Rooivalk', () => {
       });
     });
 
+    describe('slash command allowlist', () => {
+      const captureInteractionHandler = async (instance: Rooivalk) => {
+        mockDiscordService.once.mockImplementation(
+          (event: string, cb: (client: unknown) => void) => {
+            if (event === DiscordEvents.ClientReady) {
+              cb(mockDiscordService.client as any);
+            }
+            return mockDiscordService;
+          },
+        );
+        await instance.init();
+        const entry = mockDiscordService.on.mock.calls.find(
+          ([event]: [string]) => event === DiscordEvents.InteractionCreate,
+        );
+        return entry![1] as (interaction: any) => Promise<void>;
+      };
+
+      const commandInteraction = (userId: string, guildId: string | null) => ({
+        isChatInputCommand: () => true,
+        commandName: 'sync-steam',
+        user: { id: userId, bot: false },
+        guildId,
+        reply: vi.fn(),
+      });
+
+      const allowlistedRooivalk = () => {
+        vi.stubGlobal('process', {
+          env: { ...MOCK_ENV, DISCORD_ALLOWED_USERS: 'friend-user-id' },
+        });
+        return new Rooivalk(
+          MOCK_CONFIG,
+          mockDiscordService,
+          mockChatClient,
+          mockOpenAIClient,
+        );
+      };
+
+      it('blocks a non-allowlisted user with an ephemeral reply', async () => {
+        const handler = await captureInteractionHandler(allowlistedRooivalk());
+        const interaction = commandInteraction(
+          'stranger-id',
+          MOCK_ENV.DISCORD_GUILD_ID,
+        );
+
+        await handler(interaction);
+
+        expect(interaction.reply).toHaveBeenCalledTimes(1);
+        expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
+          'permissionDenied',
+        );
+        expect(interaction.reply).toHaveBeenCalledWith({
+          content: 'Error!',
+          ephemeral: true,
+        });
+      });
+
+      it('runs the command for an allowlisted user', async () => {
+        const handler = await captureInteractionHandler(allowlistedRooivalk());
+        const interaction = commandInteraction(
+          'friend-user-id',
+          MOCK_ENV.DISCORD_GUILD_ID,
+        );
+
+        await handler(interaction);
+
+        expect(interaction.reply).toHaveBeenCalledWith({
+          content: '`STEAM_API_KEY` is not configured — sync is unavailable.',
+          ephemeral: true,
+        });
+      });
+
+      it('blocks DM commands when no user allowlist is set', async () => {
+        const handler = await captureInteractionHandler(rooivalk);
+        const interaction = commandInteraction('user-id', null);
+
+        await handler(interaction);
+
+        expect(interaction.reply).toHaveBeenCalledTimes(1);
+        expect(mockDiscordService.getRooivalkResponse).toHaveBeenCalledWith(
+          'permissionDenied',
+        );
+        expect(interaction.reply).toHaveBeenCalledWith({
+          content: 'Error!',
+          ephemeral: true,
+        });
+      });
+    });
+
     it('should set up event handlers and call login', async () => {
       // Patch the once method to immediately call the callback for ClientReady
       mockDiscordService.once.mockImplementation(
@@ -2477,6 +2630,21 @@ describe('Rooivalk', () => {
         expect(mockChatClient.generateThreadName).toHaveBeenCalledWith(
           'Question about something',
         );
+      });
+
+      it('returns null for a DM without generating a thread name', async () => {
+        const dmMessage = createMockMessage({
+          content: 'Hello in a DM',
+          author: { id: 'user-dm' },
+          guild: null,
+          startThread: vi.fn(),
+        } as unknown as Partial<Message<boolean>>);
+
+        const result = await rooivalk.createRooivalkThread(dmMessage);
+
+        expect(result).toBeNull();
+        expect(mockChatClient.generateThreadName).not.toHaveBeenCalled();
+        expect(dmMessage.startThread).not.toHaveBeenCalled();
       });
     });
   });

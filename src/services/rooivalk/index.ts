@@ -168,6 +168,7 @@ class Rooivalk {
   protected _spotify: SpotifyService;
   protected _github: GithubService;
   private _allowedAppIds: string[];
+  private _allowedUserIds: string[];
 
   constructor(
     config: InMemoryConfig,
@@ -219,10 +220,23 @@ class Rooivalk {
           .map((id) => id.trim())
           .filter(Boolean)
       : [];
+
+    // Parse DISCORD_ALLOWED_USERS once and store. Empty means everyone may
+    // interact (guild behaviour unchanged); DMs always fail closed.
+    const allowedUsersEnv = process.env.DISCORD_ALLOWED_USERS;
+    this._allowedUserIds = allowedUsersEnv
+      ? allowedUsersEnv
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : [];
   }
 
   /**
-   * Determines if a message should be processed based on allowlist and guild.
+   * Determines if a message should be processed based on allowlists and guild.
+   * Human authors must be in DISCORD_ALLOWED_USERS when it is set. DMs have no
+   * guild, so they fail closed: only explicitly allowlisted users get replies
+   * there, which keeps someone else's DM from spending our OpenAI budget.
    * @param message The Discord message.
    * @param guildId The guild/server ID to match.
    */
@@ -231,9 +245,46 @@ class Rooivalk {
     guildId: string,
   ): boolean {
     if (
-      (message.author.bot &&
-        !this._allowedAppIds.includes(message.author.id)) ||
-      message.guild?.id !== guildId
+      message.author.bot &&
+      !this._allowedAppIds.includes(message.author.id)
+    ) {
+      return false;
+    }
+    if (!message.guild) {
+      return this._allowedUserIds.includes(message.author.id);
+    }
+    if (
+      !message.author.bot &&
+      this._allowedUserIds.length > 0 &&
+      !this._allowedUserIds.includes(message.author.id)
+    ) {
+      return false;
+    }
+    return message.guild.id === guildId;
+  }
+
+  /**
+   * Same allowlist policy as shouldProcessMessage, for slash commands — they
+   * hit OpenAI too. Denied callers get an ephemeral reply (silent ignores show
+   * up as failed interactions); guild behaviour is unchanged when the user
+   * allowlist is empty.
+   */
+  private shouldProcessInteraction(
+    interaction: ChatInputCommandInteraction,
+  ): boolean {
+    if (
+      interaction.user.bot &&
+      !this._allowedAppIds.includes(interaction.user.id)
+    ) {
+      return false;
+    }
+    if (!interaction.guildId) {
+      return this._allowedUserIds.includes(interaction.user.id);
+    }
+    if (
+      !interaction.user.bot &&
+      this._allowedUserIds.length > 0 &&
+      !this._allowedUserIds.includes(interaction.user.id)
     ) {
       return false;
     }
@@ -1081,6 +1132,12 @@ class Rooivalk {
     message: Message<boolean>,
     name?: string,
   ): Promise<ThreadChannel | null> {
+    // DMs and group DMs have no threads — bail before spending an OpenAI call
+    // on a thread name. Callers already handle null as "thread unavailable".
+    if (!message.guild) {
+      return null;
+    }
+
     let threadName: string;
 
     const trimmedName = name?.trim();
@@ -1214,6 +1271,14 @@ class Rooivalk {
       DiscordEvents.InteractionCreate,
       async (interaction: Interaction) => {
         if (!interaction.isChatInputCommand()) return;
+
+        if (!this.shouldProcessInteraction(interaction)) {
+          await interaction.reply({
+            content: this._discord.getRooivalkResponse('permissionDenied'),
+            ephemeral: true,
+          });
+          return;
+        }
 
         switch (interaction.commandName) {
           case DISCORD_COMMANDS.IMAGE:

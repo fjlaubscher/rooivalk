@@ -58,7 +58,7 @@ Other files and directories follow standard Node.js/TypeScript project conventio
 
 - Copy `.env.example` to `.env` and configure required credentials.
 - Required: `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `DISCORD_APP_ID`, `DISCORD_STARTUP_CHANNEL_ID`, `DISCORD_MOTD_CHANNEL_ID`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL`, `ROOIVALK_MOTD_CRON`.
-- Optional: `OPENAI_MODEL` (chat), `STEAM_API_KEY` (nightly Steam app catalogue sync), `GITHUB_TOKEN` (enables the create/search GitHub issue tools on the repos allowlisted in `GITHUB_REPOS`), `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` (enables `lookup_spotify`), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `LOG_LEVEL` (`debug` enables prompt-metric logging).
+- Optional: `OPENAI_MODEL` (chat), `STEAM_API_KEY` (nightly Steam app catalogue sync), `GITHUB_TOKEN` (enables the create/search GitHub issue tools on the repos allowlisted in `GITHUB_REPOS`), `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` (enables `lookup_spotify`), `ROOIVALK_DB_PATH` (default `./data/rooivalk.db`), `ROOIVALK_LEADERBOARD_CRON`, `DISCORD_ALLOWED_APPS` (comma-separated bot ids permitted to interact), `DISCORD_ALLOWED_USERS` (comma-separated user ids permitted to interact; empty means everyone in the guild, DMs always fail closed), `LOG_LEVEL` (`debug` enables prompt-metric logging).
 - Channel-specific chat behaviour (e.g. field hospital) is configured as profiles in `config/profiles.json`, not env — see `src/services/chat/AGENTS.md`.
 
 ## Coding Conventions

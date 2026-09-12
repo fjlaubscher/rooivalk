@@ -41,8 +41,14 @@ class DiscordService {
           GatewayIntentBits.GuildMessages,
           GatewayIntentBits.GuildMessageReactions,
           GatewayIntentBits.MessageContent,
+          GatewayIntentBits.DirectMessages,
         ],
-        partials: [Partials.Message, Partials.Reaction, Partials.User],
+        partials: [
+          Partials.Message,
+          Partials.Reaction,
+          Partials.User,
+          Partials.Channel,
+        ],
       });
     this._startupChannelId = process.env.DISCORD_STARTUP_CHANNEL_ID;
     this._motdChannelId = process.env.DISCORD_MOTD_CHANNEL_ID;
