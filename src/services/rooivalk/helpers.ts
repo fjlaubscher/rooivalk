@@ -7,7 +7,7 @@ import {
   MAX_REFERENCED_EMBEDS,
   REFERENCED_EMBED_TEXT_MAX_LENGTH,
 } from '../../constants.ts';
-import type { Profile, ResponseType } from '../../types.ts';
+import type { Profile } from '../../types.ts';
 
 export const isRooivalkThread = (
   message: Message<boolean>,
@@ -42,76 +42,6 @@ export const isReplyToRooivalk = async (
     }
   }
   return false;
-};
-
-/** A lone social link rewritten to a Discord-friendly embed host. */
-export type RewrittenLink = {
-  /** Which flavour-message pool (and `ResponseType`) the reply draws from. */
-  type: ResponseType;
-  /** The rewritten, embed-friendly URL. */
-  link: string;
-};
-
-/**
- * Declarative rule for swapping a social platform's host for one that renders
- * proper embeds in Discord. Adding a platform (TikTok, …) is a new entry here
- * plus a matching `<type>.md` flavour-message file — no new detection or
- * reply code.
- */
-type LinkFixer = {
-  /** Flavour-message pool to draw the reply quip from. */
-  type: ResponseType;
-  /** Base domain to match, e.g. `instagram.com`. */
-  domain: string;
-  /** Embed-friendly replacement host, e.g. `kkclip.com`. */
-  embedHost: string;
-};
-
-const escapeRegExp = (value: string): string =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-// Matches a message whose entire content is a single link for `domain` and
-// nothing else. Subdomains (e.g. `www.`, `old.`) are tolerated; a path must be
-// present so a bare `domain.com` doesn't trip it.
-const loneLinkRegex = (domain: string): RegExp =>
-  new RegExp(`^https?://(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}/\\S+$`, 'i');
-
-// Matches the host (with optional subdomains) for in-place replacement.
-const hostRegex = (domain: string): RegExp =>
-  new RegExp(`(?:[a-z0-9-]+\\.)*${escapeRegExp(domain)}`, 'i');
-
-const LINK_FIXER_RULES: LinkFixer[] = [
-  { type: 'instagram', domain: 'instagram.com', embedHost: 'kkclip.com' },
-];
-
-const LINK_FIXERS = LINK_FIXER_RULES.map((fixer) => ({
-  ...fixer,
-  match: loneLinkRegex(fixer.domain),
-  host: hostRegex(fixer.domain),
-}));
-
-/**
- * If a message contains *only* a supported social link (no other text), returns
- * the link rewritten to that platform's embed host — which renders the post in
- * Discord. The embed service resolves the post type (text/image/gallery/video)
- * server-side, so we don't branch on it. Returns `null` for anything else —
- * extra words, multiple links, or unsupported URLs are left untouched.
- */
-export const rewriteEmbedLink = (content: string): RewrittenLink | null => {
-  const trimmed = content.trim();
-
-  for (const fixer of LINK_FIXERS) {
-    if (!fixer.match.test(trimmed)) {
-      continue;
-    }
-
-    return {
-      type: fixer.type,
-      link: trimmed.replace(fixer.host, fixer.embedHost),
-    };
-  }
-
-  return null;
 };
 
 export const buildPromptAuthor = (author: User) =>

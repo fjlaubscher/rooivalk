@@ -55,11 +55,9 @@ import {
   buildPromptAuthor,
   buildPromptChannel,
   matchProfile,
-  rewriteEmbedLink,
   summarizeEmbeds,
   truncateForPrompt,
 } from './helpers.ts';
-import type { RewrittenLink } from './helpers.ts';
 import { buildToolExecutor } from './tool-executor.ts';
 import type { ToolExecutor } from '../../types.ts';
 
@@ -1373,29 +1371,6 @@ class Rooivalk {
     }
   }
 
-  /**
-   * Replies to a lone social link (Instagram, …) with a quirky
-   * targeting-system quip and the same link rewritten to that platform's embed
-   * host so the post renders in Discord.
-   */
-  public async processEmbedLink(
-    message: Message<boolean>,
-    { type, link }: RewrittenLink,
-  ): Promise<void> {
-    try {
-      const reply = this._discord
-        .getRooivalkResponse(type)
-        .replace('{{LINK}}', link);
-
-      await message.reply({
-        content: reply,
-        allowedMentions: { repliedUser: false },
-      });
-    } catch (err) {
-      console.error(`[Rooivalk] Failed to fix ${type} link:`, err);
-    }
-  }
-
   public async init(): Promise<void> {
     const ready = new Promise<Client<boolean>>((res) =>
       this._discord.once(DiscordEvents.ClientReady, (client) => res(client)),
@@ -1415,24 +1390,11 @@ class Rooivalk {
           await message.reply(this._discord.getRooivalkResponse('gatecrasher'));
           return;
         }
-        const dmEmbedLink = rewriteEmbedLink(message.content);
-        if (dmEmbedLink) {
-          await this.processEmbedLink(message, dmEmbedLink);
-          return;
-        }
         await this.processMessage(message);
         return;
       }
 
       if (!this.shouldProcessMessage(message, process.env.DISCORD_GUILD_ID!)) {
-        return;
-      }
-
-      // Lone social links (Instagram, …) get their embed fixed, no mention
-      // required.
-      const embedLink = rewriteEmbedLink(message.content);
-      if (embedLink) {
-        await this.processEmbedLink(message, embedLink);
         return;
       }
 

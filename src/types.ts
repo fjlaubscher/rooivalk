@@ -54,7 +54,6 @@ export type InMemoryConfig = {
   greetingMessages: string[];
   discordLimitMessages: string[];
   leaderboardEmptyMessages: string[];
-  instagramMessages: string[];
   permissionDeniedMessages: string[];
   gatecrasherMessages: string[];
   boastMessages: string[];
@@ -76,7 +75,6 @@ export type ResponseType =
   | 'error'
   | 'greeting'
   | 'discordLimit'
-  | 'instagram'
   | 'permissionDenied'
   | 'gatecrasher'
   | 'boast';
