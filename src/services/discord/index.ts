@@ -98,9 +98,6 @@ class DiscordService {
       case 'discordLimit':
         arrayToUse = this._config.discordLimitMessages;
         break;
-      case 'instagram':
-        arrayToUse = this._config.instagramMessages;
-        break;
       case 'permissionDenied':
         arrayToUse = this._config.permissionDeniedMessages;
         break;

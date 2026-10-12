@@ -5,7 +5,6 @@ import {
   isReplyToRooivalk,
   buildPromptChannel,
   matchProfile,
-  rewriteEmbedLink,
   summarizeEmbeds,
   truncateForPrompt,
 } from './helpers.ts';
@@ -419,54 +418,6 @@ describe('rooivalk helpers', () => {
       const result = summarizeEmbeds([embed({ description: 'x'.repeat(400) })]);
 
       expect(result.text[0]).toBe(`${'x'.repeat(300)}…`);
-    });
-  });
-
-  describe('rewriteEmbedLink', () => {
-    it('rewrites a lone Instagram link to the kkclip host', () => {
-      expect(
-        rewriteEmbedLink('https://www.instagram.com/reel/abc123/'),
-      ).toEqual({
-        type: 'instagram',
-        link: 'https://kkclip.com/reel/abc123/',
-      });
-    });
-
-    it('handles Instagram links without a www subdomain', () => {
-      expect(rewriteEmbedLink('https://instagram.com/p/xyz')).toEqual({
-        type: 'instagram',
-        link: 'https://kkclip.com/p/xyz',
-      });
-    });
-
-    it('preserves the path and query string', () => {
-      expect(
-        rewriteEmbedLink('https://www.instagram.com/reel/abc?igsh=token123'),
-      ).toEqual({
-        type: 'instagram',
-        link: 'https://kkclip.com/reel/abc?igsh=token123',
-      });
-    });
-
-    it('ignores surrounding whitespace', () => {
-      expect(rewriteEmbedLink('  https://instagram.com/p/xyz  ')).toEqual({
-        type: 'instagram',
-        link: 'https://kkclip.com/p/xyz',
-      });
-    });
-
-    it('returns null when the link is accompanied by other text', () => {
-      expect(
-        rewriteEmbedLink('look at this https://instagram.com/p/xyz'),
-      ).toBeNull();
-    });
-
-    it('returns null for unsupported links', () => {
-      expect(rewriteEmbedLink('https://example.com/p/xyz')).toBeNull();
-    });
-
-    it('returns null for non-link content', () => {
-      expect(rewriteEmbedLink('just a normal message')).toBeNull();
     });
   });
 });
