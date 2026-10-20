@@ -230,8 +230,8 @@ class Rooivalk {
           .filter(Boolean)
       : [];
 
-    // Parse DISCORD_ALLOWED_USERS once and store. Empty means everyone may
-    // interact (guild behaviour unchanged); DMs always fail closed.
+    // Personal mode only (bot DMs). Empty still fail-closes DMs. Guild
+    // messages and guild slash commands do not consult this list.
     const allowedUsersEnv = process.env.DISCORD_ALLOWED_USERS;
     this._allowedUserIds = allowedUsersEnv
       ? allowedUsersEnv
@@ -242,10 +242,13 @@ class Rooivalk {
   }
 
   /**
-   * Determines if a message should be processed based on allowlists and guild.
-   * Human authors must be in DISCORD_ALLOWED_USERS when it is set. DMs have no
-   * guild, so they fail closed: only explicitly allowlisted users get replies
-   * there, which keeps someone else's DM from spending our OpenAI budget.
+   * Decides whether a message is in scope.
+   * Bots must be in DISCORD_ALLOWED_APPS.
+   * A guild message is in scope when it belongs to `guildId`. The user
+   * allowlist does not apply on the server.
+   * A DM has no guild, so it is personal mode and fails closed: only
+   * DISCORD_ALLOWED_USERS get replies, which keeps a stranger's DM from
+   * spending the OpenAI budget.
    * @param message The Discord message.
    * @param guildId The guild/server ID to match.
    */
@@ -262,21 +265,16 @@ class Rooivalk {
     if (!message.guild) {
       return this._allowedUserIds.includes(message.author.id);
     }
-    if (
-      !message.author.bot &&
-      this._allowedUserIds.length > 0 &&
-      !this._allowedUserIds.includes(message.author.id)
-    ) {
-      return false;
-    }
     return message.guild.id === guildId;
   }
 
   /**
-   * Same allowlist policy as shouldProcessMessage, for slash commands — they
-   * hit OpenAI too. Denied callers get an ephemeral reply (silent ignores show
-   * up as failed interactions); guild behaviour is unchanged when the user
-   * allowlist is empty.
+   * Slash commands that carry a guild id are server commands (`/image`,
+   * `/weather`, `/sync-steam`, and `/clear` when invoked in a channel). The
+   * user allowlist does not apply there. A command with no guild is personal
+   * mode — today that is `/clear` in a bot DM — and fails closed on
+   * DISCORD_ALLOWED_USERS. Denied callers get an ephemeral reply so Discord
+   * does not show a failed interaction.
    */
   private shouldProcessInteraction(
     interaction: ChatInputCommandInteraction,
@@ -289,13 +287,6 @@ class Rooivalk {
     }
     if (!interaction.guildId) {
       return this._allowedUserIds.includes(interaction.user.id);
-    }
-    if (
-      !interaction.user.bot &&
-      this._allowedUserIds.length > 0 &&
-      !this._allowedUserIds.includes(interaction.user.id)
-    ) {
-      return false;
     }
     return true;
   }
