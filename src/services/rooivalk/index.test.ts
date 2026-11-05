@@ -32,7 +32,13 @@ let restoreConsole: () => void;
 
 beforeAll(() => {
   restoreConsole = silenceConsole({
-    ignoreErrors: ['OpenAI error!', 'Startup channel ID not set', 'blocked'],
+    ignoreErrors: [
+      'OpenAI error!',
+      'Startup channel ID not set',
+      'blocked',
+      'Failed to fetch weather forecasts for MOTD',
+      'Failed to fetch guild events for MOTD',
+    ],
     ignoreLogs: ['🤖 Logged in as', 'Successfully registered slash commands.'],
   });
 });
@@ -1696,11 +1702,9 @@ describe('Rooivalk', () => {
       );
 
       await weatherRooivalk.handleWeatherCommand(interaction);
-      expect(interaction.editReply).toHaveBeenCalledWith(
-        expect.objectContaining({
-          content: expect.stringContaining('Yr API down'),
-        }),
-      );
+      expect(interaction.editReply).toHaveBeenCalledWith({
+        content: 'Error!\n\n```Yr API down```',
+      });
     });
   });
 
@@ -2337,6 +2341,47 @@ describe('Rooivalk', () => {
       const sendPayload = mockChannel.send.mock.calls[0]?.[0];
       expect(sendPayload?.files).toBeUndefined();
       expect(sendPayload?.embeds).toBeUndefined();
+    });
+
+    it('still sends the MOTD when weather forecasts fail', async () => {
+      const events = [
+        { name: 'Game night', date: new Date('2026-11-05T18:00:00.000Z') },
+      ];
+      mockYrService.getAllForecasts.mockRejectedValue(
+        new Error('BONNIEVALE 503'),
+      );
+      mockDiscordService.getGuildEventsBetween.mockResolvedValue(events);
+      mockOpenAIClient.createImage.mockResolvedValue(null);
+
+      await buildRooivalk().sendMotdToMotdChannel();
+
+      expect(mockChannel.send).toHaveBeenCalled();
+      expect(mockChatClient.createResponse).toHaveBeenCalledWith(
+        'rooivalk',
+        `Prompt [] ${JSON.stringify(events)}`,
+      );
+    });
+
+    it('still sends the MOTD when guild events fail', async () => {
+      const forecast = {
+        location: 'LAKESIDE',
+        friendlyName: 'Lakeside, South Africa',
+        minTemp: 15,
+        maxTemp: 20,
+      };
+      mockYrService.getAllForecasts.mockResolvedValue([forecast]);
+      mockDiscordService.getGuildEventsBetween.mockRejectedValue(
+        new Error('events down'),
+      );
+      mockOpenAIClient.createImage.mockResolvedValue(null);
+
+      await buildRooivalk().sendMotdToMotdChannel();
+
+      expect(mockChannel.send).toHaveBeenCalled();
+      expect(mockChatClient.createResponse).toHaveBeenCalledWith(
+        'rooivalk',
+        `Prompt ${JSON.stringify([forecast])} []`,
+      );
     });
   });
 

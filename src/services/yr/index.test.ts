@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { YR_COORDINATES } from '../../constants.ts';
+import { YR_COORDINATES, YR_USER_AGENT } from '../../constants.ts';
 import type { YrResponse } from '../../types.ts';
 import YrService from './index.ts';
 
@@ -76,6 +76,7 @@ describe('YrService', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -86,6 +87,12 @@ describe('YrService', () => {
     } as Response);
 
     const forecast = await yrService.getForecastByLocation('LAKESIDE');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('api.met.no'),
+      expect.objectContaining({
+        headers: { 'User-Agent': YR_USER_AGENT },
+      }),
+    );
     expect(forecast).not.toBeNull();
     expect(forecast?.location).toBe('LAKESIDE');
     expect(forecast?.friendlyName).toBe(YR_COORDINATES.LAKESIDE.name);
@@ -113,15 +120,122 @@ describe('YrService', () => {
   });
 
   it('throws error if fetch fails', async () => {
-    fetchSpy.mockResolvedValueOnce({
+    vi.useFakeTimers();
+    fetchSpy.mockResolvedValue({
       ok: false,
       status: 500,
+      statusText: 'Internal Server Error',
       json: async () => ({}),
     } as Response);
 
-    await expect(yrService.getForecastByLocation('LAKESIDE')).rejects.toThrow(
-      /Failed to fetch weather data/,
+    const pending = yrService.getForecastByLocation('LAKESIDE');
+    const assertion = expect(pending).rejects.toThrow(
+      'Failed to fetch weather data for LAKESIDE: 500 Internal Server Error',
     );
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a non-retryable HTTP error', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    } as Response);
+
+    await expect(yrService.getForecastByLocation('TABLEVIEW')).rejects.toThrow(
+      'Failed to fetch weather data for TABLEVIEW: 404 Not Found',
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry a 429 when Retry-After is longer than the short wait', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      headers: {
+        get: (name: string) => (name === 'retry-after' ? '120' : null),
+      },
+    } as Response);
+
+    await expect(yrService.getForecastByLocation('BONNIEVALE')).rejects.toThrow(
+      'Failed to fetch weather data for BONNIEVALE: 429 Too Many Requests',
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a 5xx once and returns the forecast when the retry succeeds', async () => {
+    vi.useFakeTimers();
+    fetchSpy
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockYrResponse(),
+      } as Response);
+
+    const pending = yrService.getForecastByLocation('TABLEVIEW');
+    await vi.runAllTimersAsync();
+    await expect(pending).resolves.toMatchObject({ location: 'TABLEVIEW' });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    for (const call of fetchSpy.mock.calls) {
+      expect(call[1]).toMatchObject({
+        headers: { 'User-Agent': YR_USER_AGENT },
+      });
+    }
+  });
+
+  it('retries a short 429 once', async () => {
+    fetchSpy
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: {
+          get: (name: string) => (name === 'retry-after' ? '0' : null),
+        },
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockYrResponse(),
+      } as Response);
+
+    const forecast = await yrService.getForecastByLocation('LAKESIDE');
+    expect(forecast?.location).toBe('LAKESIDE');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a network error once and returns the forecast when it succeeds', async () => {
+    vi.useFakeTimers();
+    fetchSpy
+      .mockRejectedValueOnce(new TypeError('network down'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockYrResponse(),
+      } as Response);
+
+    const pending = yrService.getForecastByLocation('TABLEVIEW');
+    await vi.runAllTimersAsync();
+    await expect(pending).resolves.toMatchObject({ location: 'TABLEVIEW' });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a network error once and includes the cause when it still fails', async () => {
+    vi.useFakeTimers();
+    fetchSpy.mockRejectedValue(new TypeError('network down'));
+
+    const pending = yrService.getForecastByLocation('TABLEVIEW');
+    const assertion = expect(pending).rejects.toThrow(
+      'Failed to fetch weather data for TABLEVIEW: network down',
+    );
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
   it('throws error if no weather data for today', async () => {
@@ -174,6 +288,50 @@ describe('YrService', () => {
 
     const forecasts = await yrService.getAllForecasts();
     expect(forecasts.length).toBe(Object.keys(YR_COORDINATES).length - 1);
+  });
+
+  it('getAllForecasts returns the locations that worked and logs the rest', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const bonnievaleLat = String(YR_COORDINATES.BONNIEVALE.latitude);
+    fetchSpy.mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes(`lat=${bonnievaleLat}`)) {
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => mockYrResponse(),
+      } as Response);
+    });
+
+    const forecasts = await yrService.getAllForecasts();
+    expect(forecasts).toHaveLength(Object.keys(YR_COORDINATES).length - 1);
+    expect(forecasts.map((forecast) => forecast.location)).not.toContain(
+      'BONNIEVALE',
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Weather forecast failed for BONNIEVALE:',
+      expect.objectContaining({
+        message: expect.stringContaining('403 Forbidden'),
+      }),
+    );
+  });
+
+  it('getAllForecasts returns an empty list when every location fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+    } as Response);
+
+    const forecasts = await yrService.getAllForecasts();
+    expect(forecasts).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledTimes(Object.keys(YR_COORDINATES).length);
   });
 
   it('convertDegreesToCompass returns correct direction', () => {
