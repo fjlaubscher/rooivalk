@@ -817,8 +817,18 @@ class Rooivalk {
     end.setHours(23, 59, 59, 999);
 
     let motd = this._config.motd;
-    const forecasts = await this._yr.getAllForecasts();
-    const events = await this._discord.getGuildEventsBetween(start, end);
+    // A dead weather or events feed must not skip the MOTD. Each section
+    // degrades to an empty list on its own.
+    const forecasts = await this._yr.getAllForecasts().catch((error) => {
+      console.error('Failed to fetch weather forecasts for MOTD:', error);
+      return [];
+    });
+    const events = await this._discord
+      .getGuildEventsBetween(start, end)
+      .catch((error) => {
+        console.error('Failed to fetch guild events for MOTD:', error);
+        return [];
+      });
 
     // replace placeholders with JSON for the prompt
     motd = motd.replace(
